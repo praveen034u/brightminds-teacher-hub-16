@@ -1,0 +1,270 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { Header } from '@/components/layout/Header';
+import { QuickActionCard } from '@/components/cards/QuickActionCard';
+import { DashboardCard } from '@/components/cards/DashboardCard';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { studentsAPI, roomsAPI, assignmentsAPI, helpRequestsAPI } from '@/api/edgeClient';
+import { UserPlus, DoorOpen, FileText, Megaphone, Clock, CheckCircle2, Users } from 'lucide-react';
+import { toast } from 'sonner';
+
+export const TeacherHome = () => {
+  const { user, auth0UserId, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    totalRooms: 0,
+    pendingHelpRequests: 0,
+    activeAssignments: 0,
+  });
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [helpRequests, setHelpRequests] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user, auth0UserId]);
+
+  const loadDashboardData = async () => {
+    try {
+      const [studentsData, roomsData, assignmentsData, helpRequestsData] = await Promise.all([
+        studentsAPI.list(auth0UserId),
+        roomsAPI.list(auth0UserId),
+        assignmentsAPI.list(auth0UserId),
+        helpRequestsAPI.list(auth0UserId),
+      ]);
+
+      setStats({
+        totalStudents: studentsData.length,
+        totalRooms: roomsData.length,
+        pendingHelpRequests: helpRequestsData.filter((r: any) => r.status === 'pending').length,
+        activeAssignments: assignmentsData.filter((a: any) => a.status === 'active').length,
+      });
+
+      setRooms(roomsData.slice(0, 3));
+      setHelpRequests(helpRequestsData.filter((r: any) => r.status === 'pending').slice(0, 3));
+      setAssignments(assignmentsData.slice(0, 3));
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    }
+  };
+
+  const handleResolveRequest = async (requestId: string) => {
+    try {
+      await helpRequestsAPI.update(auth0UserId, requestId, { status: 'resolved' });
+      toast.success('Help request resolved');
+      loadDashboardData();
+    } catch (error) {
+      toast.error('Failed to resolve request');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+      <Header />
+      
+      <main className="container mx-auto px-6 py-8">
+        {/* Welcome Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">
+            Hello {user?.full_name || 'Teacher'}! 👋
+          </h1>
+          <p className="text-lg text-muted-foreground">What would you like to do today?</p>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <QuickActionCard
+            title="Add Students"
+            icon={UserPlus}
+            onClick={() => navigate('/students')}
+            color="primary"
+          />
+          <QuickActionCard
+            title="Create Room"
+            icon={DoorOpen}
+            onClick={() => navigate('/rooms')}
+            color="secondary"
+          />
+          <QuickActionCard
+            title="Create Assignment"
+            icon={FileText}
+            onClick={() => navigate('/assignments')}
+            color="accent"
+          />
+          <QuickActionCard
+            title="Send Announcement"
+            icon={Megaphone}
+            onClick={() => toast.info('Announcement feature coming soon!')}
+            color="primary"
+          />
+        </div>
+
+        {/* Row 1 - Recommended Activities & Classroom Stats */}
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <DashboardCard title="Recommended Activities">
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                <h3 className="font-semibold text-primary mb-1">Vocabulary Builder</h3>
+                <p className="text-sm text-muted-foreground">Grades 3-5</p>
+              </div>
+              <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
+                <h3 className="font-semibold text-secondary mb-1">Story Prompt: Magic Forest Mystery</h3>
+                <p className="text-sm text-muted-foreground">Creative writing activity</p>
+              </div>
+              <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
+                <h3 className="font-semibold text-accent mb-1">Logic Puzzle Pack</h3>
+                <p className="text-sm text-muted-foreground">For Room B</p>
+              </div>
+              <Button className="w-full mt-2">Try This Activity</Button>
+            </div>
+          </DashboardCard>
+
+          <DashboardCard title="Your Classroom at a Glance">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <Users className="h-8 w-8 text-primary" />
+                  <div>
+                    <p className="text-2xl font-bold">{stats.totalStudents}</p>
+                    <p className="text-sm text-muted-foreground">Total Students</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <DoorOpen className="h-8 w-8 text-secondary" />
+                  <div>
+                    <p className="text-2xl font-bold">{stats.totalRooms}</p>
+                    <p className="text-sm text-muted-foreground">Virtual Rooms</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-8 w-8 text-accent" />
+                  <div>
+                    <p className="text-2xl font-bold">{stats.activeAssignments}</p>
+                    <p className="text-sm text-muted-foreground">Active Assignments</p>
+                  </div>
+                </div>
+              </div>
+              <Button onClick={() => navigate('/assignments')} className="w-full mt-2" variant="secondary">
+                Create Assignment
+              </Button>
+            </div>
+          </DashboardCard>
+        </div>
+
+        {/* Row 2 - Virtual Rooms & Assignments */}
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
+          <DashboardCard
+            title="Virtual Rooms"
+            action={{ label: 'Manage Rooms', onClick: () => navigate('/rooms') }}
+          >
+            {rooms.length > 0 ? (
+              <div className="space-y-3">
+                {rooms.map((room) => (
+                  <div
+                    key={room.id}
+                    className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                    onClick={() => navigate('/rooms')}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="font-semibold">{room.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {room.student_count} students
+                        </p>
+                      </div>
+                      <Badge variant="secondary">{room.grade_level || 'All Grades'}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                No rooms yet. Create your first room to get started!
+              </p>
+            )}
+          </DashboardCard>
+
+          <DashboardCard
+            title="Assignments Center"
+            action={{ label: 'Create Assignment', onClick: () => navigate('/assignments') }}
+          >
+            {assignments.length > 0 ? (
+              <div className="space-y-3">
+                {assignments.map((assignment) => (
+                  <div key={assignment.id} className="p-4 rounded-lg bg-muted/50">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold">{assignment.title}</h3>
+                      <Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>
+                        {assignment.status}
+                      </Badge>
+                    </div>
+                    {assignment.due_date && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        Due {new Date(assignment.due_date).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                No assignments yet. Create one to engage your students!
+              </p>
+            )}
+          </DashboardCard>
+        </div>
+
+        {/* Help Requests Widget */}
+        {helpRequests.length > 0 && (
+          <DashboardCard title="Students Needing Help" action={{ label: 'View All', onClick: () => {} }}>
+            <div className="space-y-3">
+              {helpRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex justify-between items-center"
+                >
+                  <div>
+                    <p className="font-semibold">{request.students?.name}</p>
+                    <p className="text-sm text-muted-foreground">{request.rooms?.name}</p>
+                    {request.message && (
+                      <p className="text-sm text-muted-foreground mt-1">{request.message}</p>
+                    )}
+                  </div>
+                  <Button size="sm" onClick={() => handleResolveRequest(request.id)}>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    Resolve
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </DashboardCard>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default TeacherHome;
