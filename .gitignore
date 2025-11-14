@@ -6,12 +6,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
+.env.local
+.env
 node_modules
 dist
 dist-ssr
 *.local
-
+Gitsecrets.txt
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
