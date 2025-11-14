@@ -1,0 +1,16 @@
+project_id = "lfsmtsnakdaukxgrqynk"
+
+[functions.me]
+verify_jwt = false
+
+[functions.students]
+verify_jwt = false
+
+[functions.rooms]
+verify_jwt = false
+
+[functions.assignments]
+verify_jwt = false
+
+[functions.help-requests]
+verify_jwt = false
