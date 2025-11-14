@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { getSupabaseUrl } from '@/config/supabase';
-import { useNavigate } from 'react-router-dom';
 
 interface Teacher {
   id: string;
@@ -26,25 +26,30 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user: auth0User, isLoading: auth0Loading, isAuthenticated, logout: auth0Logout } = useAuth0();
   const [user, setUser] = useState<Teacher | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [auth0UserId, setAuth0UserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for existing session
-    const checkSession = async () => {
-      const storedAuth = localStorage.getItem('brightminds_auth');
-      
-      if (!storedAuth) {
-        setIsLoading(false);
+    const loadTeacher = async () => {
+      if (auth0Loading) {
         return;
       }
 
-      setAuth0UserId(storedAuth);
+      if (!isAuthenticated || !auth0User) {
+        setIsLoading(false);
+        setUser(null);
+        setAuth0UserId(null);
+        return;
+      }
+
+      const userId = auth0User.sub || '';
+      setAuth0UserId(userId);
 
       try {
         const response = await fetch(
-          `${getSupabaseUrl()}/functions/v1/me?auth0_user_id=${storedAuth}`,
+          `${getSupabaseUrl()}/functions/v1/me?auth0_user_id=${userId}`,
           {
             headers: {
               'Content-Type': 'application/json',
@@ -56,30 +61,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const teacher = await response.json();
           setUser(teacher);
         } else {
-          // Invalid session, clear it
-          localStorage.removeItem('brightminds_auth');
-          setAuth0UserId(null);
+          console.error('Failed to load teacher profile');
+          setUser(null);
         }
       } catch (error) {
         console.error('Failed to load user:', error);
-        localStorage.removeItem('brightminds_auth');
-        setAuth0UserId(null);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    checkSession();
-  }, []);
+    loadTeacher();
+  }, [auth0User, isAuthenticated, auth0Loading]);
 
   const logout = () => {
-    // Clear session
-    localStorage.removeItem('brightminds_auth');
     setUser(null);
     setAuth0UserId(null);
-    
-    // Redirect to login
-    window.location.href = '/';
+    auth0Logout({ logoutParams: { returnTo: window.location.origin } });
   };
 
   return (
