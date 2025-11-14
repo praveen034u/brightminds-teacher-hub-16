@@ -4,7 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
-import Index from "./pages/Index";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import TeacherHome from "./pages/TeacherHome";
 import StudentsPage from "./pages/StudentsPage";
@@ -22,11 +23,32 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<TeacherHome />} />
-            <Route path="/students" element={<StudentsPage />} />
-            <Route path="/rooms" element={<RoomsPage />} />
-            <Route path="/assignments" element={<AssignmentsPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/" element={<LoginPage />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <TeacherHome />
+              </ProtectedRoute>
+            } />
+            <Route path="/students" element={
+              <ProtectedRoute>
+                <StudentsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/rooms" element={
+              <ProtectedRoute>
+                <RoomsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/assignments" element={
+              <ProtectedRoute>
+                <AssignmentsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

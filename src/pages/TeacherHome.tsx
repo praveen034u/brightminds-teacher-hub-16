@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { QuickActionCard } from '@/components/cards/QuickActionCard';
 import { DashboardCard } from '@/components/cards/DashboardCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { studentsAPI, roomsAPI, assignmentsAPI, helpRequestsAPI } from '@/api/edgeClient';
 import { UserPlus, DoorOpen, FileText, Megaphone, Clock, CheckCircle2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const TeacherHome = () => {
-  const { user, auth0UserId, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const { user, auth0UserId } = useAuth();
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalRooms: 0,
@@ -56,6 +54,8 @@ export const TeacherHome = () => {
   };
 
   const handleResolveRequest = async (requestId: string) => {
+    if (!auth0UserId) return;
+    
     try {
       await helpRequestsAPI.update(auth0UserId, requestId, { status: 'resolved' });
       toast.success('Help request resolved');
@@ -65,15 +65,8 @@ export const TeacherHome = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+  if (!user || !auth0UserId) {
+    return null;
   }
 
   return (
@@ -94,19 +87,19 @@ export const TeacherHome = () => {
           <QuickActionCard
             title="Add Students"
             icon={UserPlus}
-            onClick={() => navigate('/students')}
+            to="/students"
             color="primary"
           />
           <QuickActionCard
             title="Create Room"
             icon={DoorOpen}
-            onClick={() => navigate('/rooms')}
+            to="/rooms"
             color="secondary"
           />
           <QuickActionCard
             title="Create Assignment"
             icon={FileText}
-            onClick={() => navigate('/assignments')}
+            to="/assignments"
             color="accent"
           />
           <QuickActionCard
@@ -166,9 +159,11 @@ export const TeacherHome = () => {
                   </div>
                 </div>
               </div>
-              <Button onClick={() => navigate('/assignments')} className="w-full mt-2" variant="secondary">
-                Create Assignment
-              </Button>
+              <Link to="/assignments">
+                <Button className="w-full mt-2" variant="secondary">
+                  Create Assignment
+                </Button>
+              </Link>
             </div>
           </DashboardCard>
         </div>
@@ -177,26 +172,28 @@ export const TeacherHome = () => {
         <div className="grid md:grid-cols-2 gap-6 mb-6">
           <DashboardCard
             title="Virtual Rooms"
-            action={{ label: 'Manage Rooms', onClick: () => navigate('/rooms') }}
           >
+            <div className="mb-4 text-right">
+              <Link to="/rooms">
+                <Button variant="outline" size="sm">Manage Rooms</Button>
+              </Link>
+            </div>
             {rooms.length > 0 ? (
               <div className="space-y-3">
                 {rooms.map((room) => (
-                  <div
-                    key={room.id}
-                    className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                    onClick={() => navigate('/rooms')}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-semibold">{room.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {room.student_count} students
-                        </p>
+                  <Link key={room.id} to="/rooms">
+                    <div className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="font-semibold">{room.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {room.student_count} students
+                          </p>
+                        </div>
+                        <Badge variant="secondary">{room.grade_level || 'All Grades'}</Badge>
                       </div>
-                      <Badge variant="secondary">{room.grade_level || 'All Grades'}</Badge>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
@@ -208,8 +205,12 @@ export const TeacherHome = () => {
 
           <DashboardCard
             title="Assignments Center"
-            action={{ label: 'Create Assignment', onClick: () => navigate('/assignments') }}
           >
+            <div className="mb-4 text-right">
+              <Link to="/assignments">
+                <Button variant="outline" size="sm">Create Assignment</Button>
+              </Link>
+            </div>
             {assignments.length > 0 ? (
               <div className="space-y-3">
                 {assignments.map((assignment) => (

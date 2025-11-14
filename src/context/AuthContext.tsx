@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getSupabaseUrl } from '@/config/supabase';
+import { useNavigate } from 'react-router-dom';
 
 interface Teacher {
   id: string;
@@ -16,8 +17,9 @@ interface Teacher {
 
 interface AuthContextType {
   user: Teacher | null;
-  auth0UserId: string;
+  auth0UserId: string | null;
   isLoading: boolean;
+  isAuthenticated: boolean;
   logout: () => void;
 }
 
@@ -26,16 +28,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Teacher | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // Mock auth0_user_id for preview - in production this would come from Auth0 JWT
-  const auth0UserId = 'mock-teacher-1';
+  const [auth0UserId, setAuth0UserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // In production, this would validate the Auth0 JWT and extract the user ID
-    // For preview, we'll use a mock teacher
-    const loadUser = async () => {
+    // Check for existing session
+    const checkSession = async () => {
+      const storedAuth = localStorage.getItem('brightminds_auth');
+      
+      if (!storedAuth) {
+        setIsLoading(false);
+        return;
+      }
+
+      setAuth0UserId(storedAuth);
+
       try {
         const response = await fetch(
-          `${getSupabaseUrl()}/functions/v1/me?auth0_user_id=${auth0UserId}`,
+          `${getSupabaseUrl()}/functions/v1/me?auth0_user_id=${storedAuth}`,
           {
             headers: {
               'Content-Type': 'application/json',
@@ -46,24 +55,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.ok) {
           const teacher = await response.json();
           setUser(teacher);
+        } else {
+          // Invalid session, clear it
+          localStorage.removeItem('brightminds_auth');
+          setAuth0UserId(null);
         }
       } catch (error) {
         console.error('Failed to load user:', error);
+        localStorage.removeItem('brightminds_auth');
+        setAuth0UserId(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadUser();
+    checkSession();
   }, []);
 
   const logout = () => {
-    // In production, this would call Auth0's logout
+    // Clear session
+    localStorage.removeItem('brightminds_auth');
     setUser(null);
+    setAuth0UserId(null);
+    
+    // Redirect to login
+    window.location.href = '/';
   };
 
   return (
-    <AuthContext.Provider value={{ user, auth0UserId, isLoading, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      auth0UserId, 
+      isLoading, 
+      isAuthenticated: !!user && !!auth0UserId,
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );
