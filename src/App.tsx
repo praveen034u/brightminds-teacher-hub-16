@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Auth0Provider } from "@auth0/auth0-react";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
@@ -19,54 +20,63 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<LoginPage />} />
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <TeacherHome />
-              </ProtectedRoute>
-            } />
-            <Route path="/students" element={
-              <ProtectedRoute>
-                <StudentsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/rooms" element={
-              <ProtectedRoute>
-                <RoomsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/rooms/:roomId" element={
-              <ProtectedRoute>
-                <RoomDetailPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/rooms/:roomId/student/:studentId" element={
-              <ProtectedRoute>
-                <StudentActivityPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/assignments" element={
-              <ProtectedRoute>
-                <AssignmentsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+    <Auth0Provider
+      domain="dev-jbrriuc5vyjmiwtx.us.auth0.com"
+      clientId="hRgZXlSYVCedu8jYuTWadyoTA3T8EISD"
+      authorizationParams={{
+        redirect_uri: window.location.origin,
+        audience: "https://dev-jbrriuc5vyjmiwtx.us.auth0.com/userinfo"
+      }}
+    >
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LoginPage />} />
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <TeacherHome />
+                </ProtectedRoute>
+              } />
+              <Route path="/students" element={
+                <ProtectedRoute>
+                  <StudentsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/rooms" element={
+                <ProtectedRoute>
+                  <RoomsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/rooms/:roomId" element={
+                <ProtectedRoute>
+                  <RoomDetailPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/rooms/:roomId/student/:studentId" element={
+                <ProtectedRoute>
+                  <StudentActivityPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/assignments" element={
+                <ProtectedRoute>
+                  <AssignmentsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              } />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </Auth0Provider>
   </QueryClientProvider>
 );
 

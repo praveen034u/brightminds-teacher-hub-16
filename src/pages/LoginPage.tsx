@@ -1,33 +1,21 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { toast } from 'sonner';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
 
-  const handleLogin = async () => {
-    setLoading(true);
-    
-    // Mock login - in production this would redirect to Auth0 Universal Login
-    // For now, we'll simulate a successful login
-    try {
-      // Store mock session
-      localStorage.setItem('brightminds_auth', 'mock-teacher-1');
-      
-      toast.success('Welcome to BrightMinds!');
-      
-      // Redirect to dashboard
-      setTimeout(() => {
-        navigate('/dashboard');
-        window.location.reload(); // Force reload to update auth state
-      }, 500);
-    } catch (error) {
-      toast.error('Login failed. Please try again.');
-      setLoading(false);
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
     }
+  }, [isAuthenticated, navigate]);
+
+  const handleLogin = () => {
+    loginWithRedirect();
   };
 
   return (
@@ -44,25 +32,24 @@ export const LoginPage = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-muted/50 p-4 rounded-lg text-sm text-center">
-            <p className="mb-2 font-medium">Preview Mode</p>
+            <p className="mb-2 font-medium">Secure Authentication</p>
             <p className="text-muted-foreground">
-              In production, this would use Auth0 Universal Login. 
-              Click below to sign in with a demo account.
+              Sign in securely with Auth0 to access your teacher dashboard.
             </p>
           </div>
           
           <Button 
             onClick={handleLogin} 
-            disabled={loading}
+            disabled={isLoading}
             className="w-full h-12 text-lg"
           >
-            {loading ? 'Signing in...' : 'Sign In with Auth0'}
+            {isLoading ? 'Loading...' : 'Sign In with Auth0'}
           </Button>
 
           <div className="text-center text-sm text-muted-foreground">
-            <p>Demo Account: Mrs. Sharma</p>
+            <p>Protected by Auth0</p>
             <p className="text-xs mt-1">
-              School: Bright Future Elementary
+              Enterprise-grade security for your classroom
             </p>
           </div>
         </CardContent>
