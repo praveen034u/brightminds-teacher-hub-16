@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getSupabaseUrl } from '@/config/supabase';
 
 interface Teacher {
   id: string;
@@ -34,7 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadUser = async () => {
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/me?auth0_user_id=${auth0UserId}`,
+          `${getSupabaseUrl()}/functions/v1/me?auth0_user_id=${auth0UserId}`,
           {
             headers: {
               'Content-Type': 'application/json',

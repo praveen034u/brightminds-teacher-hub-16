@@ -1,4 +1,6 @@
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+import { getSupabaseUrl } from '@/config/supabase';
+
+const SUPABASE_URL = getSupabaseUrl();
 
 interface EdgeFunctionOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
