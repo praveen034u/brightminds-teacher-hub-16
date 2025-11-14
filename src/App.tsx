@@ -10,6 +10,8 @@ import NotFound from "./pages/NotFound";
 import TeacherHome from "./pages/TeacherHome";
 import StudentsPage from "./pages/StudentsPage";
 import RoomsPage from "./pages/RoomsPage";
+import { RoomDetailPage } from "./pages/RoomDetailPage";
+import { StudentActivityPage } from "./pages/StudentActivityPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import ProfilePage from "./pages/ProfilePage";
 
@@ -37,6 +39,16 @@ const App = () => (
             <Route path="/rooms" element={
               <ProtectedRoute>
                 <RoomsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/rooms/:roomId" element={
+              <ProtectedRoute>
+                <RoomDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/rooms/:roomId/student/:studentId" element={
+              <ProtectedRoute>
+                <StudentActivityPage />
               </ProtectedRoute>
             } />
             <Route path="/assignments" element={
