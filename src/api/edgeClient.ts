@@ -10,9 +10,13 @@ interface EdgeFunctionOptions {
 
 export async function callEdgeFunction(
   functionName: string,
-  auth0UserId: string,
+  auth0UserId: string | null,
   options: EdgeFunctionOptions = {}
 ) {
+  if (!auth0UserId) {
+    throw new Error('Not authenticated');
+  }
+
   const { method = 'GET', body, params = {} } = options;
 
   // Add auth0_user_id to params
@@ -46,20 +50,20 @@ export async function callEdgeFunction(
 
 // Convenience functions for each edge function
 export const meAPI = {
-  get: (auth0UserId: string) => callEdgeFunction('me', auth0UserId),
-  update: (auth0UserId: string, data: any) =>
+  get: (auth0UserId: string | null) => callEdgeFunction('me', auth0UserId),
+  update: (auth0UserId: string | null, data: any) =>
     callEdgeFunction('me', auth0UserId, { method: 'PUT', body: data }),
 };
 
 export const studentsAPI = {
-  list: (auth0UserId: string) => callEdgeFunction('students', auth0UserId),
-  create: (auth0UserId: string, data: any) =>
+  list: (auth0UserId: string | null) => callEdgeFunction('students', auth0UserId),
+  create: (auth0UserId: string | null, data: any) =>
     callEdgeFunction('students', auth0UserId, { method: 'POST', body: data }),
-  update: (auth0UserId: string, id: string, data: any) =>
+  update: (auth0UserId: string | null, id: string, data: any) =>
     callEdgeFunction('students', auth0UserId, { method: 'PUT', params: { id }, body: data }),
-  delete: (auth0UserId: string, id: string) =>
+  delete: (auth0UserId: string | null, id: string) =>
     callEdgeFunction('students', auth0UserId, { method: 'DELETE', params: { id } }),
-  bulkUpload: (auth0UserId: string, students: any[]) =>
+  bulkUpload: (auth0UserId: string | null, students: any[]) =>
     callEdgeFunction('students', auth0UserId, {
       method: 'POST',
       params: { action: 'bulk-csv' },
@@ -68,14 +72,14 @@ export const studentsAPI = {
 };
 
 export const roomsAPI = {
-  list: (auth0UserId: string) => callEdgeFunction('rooms', auth0UserId),
-  create: (auth0UserId: string, data: any) =>
+  list: (auth0UserId: string | null) => callEdgeFunction('rooms', auth0UserId),
+  create: (auth0UserId: string | null, data: any) =>
     callEdgeFunction('rooms', auth0UserId, { method: 'POST', body: data }),
-  update: (auth0UserId: string, id: string, data: any) =>
+  update: (auth0UserId: string | null, id: string, data: any) =>
     callEdgeFunction('rooms', auth0UserId, { method: 'PUT', params: { id }, body: data }),
-  delete: (auth0UserId: string, id: string) =>
+  delete: (auth0UserId: string | null, id: string) =>
     callEdgeFunction('rooms', auth0UserId, { method: 'DELETE', params: { id } }),
-  assignStudents: (auth0UserId: string, roomId: string, studentIds: string[]) =>
+  assignStudents: (auth0UserId: string | null, roomId: string, studentIds: string[]) =>
     callEdgeFunction('rooms', auth0UserId, {
       method: 'POST',
       params: { action: 'assign-students' },
@@ -84,20 +88,20 @@ export const roomsAPI = {
 };
 
 export const assignmentsAPI = {
-  list: (auth0UserId: string, roomId?: string) =>
+  list: (auth0UserId: string | null, roomId?: string) =>
     callEdgeFunction('assignments', auth0UserId, { params: roomId ? { roomId } : {} }),
-  create: (auth0UserId: string, data: any) =>
+  create: (auth0UserId: string | null, data: any) =>
     callEdgeFunction('assignments', auth0UserId, { method: 'POST', body: data }),
-  update: (auth0UserId: string, id: string, data: any) =>
+  update: (auth0UserId: string | null, id: string, data: any) =>
     callEdgeFunction('assignments', auth0UserId, { method: 'PUT', params: { id }, body: data }),
-  delete: (auth0UserId: string, id: string) =>
+  delete: (auth0UserId: string | null, id: string) =>
     callEdgeFunction('assignments', auth0UserId, { method: 'DELETE', params: { id } }),
 };
 
 export const helpRequestsAPI = {
-  list: (auth0UserId: string) => callEdgeFunction('help-requests', auth0UserId),
-  create: (auth0UserId: string, data: any) =>
+  list: (auth0UserId: string | null) => callEdgeFunction('help-requests', auth0UserId),
+  create: (auth0UserId: string | null, data: any) =>
     callEdgeFunction('help-requests', auth0UserId, { method: 'POST', body: data }),
-  update: (auth0UserId: string, id: string, data: any) =>
+  update: (auth0UserId: string | null, id: string, data: any) =>
     callEdgeFunction('help-requests', auth0UserId, { method: 'PUT', params: { id }, body: data }),
 };
