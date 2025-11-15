@@ -8,7 +8,11 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:link": "supabase link --project-ref lfsmtsnakdaukxgrqynk",
+    "supabase:deploy": "supabase functions deploy",
+    "supabase:deploy:student-portal": "supabase functions deploy student-portal",
+    "supabase:status": "supabase status"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.8.0",

@@ -270,8 +270,98 @@ export const StudentPortalPage = () => {
   const loadStudentData = async (accessToken: string) => {
     try {
       setLoading(true);
+      
+      // Enable mock data for testing when function is not deployed
+      // Remove this block once the Supabase function is deployed
+      const useMockData = import.meta.env.VITE_USE_MOCK_DATA === 'true' || accessToken === 'demo';
+      
+      if (useMockData) {
+        console.log('Using mock data for testing');
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const mockData: StudentData = {
+          id: 'mock-student-1',
+          name: 'Demo Student',
+          email: 'demo.student@example.com',
+          primary_language: 'English',
+          rooms: [
+            {
+              id: 'mock-room-1',
+              name: 'Mathematics 101',
+              description: 'Introduction to Algebra',
+              grade_level: '9'
+            },
+            {
+              id: 'mock-room-2',
+              name: 'English Literature',
+              description: 'Classic Literature Studies',
+              grade_level: '9'
+            }
+          ],
+          assignments: [
+            {
+              id: 'mock-assignment-1',
+              title: 'Algebra Homework',
+              description: 'Complete exercises 1-15 on page 42',
+              due_date: new Date(Date.now() + 86400000 * 3).toISOString(), // 3 days from now
+              status: 'active',
+              room_id: 'mock-room-1'
+            },
+            {
+              id: 'mock-assignment-2',
+              title: 'Essay: Romeo and Juliet',
+              description: 'Write a 500-word essay about the themes in Romeo and Juliet',
+              due_date: new Date(Date.now() + 86400000 * 7).toISOString(), // 7 days from now
+              status: 'active',
+              room_id: 'mock-room-2'
+            }
+          ],
+          classmates: [
+            {
+              id: 'mock-student-2',
+              name: 'Alice Johnson',
+              email: 'alice.j@example.com',
+              primary_language: 'English',
+              rooms: [
+                {
+                  id: 'mock-room-1',
+                  name: 'Mathematics 101',
+                  description: 'Introduction to Algebra',
+                  grade_level: '9'
+                }
+              ],
+              shared_room_count: 1
+            },
+            {
+              id: 'mock-student-3',
+              name: 'Bob Smith',
+              email: 'bob.s@example.com',
+              primary_language: 'Spanish',
+              rooms: [
+                {
+                  id: 'mock-room-2',
+                  name: 'English Literature',
+                  description: 'Classic Literature Studies',
+                  grade_level: '9'
+                }
+              ],
+              shared_room_count: 1
+            }
+          ]
+        };
+        
+        setStudentData(mockData);
+        setError(null);
+        toast.success('Loaded demo data successfully');
+        return;
+      }
+
+      const supabaseUrl = getSupabaseUrl();
+      console.log('Attempting to fetch student data from:', `${supabaseUrl}/functions/v1/student-portal?token=${accessToken}`);
+      
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/student-portal?token=${accessToken}`,
+        `${supabaseUrl}/functions/v1/student-portal?token=${accessToken}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -279,17 +369,54 @@ export const StudentPortalPage = () => {
         }
       );
 
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error('Invalid access token or student not found');
+        // Check if response is HTML (error page) vs JSON
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+          const htmlText = await response.text();
+          console.error('HTML response received:', htmlText.substring(0, 500));
+          throw new Error(`Server error (${response.status}): The student-portal function appears to be unavailable. Try using token "demo" for testing, or ensure the function is deployed to Supabase.`);
+        }
+        
+        // Try to get error message from JSON response
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server error: ${response.status}`);
+        } catch (jsonError) {
+          throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+        }
+      }
+
+      // Check if response is actually JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Non-JSON response received:', text.substring(0, 500));
+        throw new Error('Server returned invalid response format. The student-portal function may not be properly deployed. Try using token "demo" for testing.');
       }
 
       const data = await response.json();
+      console.log('Successfully loaded student data:', data);
       setStudentData(data);
       setError(null);
     } catch (err) {
       console.error('Failed to load student data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load student data');
-      toast.error('Failed to load your data');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to load student data';
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        errorMessage = 'Network error: Cannot connect to the server. Please check your internet connection.';
+      } else if (err instanceof SyntaxError && err.message.includes('JSON')) {
+        errorMessage = 'Server configuration error: The student-portal function is not properly set up. Try using token "demo" for testing.';
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
