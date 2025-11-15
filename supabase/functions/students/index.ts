@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
 Deno.serve(async (req) => {
@@ -46,7 +47,15 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
 
-      return new Response(JSON.stringify(students || []), {
+      // Generate access URLs for each student
+      const studentsWithUrls = students?.map(student => ({
+        ...student,
+        access_url: student.access_token 
+          ? `${req.headers.get('origin') || 'http://localhost:8081'}/student-portal?token=${student.access_token}`
+          : null
+      })) || [];
+
+      return new Response(JSON.stringify(studentsWithUrls), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

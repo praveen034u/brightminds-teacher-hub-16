@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { studentsAPI } from '@/api/edgeClient';
-import { UserPlus, Upload, Trash2, Edit } from 'lucide-react';
+import { UserPlus, Upload, Trash2, Edit, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const StudentsPage = () => {
@@ -32,6 +32,7 @@ export const StudentsPage = () => {
   const [showCsvDialog, setShowCsvDialog] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     gender: '',
     date_of_birth: '',
     primary_language: 'English',
@@ -69,6 +70,7 @@ export const StudentsPage = () => {
       setShowAddDialog(false);
       setFormData({
         name: '',
+        email: '',
         gender: '',
         date_of_birth: '',
         primary_language: 'English',
@@ -91,6 +93,21 @@ export const StudentsPage = () => {
     } catch (error) {
       toast.error('Failed to delete student');
     }
+  };
+
+  const handleCopyAccessLink = (accessUrl: string | null) => {
+    if (!accessUrl) {
+      toast.error('No access link available for this student');
+      return;
+    }
+    
+    navigator.clipboard.writeText(accessUrl)
+      .then(() => {
+        toast.success('Student access link copied to clipboard!');
+      })
+      .catch(() => {
+        toast.error('Failed to copy link');
+      });
   };
 
   const handleCsvUpload = async (e: React.FormEvent) => {
@@ -191,6 +208,16 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                     />
                   </div>
                   <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="student@example.com"
+                    />
+                  </div>
+                  <div>
                     <Label htmlFor="gender">Gender</Label>
                     <Input
                       id="gender"
@@ -253,6 +280,7 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Gender</TableHead>
                     <TableHead>Date of Birth</TableHead>
                     <TableHead>Language</TableHead>
@@ -264,6 +292,7 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                   {students.map((student) => (
                     <TableRow key={student.id}>
                       <TableCell className="font-medium">{student.name}</TableCell>
+                      <TableCell>{student.email || '-'}</TableCell>
                       <TableCell>{student.gender || '-'}</TableCell>
                       <TableCell>
                         {student.date_of_birth
@@ -277,13 +306,23 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                           : '-'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteStudent(student.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyAccessLink(student.access_url)}
+                            title="Copy student portal link"
+                          >
+                            <Copy className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteStudent(student.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

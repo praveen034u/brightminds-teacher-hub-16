@@ -15,6 +15,7 @@ import { RoomDetailPage } from "./pages/RoomDetailPage";
 import { StudentActivityPage } from "./pages/StudentActivityPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import ProfilePage from "./pages/ProfilePage";
+import StudentPortalPage from "./pages/StudentPortalPage";
 
 const queryClient = new QueryClient();
 
@@ -70,6 +71,8 @@ const App = () => (
                   <ProfilePage />
                 </ProtectedRoute>
               } />
+              {/* Student Portal - No authentication required, uses token */}
+              <Route path="/student-portal" element={<StudentPortalPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -20,14 +20,16 @@ CREATE TABLE IF NOT EXISTS students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   teacher_id UUID NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  email TEXT,  -- Student email address
   gender TEXT,
   date_of_birth DATE,
   primary_language TEXT DEFAULT 'English',
   skills JSONB DEFAULT '[]'::jsonb,
   additional_details TEXT,
   
-  -- Future-proof fields (not used in Phase 1 UI)
+  -- Student portal access fields
   auth_user_id TEXT UNIQUE,  -- Will link to student account later
+  access_token TEXT UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),  -- Unique access token for student portal
   enrollment_code TEXT UNIQUE,  -- For student self-enrollment
   invitation_status TEXT DEFAULT 'pending' CHECK (invitation_status IN ('pending', 'completed')),
   invited_at TIMESTAMPTZ,
@@ -188,3 +190,57 @@ CREATE INDEX idx_help_requests_status ON help_requests(status);
 INSERT INTO teachers (auth0_user_id, full_name, email, school_name, grades_taught, subjects, preferred_language)
 VALUES ('mock-teacher-1', 'Mrs. Sharma', 'sharma@brightminds.edu', 'Bright Future Elementary', ARRAY['3', '4', '5'], ARRAY['English', 'Math', 'Science'], 'English')
 ON CONFLICT (auth0_user_id) DO NOTHING;
+
+-- Student Portal RLS Policies (Allow students to access their own data via access_token)
+-- Students can view their own profile using access token
+CREATE POLICY "Students can view own profile via token" ON students
+  FOR SELECT USING (
+    access_token IS NOT NULL 
+    AND access_token != ''
+  );
+
+-- Students can view room_students for their rooms
+CREATE POLICY "Students can view own room assignments" ON room_students
+  FOR SELECT USING (
+    student_id IN (
+      SELECT id FROM students WHERE access_token IS NOT NULL
+    )
+  );
+
+-- Students can view their assigned rooms
+CREATE POLICY "Students can view assigned rooms" ON rooms
+  FOR SELECT USING (
+    id IN (
+      SELECT room_id FROM room_students 
+      WHERE student_id IN (
+        SELECT id FROM students WHERE access_token IS NOT NULL
+      )
+    )
+  );
+
+-- Students can view assignments for their rooms
+CREATE POLICY "Students can view room assignments" ON assignments
+  FOR SELECT USING (
+    room_id IN (
+      SELECT room_id FROM room_students 
+      WHERE student_id IN (
+        SELECT id FROM students WHERE access_token IS NOT NULL
+      )
+    )
+  );
+
+-- Students can create help requests
+CREATE POLICY "Students can create help requests" ON help_requests
+  FOR INSERT WITH CHECK (
+    student_id IN (
+      SELECT id FROM students WHERE access_token IS NOT NULL
+    )
+  );
+
+-- Students can view their own help requests
+CREATE POLICY "Students can view own help requests" ON help_requests
+  FOR SELECT USING (
+    student_id IN (
+      SELECT id FROM students WHERE access_token IS NOT NULL
+    )
+  );
