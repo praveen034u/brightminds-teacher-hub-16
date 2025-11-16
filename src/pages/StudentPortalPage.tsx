@@ -46,6 +46,13 @@ interface StudentData {
 export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+
+  // Store token in localStorage for PWA redirect
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('student_presigned_token', token);
+    }
+  }, [token]);
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [error, setError] = useState<string | null>(null);
