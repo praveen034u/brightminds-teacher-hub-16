@@ -226,6 +226,7 @@ export const StudentPortalPage = () => {
     
     console.log('Initializing Supabase client...');
     console.log('Supabase URL:', supabaseUrl);
+    console.log('Supabase Key (first 10 chars):', supabaseKey.substring(0, 10) + '...');
     
     supabaseRef.current = createClient(supabaseUrl, supabaseKey, {
       realtime: {
@@ -236,6 +237,29 @@ export const StudentPortalPage = () => {
     });
     
     console.log('✅ Supabase client initialized');
+    
+    // Test Realtime connection
+    console.log('Testing Realtime connection...');
+    const testChannel = supabaseRef.current.channel('connection-test');
+    testChannel.subscribe((status) => {
+      console.log('Test channel status:', status);
+      if (status === 'SUBSCRIBED') {
+        console.log('✅ Realtime is working! Unsubscribing test channel...');
+        supabaseRef.current?.removeChannel(testChannel);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('❌ Realtime connection test failed!');
+        console.error('This may mean:');
+        console.error('1. Realtime is not enabled in Supabase project settings');
+        console.error('2. Tables are not added to supabase_realtime publication');
+        console.error('3. Network/firewall blocking WebSocket connections');
+      }
+    });
+    
+    return () => {
+      if (testChannel) {
+        supabaseRef.current?.removeChannel(testChannel);
+      }
+    };
   }, []);
 
   // Load initial data
@@ -258,10 +282,14 @@ export const StudentPortalPage = () => {
     console.log('Setting up Realtime subscription for student:', studentData.id);
     console.log('Current rooms:', studentData.rooms.map(r => r.id));
 
+    // Use unique channel name with timestamp to avoid conflicts on reconnection
+    const channelName = `student-portal-${studentData.id}-${Date.now()}`;
+    console.log('Creating channel:', channelName);
+
     // Subscribe to ALL assignment changes, room_students changes, and filter client-side
     // This is more reliable than server-side filtering
     const channel = supabaseRef.current
-      .channel('student-portal-updates')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -474,18 +502,26 @@ export const StudentPortalPage = () => {
 
     console.log(`Attempting to reconnect (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${delay}ms...`);
     
-    reconnectTimeoutRef.current = setTimeout(() => {
+    reconnectTimeoutRef.current = setTimeout(async () => {
       console.log('Executing reconnection attempt...');
       
-      // Clean up old subscription
+      // Clean up old subscription properly
       if (subscriptionRef.current && supabaseRef.current) {
-        supabaseRef.current.removeChannel(subscriptionRef.current);
+        console.log('Removing old channel...');
+        await supabaseRef.current.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
       }
+
+      // Wait a bit for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Create new subscription
       const newChannel = setupRealtimeSubscription();
       if (newChannel) {
         subscriptionRef.current = newChannel;
+        console.log('New channel created and stored');
+      } else {
+        console.error('Failed to create new channel');
       }
     }, delay);
   }, [setupRealtimeSubscription]);
@@ -511,7 +547,7 @@ export const StudentPortalPage = () => {
 
   // Handle page visibility changes (background/foreground)
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (document.hidden) {
         console.log('📱 Page went to background');
       } else {
@@ -524,8 +560,12 @@ export const StudentPortalPage = () => {
           
           // Clean up old subscription
           if (subscriptionRef.current) {
-            supabaseRef.current.removeChannel(subscriptionRef.current);
+            await supabaseRef.current.removeChannel(subscriptionRef.current);
+            subscriptionRef.current = null;
           }
+
+          // Wait a bit for cleanup
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // Create new subscription
           const newChannel = setupRealtimeSubscription();
@@ -545,7 +585,7 @@ export const StudentPortalPage = () => {
 
   // Handle online/offline events
   useEffect(() => {
-    const handleOnline = () => {
+    const handleOnline = async () => {
       console.log('🌐 Network connection restored');
       toast.success('Internet connection restored', { duration: 2000 });
       
@@ -555,8 +595,11 @@ export const StudentPortalPage = () => {
         reconnectAttemptsRef.current = 0;
         
         if (subscriptionRef.current) {
-          supabaseRef.current.removeChannel(subscriptionRef.current);
+          await supabaseRef.current.removeChannel(subscriptionRef.current);
+          subscriptionRef.current = null;
         }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         const newChannel = setupRealtimeSubscription();
         if (newChannel) {
