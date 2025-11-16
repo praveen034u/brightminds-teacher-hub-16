@@ -279,8 +279,10 @@ export const StudentPortalPage = () => {
       return null;
     }
 
-    console.log('Setting up Realtime subscription for student:', studentData.id);
-    console.log('Current rooms:', studentData.rooms.map(r => r.id));
+    console.log('=== SETTING UP REALTIME SUBSCRIPTION ===');
+    console.log('Student ID:', studentData.id);
+    console.log('Student name:', studentData.name);
+    console.log('Current rooms:', studentData.rooms.map(r => ({ id: r.id, name: r.name })));
 
     // Use unique channel name with timestamp to avoid conflicts on reconnection
     const channelName = `student-portal-${studentData.id}-${Date.now()}`;
@@ -290,6 +292,7 @@ export const StudentPortalPage = () => {
     // This is more reliable than server-side filtering
     const channel = supabaseRef.current
       .channel(channelName)
+      // INSERT
       .on(
         'postgres_changes',
         {
@@ -298,37 +301,24 @@ export const StudentPortalPage = () => {
           table: 'assignments'
         },
         (payload) => {
-          console.log('Assignment INSERT detected:', payload);
+          console.log('🔔 Assignment INSERT detected:', payload);
           const newAssignment = payload.new as StudentData['assignments'][0];
-          
-          // Get current room IDs from ref (always up-to-date)
           const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
-          
-          // Check if this assignment is for one of the student's rooms
           if (currentRoomIds.length > 0 && !currentRoomIds.includes(newAssignment.room_id)) {
-            console.log('Assignment not for student rooms, ignoring');
+            console.log('❌ Assignment not for student rooms, ignoring');
             return;
           }
-
-          console.log('New assignment for student! Adding to list...');
-          
-          // Add new assignment to the list
           setStudentData(prev => {
             if (!prev) return prev;
-            
-            // Check if assignment already exists (prevent duplicates)
             if (prev.assignments.some(a => a.id === newAssignment.id)) {
-              console.log('Assignment already exists, skipping duplicate');
+              console.log('⚠️ Assignment already exists, skipping duplicate');
               return prev;
             }
-            
             return {
               ...prev,
               assignments: [...prev.assignments, newAssignment]
             };
           });
-
-          // Show notification
           const currentData = studentDataRef.current;
           const room = currentData?.rooms.find(r => r.id === newAssignment.room_id);
           toast.success(
@@ -338,6 +328,54 @@ export const StudentPortalPage = () => {
               duration: 5000,
             }
           );
+          console.log('✅ Assignment added successfully!');
+        }
+      )
+      // UPDATE
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'assignments'
+        },
+        (payload) => {
+          console.log('🔄 Assignment UPDATE detected:', payload);
+          const updatedAssignment = payload.new as StudentData['assignments'][0];
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          if (currentRoomIds.length > 0 && !currentRoomIds.includes(updatedAssignment.room_id)) {
+            console.log('❌ Assignment not for student rooms, ignoring');
+            return;
+          }
+          setStudentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              assignments: prev.assignments.map(a => a.id === updatedAssignment.id ? updatedAssignment : a)
+            };
+          });
+          toast.info(`Assignment updated: ${updatedAssignment.title}`);
+        }
+      )
+      // DELETE
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'assignments'
+        },
+        (payload) => {
+          console.log('🗑️ Assignment DELETE detected:', payload);
+          const deletedAssignment = payload.old as StudentData['assignments'][0];
+          setStudentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              assignments: prev.assignments.filter(a => a.id !== deletedAssignment.id)
+            };
+          });
+          toast.info(`Assignment deleted: ${deletedAssignment.title}`);
         }
       )
       .on(
@@ -458,15 +496,27 @@ export const StudentPortalPage = () => {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
+      .subscribe((status, err) => {
+        console.log('=== SUBSCRIPTION STATUS UPDATE ===');
+        console.log('Status:', status);
+        console.log('Error:', err);
+        console.log('Channel name:', channelName);
+        
         if (status === 'SUBSCRIBED') {
           console.log('✅ Successfully subscribed to portal updates!');
+          console.log('📡 Listening for:');
+          console.log('  - assignments INSERT');
+          console.log('  - assignments UPDATE');
+          console.log('  - assignments DELETE');
+          console.log('  - room_students ALL events');
+          console.log('=================================');
+          
           setRealtimeConnected(true);
           reconnectAttemptsRef.current = 0; // Reset reconnect attempts on success
           toast.success('Live updates connected!', { duration: 2000 });
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ Error subscribing to portal updates');
+          console.error('Error details:', err);
           setRealtimeConnected(false);
           toast.error('Live updates connection failed');
           attemptReconnect();
