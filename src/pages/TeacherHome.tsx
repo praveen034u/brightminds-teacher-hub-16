@@ -74,15 +74,6 @@ export const TeacherHome = () => {
       <Header />
       
       <main className="container mx-auto px-6 py-8">
-        {/* BrightMinds Logo */}
-        <div className="mb-6 flex justify-center">
-          <img 
-            src="/brightminds-logo1.png" 
-            alt="BrightMinds Logo" 
-            className="h-24 w-auto object-contain"
-          />
-        </div>
-
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">
