@@ -68,15 +68,20 @@ Deno.serve(async (req) => {
         const body = await req.json();
         const { roomId: targetRoomId, studentIds } = body;
 
-        // First, remove all existing students from this room
-        await supabase
+        // Get current students in the room
+        const { data: currentRoomStudents, error: fetchError } = await supabase
           .from('room_students')
-          .delete()
+          .select('student_id')
           .eq('room_id', targetRoomId);
 
-        // Then add the new student assignments
-        if (studentIds && studentIds.length > 0) {
-          const assignments = studentIds.map((studentId: string) => ({
+        if (fetchError) throw fetchError;
+
+  const currentIds = currentRoomStudents?.map((rs: { student_id: string }) => rs.student_id) || [];
+  const newIds = studentIds.filter((id: string) => !currentIds.includes(id));
+
+        // Only insert students not already assigned
+        if (newIds.length > 0) {
+          const assignments = newIds.map((studentId: string) => ({
             room_id: targetRoomId,
             student_id: studentId,
           }));
