@@ -77,7 +77,7 @@ export const TeacherHome = () => {
         {/* BrightMinds Logo */}
         <div className="mb-6 flex justify-center">
           <img 
-            src="/brightminds-logo.png" 
+            src="/brightminds-logo1.png" 
             alt="BrightMinds Logo" 
             className="h-24 w-auto object-contain"
           />
