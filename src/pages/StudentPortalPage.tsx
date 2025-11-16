@@ -4,10 +4,105 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
+
+// Simple game components
+const WordScrambleGame = ({ config }: { config: any }) => (
+  <div className="text-center p-8">
+    <h3 className="text-2xl font-bold mb-4">🔤 Word Scramble Challenge</h3>
+    <p className="text-lg mb-6">Unscramble this word:</p>
+    <div className="text-3xl font-mono bg-blue-100 p-4 rounded-lg mb-6">
+      {config?.difficulty === 'easy' && 'TAC'}
+      {config?.difficulty === 'medium' && 'OEUSH'}
+      {config?.difficulty === 'hard' && 'EELNAPHT'}
+    </div>
+    <input 
+      type="text" 
+      placeholder="Type your answer here..." 
+      className="border-2 border-gray-300 p-3 rounded-lg text-lg w-64 text-center"
+    />
+    <div className="mt-4">
+      <Button className="bg-blue-600 hover:bg-blue-700">Check Answer</Button>
+    </div>
+  </div>
+);
+
+const EmojiGuessGame = ({ config }: { config: any }) => (
+  <div className="text-center p-8">
+    <h3 className="text-2xl font-bold mb-4">🎯 Emoji Guess Game</h3>
+    <p className="text-lg mb-6">What does this emoji combination mean?</p>
+    <div className="text-6xl mb-6">
+      {config?.difficulty === 'easy' && '🐱🏠'}
+      {config?.difficulty === 'medium' && '🌧️🌈☀️'}
+      {config?.difficulty === 'hard' && '🏃‍♂️💨⏰📚'}
+    </div>
+    <input 
+      type="text" 
+      placeholder="Type your guess..." 
+      className="border-2 border-gray-300 p-3 rounded-lg text-lg w-64 text-center"
+    />
+    <div className="mt-4">
+      <Button className="bg-green-600 hover:bg-green-700">Submit Guess</Button>
+    </div>
+  </div>
+);
+
+const RiddleGame = ({ config }: { config: any }) => (
+  <div className="text-center p-8">
+    <h3 className="text-2xl font-bold mb-4">🧩 Riddle Master</h3>
+    <p className="text-lg mb-2">Category: <Badge>{config?.category || 'General'}</Badge></p>
+    <div className="bg-purple-100 p-6 rounded-lg mb-6 max-w-md mx-auto">
+      <p className="text-lg font-medium">
+        {config?.category === 'Space' && "I'm hot and bright, I light up the day. What am I?"}
+        {config?.category === 'Zoo Animals' && "I'm big and gray with a long trunk. Who am I?"}
+        {config?.category === 'Ocean Friends' && "I have eight arms and live in the sea. What am I?"}
+        {(!config?.category || config?.category === 'Nature') && "I fall from trees but I'm not a leaf. What am I?"}
+      </p>
+    </div>
+    <input 
+      type="text" 
+      placeholder="Type your answer..." 
+      className="border-2 border-gray-300 p-3 rounded-lg text-lg w-64 text-center"
+    />
+    <div className="mt-4">
+      <Button className="bg-purple-600 hover:bg-purple-700">Solve Riddle</Button>
+    </div>
+  </div>
+);
+
+const CrosswordGame = ({ config }: { config: any }) => (
+  <div className="text-center p-8">
+    <h3 className="text-2xl font-bold mb-4">📝 Crossword Puzzle</h3>
+    <p className="text-lg mb-2">Theme: <Badge>{config?.category || 'General'}</Badge></p>
+    <div className="bg-yellow-50 p-6 rounded-lg mb-6">
+      <p className="text-lg mb-4">Complete this crossword clue:</p>
+      <div className="font-medium">
+        {config?.category === 'Christmas' && "1 Across: Santa's helpers (5 letters)"}
+        {config?.category === 'Animals' && "1 Across: King of the jungle (4 letters)"}
+        {config?.category === 'Space' && "1 Across: Red planet (4 letters)"}
+        {config?.category === 'Ocean' && "1 Across: Largest sea creature (5 letters)"}
+        {!config?.category && "1 Across: Opposite of night (3 letters)"}
+      </div>
+      <div className="mt-4 flex justify-center">
+        <div className="grid grid-cols-5 gap-1">
+          {[1,2,3,4,5].map(i => (
+            <input 
+              key={i}
+              type="text" 
+              maxLength={1}
+              className="w-8 h-8 border-2 border-gray-400 text-center font-bold text-lg"
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+    <Button className="bg-yellow-600 hover:bg-yellow-700">Submit Answer</Button>
+  </div>
+);
 
 interface StudentData {
   id: string;
@@ -27,6 +122,16 @@ interface StudentData {
     due_date: string;
     status: string;
     room_id: string;
+    assignment_type?: string;
+    game_config?: any;
+    games?: {
+      id: string;
+      name: string;
+      game_type: string;
+      game_path: string;
+      categories?: string[];
+      skills?: string[];
+    };
   }>;
   classmates: Array<{
     id: string;
@@ -50,6 +155,8 @@ export const StudentPortalPage = () => {
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [currentGame, setCurrentGame] = useState<any>(null);
+  const [showGameModal, setShowGameModal] = useState(false);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   const subscriptionRef = useRef<any>(null);
 
@@ -422,6 +529,20 @@ export const StudentPortalPage = () => {
     }
   };
 
+  const playGame = (assignment: any) => {
+    if (assignment.assignment_type === 'game' && assignment.games) {
+      setCurrentGame({
+        ...assignment.games,
+        config: assignment.game_config,
+        assignmentTitle: assignment.title
+      });
+      setShowGameModal(true);
+      toast.success(`Starting ${assignment.games.name}!`);
+    } else {
+      toast.error('This assignment is not a game');
+    }
+  };
+
   if (!token) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -589,14 +710,68 @@ export const StudentPortalPage = () => {
                       <p className="text-sm text-gray-700 mb-3">
                         {assignment.description || 'No description provided'}
                       </p>
-                      {dueDate && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Calendar className="h-4 w-4" />
-                          <span>Due: {dueDate.toLocaleDateString()}</span>
-                          <Clock className="h-4 w-4 ml-2" />
-                          <span>{dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      
+                      {/* Game Information */}
+                      {assignment.assignment_type === 'game' && assignment.games && (
+                        <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Gamepad2 className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium text-blue-800">{assignment.games.name}</span>
+                          </div>
+                          {assignment.game_config && (
+                            <div className="text-xs text-blue-700">
+                              <span>Difficulty: </span>
+                              <Badge variant="outline" className="text-xs">
+                                {assignment.game_config.difficulty === 'easy' && '🟢 Easy'}
+                                {assignment.game_config.difficulty === 'medium' && '🟡 Medium'}
+                                {assignment.game_config.difficulty === 'hard' && '🔴 Hard'}
+                              </Badge>
+                              {assignment.game_config.category && (
+                                <>
+                                  <span className="ml-2">Category: </span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {assignment.game_config.category}
+                                  </Badge>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {assignment.games.skills && (
+                            <div className="flex gap-1 mt-2">
+                              {assignment.games.skills.slice(0, 3).map((skill: string) => (
+                                <Badge key={skill} variant="secondary" className="text-xs">
+                                  {skill}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          {dueDate && (
+                            <>
+                              <Calendar className="h-4 w-4" />
+                              <span>Due: {dueDate.toLocaleDateString()}</span>
+                              <Clock className="h-4 w-4 ml-2" />
+                              <span>{dueDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </>
+                          )}
+                        </div>
+                        
+                        {/* Play Game Button */}
+                        {assignment.assignment_type === 'game' && assignment.games && (
+                          <Button 
+                            onClick={() => playGame(assignment)}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            size="sm"
+                          >
+                            <Play className="h-4 w-4 mr-1" />
+                            Play Game
+                          </Button>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -680,6 +855,108 @@ export const StudentPortalPage = () => {
           </Card>
         </section>
       </main>
+
+      {/* Game Modal */}
+      <Dialog open={showGameModal} onOpenChange={setShowGameModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gamepad2 className="h-5 w-5 text-blue-600" />
+              {currentGame?.name} - {currentGame?.assignmentTitle}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {currentGame && (
+            <div className="p-6">
+              {/* Game Info */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border">
+                <h3 className="font-semibold mb-2">Game Configuration</h3>
+                <div className="flex gap-4 text-sm">
+                  <span>
+                    <strong>Difficulty:</strong> 
+                    <Badge variant="outline" className="ml-1">
+                      {currentGame.config?.difficulty === 'easy' && '🟢 Easy'}
+                      {currentGame.config?.difficulty === 'medium' && '🟡 Medium'}
+                      {currentGame.config?.difficulty === 'hard' && '🔴 Hard'}
+                    </Badge>
+                  </span>
+                  {currentGame.config?.category && (
+                    <span>
+                      <strong>Category:</strong> 
+                      <Badge variant="outline" className="ml-1">{currentGame.config.category}</Badge>
+                    </span>
+                  )}
+                </div>
+                {currentGame.skills && (
+                  <div className="mt-2">
+                    <strong>Skills:</strong>
+                    <div className="flex gap-1 mt-1">
+                      {currentGame.skills.map((skill: string) => (
+                        <Badge key={skill} variant="secondary" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Game Interface */}
+              <div className="bg-white border-2 border-gray-200 rounded-lg min-h-[400px] flex items-center justify-center">
+                {currentGame.game_type === 'word-scramble' && (
+                  <WordScrambleGame config={currentGame.config} />
+                )}
+                {currentGame.game_type === 'emoji-guess' && (
+                  <EmojiGuessGame config={currentGame.config} />
+                )}
+                {currentGame.game_type === 'riddle' && (
+                  <RiddleGame config={currentGame.config} />
+                )}
+                {currentGame.game_type === 'crossword' && (
+                  <CrosswordGame config={currentGame.config} />
+                )}
+                
+                {/* Default fallback */}
+                {!['word-scramble', 'emoji-guess', 'riddle', 'crossword'].includes(currentGame.game_type) && (
+                  <div className="text-center p-8">
+                    <Gamepad2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                      {currentGame.name}
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      Game interface coming soon!
+                    </p>
+                    <Button 
+                      onClick={() => setShowGameModal(false)}
+                      variant="outline"
+                    >
+                      Close Game
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 flex justify-between">
+                <Button 
+                  onClick={() => setShowGameModal(false)}
+                  variant="outline"
+                >
+                  Close Game
+                </Button>
+                <Button 
+                  onClick={() => {
+                    toast.success('Game completed! Great job!');
+                    setShowGameModal(false);
+                  }}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Complete Assignment
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

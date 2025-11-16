@@ -58,11 +58,33 @@ Deno.serve(async (req) => {
 
     if (roomDetailsError) throw roomDetailsError;
 
-    // Get assignments for student's rooms
-    const { data: assignments, error: assignmentsError } = await supabase
+    // Get teacher ID for this student (to fetch game assignments)
+    const teacherId = student.teacher_id;
+
+    // Get assignments for student's rooms AND game assignments from their teacher
+    let assignmentQuery = supabase
       .from('assignments')
-      .select('*')
-      .in('room_id', roomIds)
+      .select(`
+        *,
+        games (
+          id,
+          name,
+          game_type,
+          game_path,
+          categories,
+          skills
+        )
+      `);
+
+    // Build the OR condition based on whether student has rooms
+    if (roomIds.length > 0) {
+      assignmentQuery = assignmentQuery.or(`room_id.in.(${roomIds.join(',')}),and(assignment_type.eq.game,teacher_id.eq.${teacherId})`);
+    } else {
+      // If student has no rooms, only get game assignments from their teacher
+      assignmentQuery = assignmentQuery.eq('assignment_type', 'game').eq('teacher_id', teacherId);
+    }
+
+    const { data: assignments, error: assignmentsError } = await assignmentQuery
       .order('due_date', { ascending: true });
 
     if (assignmentsError) throw assignmentsError;

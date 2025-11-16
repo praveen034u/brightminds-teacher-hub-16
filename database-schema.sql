@@ -244,3 +244,49 @@ CREATE POLICY "Students can view own help requests" ON help_requests
       SELECT id FROM students WHERE access_token IS NOT NULL
     )
   );
+
+-- Games table for pre-built rooms
+CREATE TABLE IF NOT EXISTS games (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  game_type TEXT NOT NULL, -- 'word-scramble', 'emoji-guess', 'riddle', 'crossword'
+  game_path TEXT NOT NULL, -- URL path to game
+  thumbnail_url TEXT,
+  difficulty_levels TEXT[] DEFAULT ARRAY['easy', 'medium', 'hard'],
+  categories TEXT[], -- Available categories for the game
+  grade_levels TEXT[] DEFAULT ARRAY['K', '1', '2', '3', '4', '5'],
+  skills TEXT[], -- Skills taught by the game
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Insert sample games
+INSERT INTO games (name, description, game_type, game_path, categories, skills) VALUES
+('Word Scramble Challenge', 'Unscramble letters to form words and improve vocabulary', 'word-scramble', '/games/word-scramble', ARRAY['General'], ARRAY['Vocabulary', 'Spelling', 'Letter Recognition']),
+('Emoji Guess Game', 'Decode emoji clues to guess words and phrases', 'emoji-guess', '/games/emoji-guess', ARRAY['General'], ARRAY['Critical Thinking', 'Pattern Recognition', 'Vocabulary']),
+('Riddle Master', 'Solve riddles across different themes and categories', 'riddle', '/games/riddle', ARRAY['Zoo Animals', 'Ocean Friends', 'Space', 'Nature'], ARRAY['Logic', 'Critical Thinking', 'Reading Comprehension']),
+('Crossword Puzzle', 'Complete crossword puzzles with themed clues', 'crossword', '/games/crossword', ARRAY['Christmas', 'Animals', 'Space', 'Ocean'], ARRAY['Vocabulary', 'Spelling', 'General Knowledge']);
+
+-- Update assignments table to handle game assignments
+ALTER TABLE assignments 
+ADD COLUMN IF NOT EXISTS assignment_type TEXT DEFAULT 'room' CHECK (assignment_type IN ('room', 'game')),
+ADD COLUMN IF NOT EXISTS game_id UUID REFERENCES games(id),
+ADD COLUMN IF NOT EXISTS game_config JSONB;
+
+-- Enable RLS on games table
+ALTER TABLE games ENABLE ROW LEVEL SECURITY;
+
+-- Games can be viewed by everyone (teachers and students)
+CREATE POLICY "Games are publicly viewable" ON games
+  FOR SELECT USING (is_active = true);
+
+-- Add indexes for games
+CREATE INDEX idx_games_type ON games(game_type);
+CREATE INDEX idx_games_active ON games(is_active);
+CREATE INDEX idx_assignments_game_id ON assignments(game_id);
+
+-- Add updated_at trigger for games
+CREATE TRIGGER update_games_updated_at BEFORE UPDATE ON games
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

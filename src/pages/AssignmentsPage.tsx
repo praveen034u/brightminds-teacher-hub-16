@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -22,23 +23,32 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { assignmentsAPI, roomsAPI } from '@/api/edgeClient';
-import { FileText, Calendar, Trash2, Archive } from 'lucide-react';
+import { supabase } from '@/config/supabase';
+import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const AssignmentsPage = () => {
   const { auth0UserId } = useAuth();
   const [assignments, setAssignments] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
+  const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>('all');
-  const [formData, setFormData] = useState({
-    room_id: '',
-    title: '',
-    description: '',
-    due_date: '',
-    status: 'active',
+  
+  // Form state
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [roomType, setRoomType] = useState<'prebuilt' | 'custom'>('prebuilt');
+  const [selectedPrebuiltRoom, setSelectedPrebuiltRoom] = useState('');
+  
+  // Game configuration state
+  const [selectedGameConfig, setSelectedGameConfig] = useState({
+    difficulty: 'easy',
+    category: ''
   });
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -53,6 +63,20 @@ export const AssignmentsPage = () => {
       ]);
       setAssignments(assignmentsData);
       setRooms(roomsData);
+      
+      // Fetch games from Supabase with enhanced data
+      const { data: gamesData, error } = await supabase
+        .from('games')
+        .select('id, name, description, game_type, categories, difficulty_levels, skills')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching games:', error);
+        toast.error('Failed to load games');
+      } else {
+        setGames(gamesData || []);
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Failed to load data');
@@ -63,21 +87,70 @@ export const AssignmentsPage = () => {
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) return;
+
     try {
-      await assignmentsAPI.create(auth0UserId, formData);
+      const assignmentData = {
+        roomType: roomType,
+        roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : '',
+        gameConfig: roomType === 'prebuilt' ? selectedGameConfig : null,
+        title,
+        description,
+        dueDate,
+        status: 'active',
+      };
+
+      console.log('Creating assignment with data:', assignmentData);
+      console.log('Auth0 User ID:', auth0UserId);
+
+      await assignmentsAPI.create(auth0UserId, assignmentData);
       toast.success('Assignment created successfully');
       setShowCreateDialog(false);
-      setFormData({
-        room_id: '',
-        title: '',
-        description: '',
-        due_date: '',
-        status: 'active',
-      });
+      
+      // Reset form
+      setTitle('');
+      setDescription('');
+      setDueDate('');
+      setRoomType('prebuilt');
+      setSelectedPrebuiltRoom('');
+      setSelectedGameConfig({ difficulty: 'easy', category: '' });
+      setAvailableCategories([]);
+      
       loadData();
     } catch (error) {
+      console.error('Error creating assignment:', error);
       toast.error('Failed to create assignment');
     }
+  };
+
+
+
+  const validateForm = () => {
+    if (!title.trim()) {
+      toast.error('Please enter a title');
+      return false;
+    }
+    if (!description.trim()) {
+      toast.error('Please enter a description');
+      return false;
+    }
+    if (!dueDate) {
+      toast.error('Please select a due date');
+      return false;
+    }
+    if (roomType === 'prebuilt' && !selectedPrebuiltRoom) {
+      toast.error('Please select a game');
+      return false;
+    }
+    if (roomType === 'prebuilt' && selectedPrebuiltRoom) {
+      const selectedGame = games.find(g => g.id === selectedPrebuiltRoom);
+      if (selectedGame?.categories && selectedGame.categories.length > 0 && !selectedGameConfig.category) {
+        toast.error('Please select a category for this game');
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleDeleteAssignment = async (id: string) => {
@@ -123,58 +196,267 @@ export const AssignmentsPage = () => {
                 Create Assignment
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Assignment</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateAssignment} className="space-y-4">
-                <div>
-                  <Label htmlFor="room">Room *</Label>
-                  <Select
-                    value={formData.room_id}
-                    onValueChange={(value) => setFormData({ ...formData, room_id: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a room" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rooms.map((room) => (
-                        <SelectItem key={room.id} value={room.id}>
-                          {room.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                {/* Room Type Selector */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Assignment Type *</Label>
+                  <Tabs value={roomType} onValueChange={(value: 'prebuilt' | 'custom') => setRoomType(value)}>
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="prebuilt" className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Pre-built 
+                      </TabsTrigger>
+                      <TabsTrigger value="custom" className="flex items-center gap-2">
+                        <Upload className="h-4 w-4" />
+                        Custom Rooms
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="prebuilt" className="mt-3">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="prebuilt-room" className="text-sm font-medium">Select Activity</Label>
+                          <Select 
+                            value={selectedPrebuiltRoom} 
+                            onValueChange={(value) => {
+                              setSelectedPrebuiltRoom(value);
+                              // Find selected game and update available categories
+                              const selectedGame = games.find(g => g.id === value);
+                              if (selectedGame) {
+                                setAvailableCategories(selectedGame.categories || []);
+                                // Reset category when game changes
+                                setSelectedGameConfig(prev => ({ 
+                                  ...prev, 
+                                  category: selectedGame.categories?.[0] || '' 
+                                }));
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-auto min-h-[50px]">
+                              <SelectValue placeholder="Choose a game for your students...">
+                                {selectedPrebuiltRoom && (
+                                  <div className="flex items-start gap-3 p-2">
+                                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-white font-bold text-lg">🎮</span>
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                      <div className="font-medium">{games.find(g => g.id === selectedPrebuiltRoom)?.name}</div>
+                                      <div className="text-sm text-muted-foreground mt-1">
+                                        {games.find(g => g.id === selectedPrebuiltRoom)?.description}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80">
+                              {games.map((game) => (
+                                <SelectItem key={game.id} value={game.id} className="p-0">
+                                  <div className="flex items-start gap-3 p-3 w-full hover:bg-gray-50">
+                                    <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-white font-bold text-lg">
+                                        {game.game_type === 'word-scramble' && '🔤'}
+                                        {game.game_type === 'emoji-guess' && '🎯'}
+                                        {game.game_type === 'riddle' && '🧩'}
+                                        {game.game_type === 'crossword' && '📝'}
+                                      </span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-sm">{game.name}</div>
+                                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                        {game.description}
+                                      </div>
+                                      <div className="flex flex-wrap gap-1 mt-2">
+                                        {game.skills?.slice(0, 3).map((skill: string) => (
+                                          <Badge key={skill} variant="secondary" className="text-xs px-2 py-0.5">
+                                            {skill}
+                                          </Badge>
+                                        ))}
+                                        {game.skills && game.skills.length > 3 && (
+                                          <Badge variant="outline" className="text-xs">
+                                            +{game.skills.length - 3} more
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Game Configuration Panel */}
+                        {selectedPrebuiltRoom && (
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="h-6 w-6 rounded bg-blue-500 flex items-center justify-center">
+                                <span className="text-white text-xs">⚙️</span>
+                              </div>
+                              <h4 className="font-medium text-blue-900 text-sm">Game Configuration</h4>
+                            </div>
+                            
+                            <div className="grid md:grid-cols-2 gap-3">
+                              {/* Difficulty Selection */}
+                              <div className="space-y-2">
+                                <Label className="text-xs font-medium text-blue-800">Difficulty Level</Label>
+                                <Select 
+                                  value={selectedGameConfig.difficulty} 
+                                  onValueChange={(value) => setSelectedGameConfig(prev => ({ ...prev, difficulty: value }))}
+                                >
+                                  <SelectTrigger className="bg-white border-blue-200">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="easy" className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                        <span>Easy - Perfect for beginners</span>
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="medium" className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                                        <span>Medium - Good challenge</span>
+                                      </div>
+                                    </SelectItem>
+                                    <SelectItem value="hard" className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                                        <span>Hard - Expert level</span>
+                                      </div>
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {/* Category Selection (if game has categories) */}
+                              {availableCategories.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label className="text-xs font-medium text-blue-800">Category/Theme</Label>
+                                  <Select 
+                                    value={selectedGameConfig.category} 
+                                    onValueChange={(value) => setSelectedGameConfig(prev => ({ ...prev, category: value }))}
+                                  >
+                                    <SelectTrigger className="bg-white border-blue-200">
+                                      <SelectValue placeholder="Select category..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {availableCategories.map((category) => (
+                                        <SelectItem key={category} value={category}>
+                                          <div className="flex items-center gap-2">
+                                            <span>🏷️</span>
+                                            <span>{category}</span>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Enhanced Preview */}
+                            <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
+                              <div className="flex items-start gap-2">
+                                <div className="h-8 w-8 rounded bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center">
+                                  <span className="text-white text-sm">👀</span>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-xs font-medium text-gray-900 mb-1">Student Experience Preview</div>
+                                  <div className="text-xs text-gray-600">
+                                    Students will play: <strong className="text-blue-600">{games.find(g => g.id === selectedPrebuiltRoom)?.name}</strong>
+                                    {selectedGameConfig.category && (
+                                      <span> with <strong className="text-purple-600">{selectedGameConfig.category}</strong> theme</span>
+                                    )}
+                                    <span> at <strong className="text-green-600">{selectedGameConfig.difficulty}</strong> difficulty level</span>
+                                  </div>
+                                  <div className="flex gap-1 mt-2">
+                                    <Badge variant={selectedGameConfig.difficulty === 'easy' ? 'default' : 'outline'} className="text-xs">
+                                      🟢 {selectedGameConfig.difficulty === 'easy' ? 'Active: ' : ''}Easy
+                                    </Badge>
+                                    <Badge variant={selectedGameConfig.difficulty === 'medium' ? 'default' : 'outline'} className="text-xs">
+                                      🟡 {selectedGameConfig.difficulty === 'medium' ? 'Active: ' : ''}Medium
+                                    </Badge>
+                                    <Badge variant={selectedGameConfig.difficulty === 'hard' ? 'default' : 'outline'} className="text-xs">
+                                      🔴 {selectedGameConfig.difficulty === 'hard' ? 'Active: ' : ''}Hard
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="custom" className="mt-4">
+                      <div className="space-y-4">
+                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
+                          <div className="space-y-4">
+                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center mx-auto">
+                              <FileText className="h-8 w-8 text-white" />
+                            </div>
+                            <div className="space-y-2">
+                              <h3 className="text-lg font-semibold text-gray-800">Custom Room Coming Soon</h3>
+                              <p className="text-sm text-gray-600 max-w-md mx-auto">
+                                Upload your own custom content and create personalized learning experiences for your students.
+                              </p>
+                            </div>
+                            <div className="flex justify-center gap-2">
+                              <Badge variant="outline" className="text-xs">📁 File Upload</Badge>
+                              <Badge variant="outline" className="text-xs">🎨 Custom Content</Badge>
+                              <Badge variant="outline" className="text-xs">📚 Your Materials</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
-                <div>
-                  <Label htmlFor="title">Title *</Label>
+
+                {/* Title */}
+                <div className="space-y-1">
+                  <Label htmlFor="title" className="text-sm">Assignment Title *</Label>
                   <Input
                     id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Enter assignment title..."
+                    className="w-full"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
+
+                {/* Description */}
+                <div className="space-y-1">
+                  <Label htmlFor="description" className="text-sm">Description *</Label>
                   <Textarea
                     id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe the assignment objectives and instructions..."
+                    className="w-full min-h-[60px] text-sm"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="due_date">Due Date</Label>
+
+                {/* Due Date */}
+                <div className="space-y-1">
+                  <Label htmlFor="dueDate" className="text-sm">Due Date *</Label>
                   <Input
-                    id="due_date"
-                    type="date"
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    id="dueDate"
+                    type="datetime-local"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full"
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={rooms.length === 0}>
-                  {rooms.length === 0 ? 'Create a room first' : 'Create Assignment'}
+
+                <Button type="submit" className="w-full">
+                  Create Assignment
                 </Button>
               </form>
             </DialogContent>
