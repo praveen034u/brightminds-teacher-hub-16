@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -151,6 +151,13 @@ interface StudentData {
 export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+
+  // Store token in localStorage for PWA redirect
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem('student_presigned_token', token);
+    }
+  }, [token]);
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -159,222 +166,18 @@ export const StudentPortalPage = () => {
   const [showGameModal, setShowGameModal] = useState(false);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   const subscriptionRef = useRef<any>(null);
-
-  // Initialize Supabase client
+  const studentDataRef = useRef<StudentData | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  
+  // Keep studentDataRef in sync with studentData
   useEffect(() => {
-    const supabaseUrl = getSupabaseUrl();
-    const supabaseKey = getSupabasePublishableKey();
-    
-    console.log('Initializing Supabase client...');
-    console.log('Supabase URL:', supabaseUrl);
-    
-    supabaseRef.current = createClient(supabaseUrl, supabaseKey, {
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
-      }
-    });
-    
-    console.log('✅ Supabase client initialized');
-  }, []);
+    studentDataRef.current = studentData;
+  }, [studentData]);
 
-  // Load initial data
-  useEffect(() => {
-    if (token) {
-      loadStudentData(token);
-    } else {
-      setError('No access token provided');
-      setLoading(false);
-    }
-  }, [token]);
-
-  // Setup Realtime subscription for assignments and room changes
-  useEffect(() => {
-    if (!studentData?.id || !supabaseRef.current) return;
-
-    const roomIds = studentData.rooms.map(r => r.id);
-    
-    console.log('Setting up Realtime subscription for student:', studentData.id);
-    console.log('Monitoring rooms:', roomIds);
-
-    // Subscribe to ALL assignment changes, room_students changes, and filter client-side
-    // This is more reliable than server-side filtering
-    const channel = supabaseRef.current
-      .channel('student-portal-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'assignments'
-        },
-        (payload) => {
-          console.log('Assignment INSERT detected:', payload);
-          const newAssignment = payload.new as StudentData['assignments'][0];
-          
-          // Check if this assignment is for one of the student's rooms
-          if (roomIds.length > 0 && !roomIds.includes(newAssignment.room_id)) {
-            console.log('Assignment not for student rooms, ignoring');
-            return;
-          }
-
-          console.log('New assignment for student! Adding to list...');
-          
-          // Add new assignment to the list
-          setStudentData(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              assignments: [...prev.assignments, newAssignment]
-            };
-          });
-
-          // Show notification
-          const room = studentData.rooms.find(r => r.id === newAssignment.room_id);
-          toast.success(
-            `New Assignment: ${newAssignment.title}`,
-            {
-              description: room ? `Posted in ${room.name}` : 'New assignment available',
-              duration: 5000,
-            }
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'assignments'
-        },
-        (payload) => {
-          console.log('Assignment UPDATE detected:', payload);
-          const updatedAssignment = payload.new as StudentData['assignments'][0];
-          
-          // Check if this assignment is for one of the student's rooms
-          if (roomIds.length > 0 && !roomIds.includes(updatedAssignment.room_id)) {
-            console.log('Assignment not for student rooms, ignoring');
-            return;
-          }
-
-          console.log('Assignment update for student! Updating list...');
-          
-          // Update the assignment in the list
-          setStudentData(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              assignments: prev.assignments.map(a => 
-                a.id === updatedAssignment.id ? updatedAssignment : a
-              )
-            };
-          });
-
-          toast.info('An assignment was updated');
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'assignments'
-        },
-        (payload) => {
-          console.log('Assignment DELETE detected:', payload);
-          const deletedId = payload.old.id;
-          const deletedRoomId = payload.old.room_id;
-          
-          // Check if this assignment was for one of the student's rooms
-          if (roomIds.length > 0 && !roomIds.includes(deletedRoomId)) {
-            console.log('Assignment not for student rooms, ignoring');
-            return;
-          }
-
-          console.log('Assignment deletion for student! Removing from list...');
-          
-          // Remove the assignment from the list
-          setStudentData(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              assignments: prev.assignments.filter(a => a.id !== deletedId)
-            };
-          });
-
-          toast.info('An assignment was removed');
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'room_students'
-        },
-        (payload) => {
-          console.log('room_students change detected:', payload);
-          
-          // Type the payload data
-          const newRecord = payload.new as { student_id?: string; room_id?: string } | null;
-          const oldRecord = payload.old as { student_id?: string; room_id?: string } | null;
-          
-          // Check if this involves the current student
-          const isForStudent = newRecord?.student_id === studentData.id || 
-                               oldRecord?.student_id === studentData.id;
-          
-          // Also check if it's a student being added to one of our rooms (new classmate)
-          const isInOurRooms = roomIds.length > 0 && (
-            (newRecord?.room_id && roomIds.includes(newRecord.room_id)) || 
-            (oldRecord?.room_id && roomIds.includes(oldRecord.room_id))
-          );
-          
-          if (!isForStudent && !isInOurRooms) {
-            console.log('room_students change not relevant, ignoring');
-            return;
-          }
-
-          console.log('Room assignment change detected! Reloading student data...');
-          
-          // Reload the entire student data to get updated rooms and classmates
-          if (token) {
-            loadStudentData(token);
-            toast.info('Your classroom assignments have been updated', { duration: 3000 });
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Successfully subscribed to portal updates!');
-          setRealtimeConnected(true);
-          toast.success('Live updates connected!', { duration: 2000 });
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Error subscribing to portal updates');
-          setRealtimeConnected(false);
-          toast.error('Live updates connection failed');
-        } else if (status === 'TIMED_OUT') {
-          console.error('⏱️ Subscription timed out');
-          setRealtimeConnected(false);
-        } else if (status === 'CLOSED') {
-          console.log('🔌 Subscription closed');
-          setRealtimeConnected(false);
-        }
-      });
-
-    subscriptionRef.current = channel;
-
-    // Cleanup subscription on unmount
-    return () => {
-      console.log('Cleaning up Realtime subscription');
-      if (subscriptionRef.current) {
-        supabaseRef.current?.removeChannel(subscriptionRef.current);
-      }
-    };
-  }, [studentData?.id, token]);
-
-  const loadStudentData = async (accessToken: string) => {
+  // Load student data function (defined early for use in effects)
+  const loadStudentData = useCallback(async (accessToken: string) => {
     try {
       setLoading(true);
       
@@ -527,7 +330,491 @@ export const StudentPortalPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Empty deps - function is stable
+
+
+  // Initialize Supabase client
+  useEffect(() => {
+    const supabaseUrl = getSupabaseUrl();
+    const supabaseKey = getSupabasePublishableKey();
+    
+    console.log('Initializing Supabase client...');
+    console.log('Supabase URL:', supabaseUrl);
+    console.log('Supabase Key (first 10 chars):', supabaseKey.substring(0, 10) + '...');
+    
+    supabaseRef.current = createClient(supabaseUrl, supabaseKey, {
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      }
+    });
+    
+    console.log('✅ Supabase client initialized');
+    
+    // Test Realtime connection
+    console.log('Testing Realtime connection...');
+    const testChannel = supabaseRef.current.channel('connection-test');
+    testChannel.subscribe((status) => {
+      console.log('Test channel status:', status);
+      if (status === 'SUBSCRIBED') {
+        console.log('✅ Realtime is working! Unsubscribing test channel...');
+        supabaseRef.current?.removeChannel(testChannel);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('❌ Realtime connection test failed!');
+        console.error('This may mean:');
+        console.error('1. Realtime is not enabled in Supabase project settings');
+        console.error('2. Tables are not added to supabase_realtime publication');
+        console.error('3. Network/firewall blocking WebSocket connections');
+      }
+    });
+    
+    return () => {
+      if (testChannel) {
+        supabaseRef.current?.removeChannel(testChannel);
+      }
+    };
+  }, []);
+
+  // Load initial data
+  useEffect(() => {
+    if (token) {
+      loadStudentData(token);
+    } else {
+      setError('No access token provided');
+      setLoading(false);
+    }
+  }, [token, loadStudentData]);
+
+  // Setup Realtime subscription function (can be called for reconnection)
+  const setupRealtimeSubscription = useCallback(() => {
+    if (!studentData?.id || !supabaseRef.current) {
+      console.log('Cannot setup subscription: missing studentData or supabase client');
+      return null;
+    }
+
+    console.log('=== SETTING UP REALTIME SUBSCRIPTION ===');
+    console.log('Student ID:', studentData.id);
+    console.log('Student name:', studentData.name);
+    console.log('Current rooms:', studentData.rooms.map(r => ({ id: r.id, name: r.name })));
+
+    // Use unique channel name with timestamp to avoid conflicts on reconnection
+    const channelName = `student-portal-${studentData.id}-${Date.now()}`;
+    console.log('Creating channel:', channelName);
+
+    // Subscribe to ALL assignment changes, room_students changes, and filter client-side
+    // This is more reliable than server-side filtering
+    const channel = supabaseRef.current
+      .channel(channelName)
+      // INSERT
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'assignments'
+        },
+        (payload) => {
+          console.log('🔔 Assignment INSERT detected:', payload);
+          const newAssignment = payload.new as StudentData['assignments'][0];
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          if (currentRoomIds.length > 0 && !currentRoomIds.includes(newAssignment.room_id)) {
+            console.log('❌ Assignment not for student rooms, ignoring');
+            return;
+          }
+          setStudentData(prev => {
+            if (!prev) return prev;
+            if (prev.assignments.some(a => a.id === newAssignment.id)) {
+              console.log('⚠️ Assignment already exists, skipping duplicate');
+              return prev;
+            }
+            return {
+              ...prev,
+              assignments: [...prev.assignments, newAssignment]
+            };
+          });
+          const currentData = studentDataRef.current;
+          const room = currentData?.rooms.find(r => r.id === newAssignment.room_id);
+          toast.success(
+            `New Assignment: ${newAssignment.title}`,
+            {
+              description: room ? `Posted in ${room.name}` : 'New assignment available',
+              duration: 5000,
+            }
+          );
+          console.log('✅ Assignment added successfully!');
+        }
+      )
+      // UPDATE
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'assignments'
+        },
+        (payload) => {
+          console.log('🔄 Assignment UPDATE detected:', payload);
+          const updatedAssignment = payload.new as StudentData['assignments'][0];
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          if (currentRoomIds.length > 0 && !currentRoomIds.includes(updatedAssignment.room_id)) {
+            console.log('❌ Assignment not for student rooms, ignoring');
+            return;
+          }
+          setStudentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              assignments: prev.assignments.map(a => a.id === updatedAssignment.id ? updatedAssignment : a)
+            };
+          });
+          toast.info(`Assignment updated: ${updatedAssignment.title}`);
+        }
+      )
+      // DELETE
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'assignments'
+        },
+        (payload) => {
+          console.log('🗑️ Assignment DELETE detected:', payload);
+          const deletedAssignment = payload.old as StudentData['assignments'][0];
+          setStudentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              assignments: prev.assignments.filter(a => a.id !== deletedAssignment.id)
+            };
+          });
+          toast.info(`Assignment deleted: ${deletedAssignment.title}`);
+        }
+      )
+      // NEW STUDENT ADDED TO ROOM
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'room_students'
+        },
+        (payload) => {
+          console.log('👤 New student added to room:', payload);
+          const newRoomStudent = payload.new;
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          // Only reload if the new student is added to one of our rooms
+          if (currentRoomIds.includes(newRoomStudent.room_id)) {
+            console.log('🔄 Reloading student data for new classmate...');
+            if (token) {
+              loadStudentData(token);
+              toast.info('A new student joined your classroom!', { duration: 3000 });
+            }
+          } else {
+            console.log('New student not in our rooms, ignoring');
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'assignments'
+        },
+        (payload) => {
+          console.log('Assignment UPDATE detected:', payload);
+          const updatedAssignment = payload.new as StudentData['assignments'][0];
+          
+          // Get current room IDs from ref (always up-to-date)
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          
+          // Check if this assignment is for one of the student's rooms
+          if (currentRoomIds.length > 0 && !currentRoomIds.includes(updatedAssignment.room_id)) {
+            console.log('Assignment not for student rooms, ignoring');
+            return;
+          }
+
+          console.log('Assignment update for student! Updating list...');
+          
+          // Update the assignment in the list
+          setStudentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              assignments: prev.assignments.map(a => 
+                a.id === updatedAssignment.id ? updatedAssignment : a
+              )
+            };
+          });
+
+          toast.info('An assignment was updated');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'assignments'
+        },
+        (payload) => {
+          console.log('Assignment DELETE detected:', payload);
+          const deletedId = payload.old.id;
+          const deletedRoomId = payload.old.room_id;
+          
+          // Get current room IDs from ref (always up-to-date)
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          
+          // Check if this assignment was for one of the student's rooms
+          if (currentRoomIds.length > 0 && !currentRoomIds.includes(deletedRoomId)) {
+            console.log('Assignment not for student rooms, ignoring');
+            return;
+          }
+
+          console.log('Assignment deletion for student! Removing from list...');
+          
+          // Remove the assignment from the list
+          setStudentData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              assignments: prev.assignments.filter(a => a.id !== deletedId)
+            };
+          });
+
+          toast.info('An assignment was removed');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'room_students'
+        },
+        (payload) => {
+          console.log('room_students change detected:', payload);
+          console.log('Event type:', payload.eventType);
+          
+          // Type the payload data
+          const newRecord = payload.new as { student_id?: string; room_id?: string } | null;
+          const oldRecord = payload.old as { student_id?: string; room_id?: string } | null;
+          
+          const currentStudentId = studentDataRef.current?.id;
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          
+          // Check if this involves the current student
+          const isForStudent = newRecord?.student_id === currentStudentId || 
+                               oldRecord?.student_id === currentStudentId;
+          
+          // Also check if it's a student being added to one of our rooms (new classmate)
+          const isInOurRooms = currentRoomIds.length > 0 && (
+            (newRecord?.room_id && currentRoomIds.includes(newRecord.room_id)) || 
+            (oldRecord?.room_id && currentRoomIds.includes(oldRecord.room_id))
+          );
+          
+          if (!isForStudent && !isInOurRooms) {
+            console.log('room_students change not relevant, ignoring');
+            return;
+          }
+
+          console.log('Room assignment change detected! Reloading student data...');
+          
+          // Reload the entire student data to get updated rooms and classmates
+          if (token) {
+            loadStudentData(token);
+            
+            if (isForStudent) {
+              toast.info('Your classroom assignments have been updated', { duration: 3000 });
+            } else {
+              toast.info('A new classmate joined your classroom', { duration: 3000 });
+            }
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('=== SUBSCRIPTION STATUS UPDATE ===');
+        console.log('Status:', status);
+        console.log('Error:', err);
+        console.log('Channel name:', channelName);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to portal updates!');
+          console.log('📡 Listening for:');
+          console.log('  - assignments INSERT');
+          console.log('  - assignments UPDATE');
+          console.log('  - assignments DELETE');
+          console.log('  - room_students ALL events');
+          console.log('=================================');
+          
+          setRealtimeConnected(true);
+          reconnectAttemptsRef.current = 0; // Reset reconnect attempts on success
+          toast.success('Live updates connected!', { duration: 2000 });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Error subscribing to portal updates');
+          console.error('Error details:', err);
+          setRealtimeConnected(false);
+          toast.error('Live updates connection failed');
+          attemptReconnect();
+        } else if (status === 'TIMED_OUT') {
+          console.error('⏱️ Subscription timed out');
+          setRealtimeConnected(false);
+          attemptReconnect();
+        } else if (status === 'CLOSED') {
+          console.log('🔌 Subscription closed');
+          setRealtimeConnected(false);
+          // Don't reconnect on intentional close (like unmount)
+        }
+      });
+
+    return channel;
+  }, [studentData?.id, token, loadStudentData]);
+
+  // Reconnection logic with exponential backoff
+  const attemptReconnect = useCallback(() => {
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      console.log('Max reconnection attempts reached');
+      toast.error('Unable to connect to live updates. Please refresh the page.', { duration: 5000 });
+      return;
+    }
+
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    reconnectAttemptsRef.current += 1;
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 10000); // Max 10 seconds
+
+    console.log(`Attempting to reconnect (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${delay}ms...`);
+    
+    reconnectTimeoutRef.current = setTimeout(async () => {
+      console.log('Executing reconnection attempt...');
+      
+      // Clean up old subscription properly
+      if (subscriptionRef.current && supabaseRef.current) {
+        console.log('Removing old channel...');
+        await supabaseRef.current.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+
+      // Wait a bit for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Create new subscription
+      const newChannel = setupRealtimeSubscription();
+      if (newChannel) {
+        subscriptionRef.current = newChannel;
+        console.log('New channel created and stored');
+      } else {
+        console.error('Failed to create new channel');
+      }
+    }, delay);
+  }, [setupRealtimeSubscription]);
+
+  // Setup Realtime subscription for assignments and room changes
+  useEffect(() => {
+    const channel = setupRealtimeSubscription();
+    if (channel) {
+      subscriptionRef.current = channel;
+    }
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('Cleaning up Realtime subscription');
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (subscriptionRef.current) {
+        supabaseRef.current?.removeChannel(subscriptionRef.current);
+      }
+    };
+  }, [setupRealtimeSubscription]);
+
+  // Handle page visibility changes (background/foreground)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        console.log('📱 Page went to background');
+      } else {
+        console.log('📱 Page came to foreground');
+        
+        // Check if connection is lost and reconnect
+        if (!realtimeConnected && studentData?.id && supabaseRef.current) {
+          console.log('Reconnecting after returning to foreground...');
+          reconnectAttemptsRef.current = 0; // Reset attempts when manually reconnecting
+          
+          // Clean up old subscription
+          if (subscriptionRef.current) {
+            await supabaseRef.current.removeChannel(subscriptionRef.current);
+            subscriptionRef.current = null;
+          }
+
+          // Wait a bit for cleanup
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          // Create new subscription
+          const newChannel = setupRealtimeSubscription();
+          if (newChannel) {
+            subscriptionRef.current = newChannel;
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [realtimeConnected, studentData?.id, setupRealtimeSubscription]);
+
+  // Handle online/offline events
+  useEffect(() => {
+    const handleOnline = async () => {
+      console.log('🌐 Network connection restored');
+      toast.success('Internet connection restored', { duration: 2000 });
+      
+      // Reconnect WebSocket if needed
+      if (!realtimeConnected && studentData?.id && supabaseRef.current) {
+        console.log('Reconnecting after network restoration...');
+        reconnectAttemptsRef.current = 0;
+        
+        if (subscriptionRef.current) {
+          await supabaseRef.current.removeChannel(subscriptionRef.current);
+          subscriptionRef.current = null;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const newChannel = setupRealtimeSubscription();
+        if (newChannel) {
+          subscriptionRef.current = newChannel;
+        }
+      }
+      
+      // Reload data to ensure we have latest
+      if (token) {
+        loadStudentData(token);
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('🌐 Network connection lost');
+      toast.error('Internet connection lost', { duration: 3000 });
+      setRealtimeConnected(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [realtimeConnected, studentData?.id, token, setupRealtimeSubscription, loadStudentData]);
 
   const playGame = (assignment: any) => {
     if (assignment.assignment_type === 'game' && assignment.games) {

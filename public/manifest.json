@@ -1,0 +1,21 @@
+{
+  "name": "BrightMinds Student Portal",
+  "short_name": "BrightMinds",
+  "start_url": "/student-portal-redirect",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "description": "Student portal for BrightMinds Teacher Hub",
+  "icons": [
+    {
+      "src": "/brightminds-logo1.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brightminds-logo1.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

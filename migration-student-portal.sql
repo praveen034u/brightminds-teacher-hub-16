@@ -89,3 +89,9 @@ CREATE POLICY "Students can view own help requests" ON help_requests
       SELECT id FROM students WHERE access_token IS NOT NULL
     )
   );
+
+-- In Supabase Dashboard > SQL Editor
+ALTER PUBLICATION supabase_realtime ADD TABLE assignments;
+ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
+ALTER PUBLICATION supabase_realtime ADD TABLE room_students;
+ALTER PUBLICATION supabase_realtime ADD TABLE students;

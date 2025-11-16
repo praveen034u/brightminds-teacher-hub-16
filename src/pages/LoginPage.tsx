@@ -9,6 +9,12 @@ export const LoginPage = () => {
   const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
 
   useEffect(() => {
+    // Student PWA shortcut logic: redirect if token exists
+    const studentToken = localStorage.getItem('student_presigned_token');
+    if (studentToken) {
+      window.location.replace(`/student-portal?token=${encodeURIComponent(studentToken)}`);
+      return;
+    }
     if (isAuthenticated) {
       navigate('/dashboard');
     }
