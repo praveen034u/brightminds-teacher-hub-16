@@ -378,6 +378,30 @@ export const StudentPortalPage = () => {
           toast.info(`Assignment deleted: ${deletedAssignment.title}`);
         }
       )
+      // NEW STUDENT ADDED TO ROOM
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'room_students'
+        },
+        (payload) => {
+          console.log('👤 New student added to room:', payload);
+          const newRoomStudent = payload.new;
+          const currentRoomIds = studentDataRef.current?.rooms.map(r => r.id) || [];
+          // Only reload if the new student is added to one of our rooms
+          if (currentRoomIds.includes(newRoomStudent.room_id)) {
+            console.log('🔄 Reloading student data for new classmate...');
+            if (token) {
+              loadStudentData(token);
+              toast.info('A new student joined your classroom!', { duration: 3000 });
+            }
+          } else {
+            console.log('New student not in our rooms, ignoring');
+          }
+        }
+      )
       .on(
         'postgres_changes',
         {
