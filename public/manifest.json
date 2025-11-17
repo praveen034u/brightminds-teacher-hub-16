@@ -1,7 +1,7 @@
 {
   "name": "BrightMinds Student Portal",
   "short_name": "BrightMinds",
-  "start_url": ".",
+  "start_url": "/student-portal-redirect",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
