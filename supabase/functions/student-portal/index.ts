@@ -89,6 +89,23 @@ Deno.serve(async (req) => {
 
     if (assignmentsError) throw assignmentsError;
 
+    // Get assignment attempts for this student
+    const assignmentIds = assignments?.map(a => a.id) || [];
+    let attempts = [];
+    if (assignmentIds.length > 0) {
+      const { data: attemptsData, error: attemptsError } = await supabase
+        .from('assignment_attempts')
+        .select('*')
+        .eq('student_id', student.id)
+        .in('assignment_id', assignmentIds);
+      
+      if (attemptsError) {
+        console.warn('Error fetching assignment attempts:', attemptsError);
+      } else {
+        attempts = attemptsData || [];
+      }
+    }
+
     // Get all classmates (students in the same rooms)
     const { data: allRoomStudents, error: classmatesError } = await supabase
       .from('room_students')
@@ -133,6 +150,7 @@ Deno.serve(async (req) => {
       primary_language: student.primary_language,
       rooms: rooms || [],
       assignments: assignments || [],
+      assignmentAttempts: attempts || [],
       classmates: classmatesWithRooms,
     };
 

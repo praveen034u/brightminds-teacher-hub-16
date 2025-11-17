@@ -5,104 +5,308 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2 } from 'lucide-react';
+import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 
 // Simple game components
-const WordScrambleGame = ({ config }: { config: any }) => (
-  <div className="text-center p-8">
-    <h3 className="text-2xl font-bold mb-4">🔤 Word Scramble Challenge</h3>
-    <p className="text-lg mb-6">Unscramble this word:</p>
-    <div className="text-3xl font-mono bg-blue-100 p-4 rounded-lg mb-6">
-      {config?.difficulty === 'easy' && 'TAC'}
-      {config?.difficulty === 'medium' && 'OEUSH'}
-      {config?.difficulty === 'hard' && 'EELNAPHT'}
-    </div>
-    <input 
-      type="text" 
-      placeholder="Type your answer here..." 
-      className="border-2 border-gray-300 p-3 rounded-lg text-lg w-64 text-center"
-    />
-    <div className="mt-4">
-      <Button className="bg-blue-600 hover:bg-blue-700">Check Answer</Button>
-    </div>
-  </div>
-);
-
-const EmojiGuessGame = ({ config }: { config: any }) => (
-  <div className="text-center p-8">
-    <h3 className="text-2xl font-bold mb-4">🎯 Emoji Guess Game</h3>
-    <p className="text-lg mb-6">What does this emoji combination mean?</p>
-    <div className="text-6xl mb-6">
-      {config?.difficulty === 'easy' && '🐱🏠'}
-      {config?.difficulty === 'medium' && '🌧️🌈☀️'}
-      {config?.difficulty === 'hard' && '🏃‍♂️💨⏰📚'}
-    </div>
-    <input 
-      type="text" 
-      placeholder="Type your guess..." 
-      className="border-2 border-gray-300 p-3 rounded-lg text-lg w-64 text-center"
-    />
-    <div className="mt-4">
-      <Button className="bg-green-600 hover:bg-green-700">Submit Guess</Button>
-    </div>
-  </div>
-);
-
-const RiddleGame = ({ config }: { config: any }) => (
-  <div className="text-center p-8">
-    <h3 className="text-2xl font-bold mb-4">🧩 Riddle Master</h3>
-    <p className="text-lg mb-2">Category: <Badge>{config?.category || 'General'}</Badge></p>
-    <div className="bg-purple-100 p-6 rounded-lg mb-6 max-w-md mx-auto">
-      <p className="text-lg font-medium">
-        {config?.category === 'Space' && "I'm hot and bright, I light up the day. What am I?"}
-        {config?.category === 'Zoo Animals' && "I'm big and gray with a long trunk. Who am I?"}
-        {config?.category === 'Ocean Friends' && "I have eight arms and live in the sea. What am I?"}
-        {(!config?.category || config?.category === 'Nature') && "I fall from trees but I'm not a leaf. What am I?"}
-      </p>
-    </div>
-    <input 
-      type="text" 
-      placeholder="Type your answer..." 
-      className="border-2 border-gray-300 p-3 rounded-lg text-lg w-64 text-center"
-    />
-    <div className="mt-4">
-      <Button className="bg-purple-600 hover:bg-purple-700">Solve Riddle</Button>
-    </div>
-  </div>
-);
-
-const CrosswordGame = ({ config }: { config: any }) => (
-  <div className="text-center p-8">
-    <h3 className="text-2xl font-bold mb-4">📝 Crossword Puzzle</h3>
-    <p className="text-lg mb-2">Theme: <Badge>{config?.category || 'General'}</Badge></p>
-    <div className="bg-yellow-50 p-6 rounded-lg mb-6">
-      <p className="text-lg mb-4">Complete this crossword clue:</p>
-      <div className="font-medium">
-        {config?.category === 'Christmas' && "1 Across: Santa's helpers (5 letters)"}
-        {config?.category === 'Animals' && "1 Across: King of the jungle (4 letters)"}
-        {config?.category === 'Space' && "1 Across: Red planet (4 letters)"}
-        {config?.category === 'Ocean' && "1 Across: Largest sea creature (5 letters)"}
-        {!config?.category && "1 Across: Opposite of night (3 letters)"}
+const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  const [answer, setAnswer] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [isCorrect, setIsCorrect] = useState(false);
+  
+  const scrambledWords = {
+    easy: { scrambled: 'TAC', correct: 'CAT' },
+    medium: { scrambled: 'OEUSH', correct: 'HOUSE' },
+    hard: { scrambled: 'EELNAPHT', correct: 'ELEPHANT' }
+  };
+  
+  const currentWord = scrambledWords[config?.difficulty || 'easy'];
+  
+  const checkAnswer = () => {
+    const userAnswer = answer.trim().toLowerCase();
+    const correctAnswer = currentWord.correct.toLowerCase();
+    
+    if (userAnswer === correctAnswer) {
+      setFeedback('🎉 Correct! Well done!');
+      setIsCorrect(true);
+      toast.success('Correct answer!');
+      onComplete?.(100); // Perfect score for correct answer
+    } else {
+      setFeedback('❌ Try again! Hint: Think about common words.');
+      setIsCorrect(false);
+    }
+  };
+  
+  return (
+    <div className="text-center p-8">
+      <h3 className="text-2xl font-bold mb-4">🔤 Word Scramble Challenge</h3>
+      <p className="text-lg mb-6">Unscramble this word:</p>
+      <div className="text-3xl font-mono bg-blue-100 p-4 rounded-lg mb-6">
+        {currentWord.scrambled}
       </div>
-      <div className="mt-4 flex justify-center">
-        <div className="grid grid-cols-5 gap-1">
-          {[1,2,3,4,5].map(i => (
-            <input 
-              key={i}
-              type="text" 
-              maxLength={1}
-              className="w-8 h-8 border-2 border-gray-400 text-center font-bold text-lg"
-            />
-          ))}
+      <input 
+        type="text" 
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        placeholder="Type your answer here..." 
+        className={`border-2 p-3 rounded-lg text-lg w-64 text-center ${
+          isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
+        }`}
+      />
+      {feedback && (
+        <div className={`mt-3 text-lg font-medium ${
+          isCorrect ? 'text-green-600' : 'text-red-600'
+        }`}>
+          {feedback}
+        </div>
+      )}
+      <div className="mt-4">
+        <Button 
+          onClick={checkAnswer}
+          className="bg-blue-600 hover:bg-blue-700"
+          disabled={!answer.trim()}
+        >
+          Check Answer
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  const [guess, setGuess] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [isCorrect, setIsCorrect] = useState(false);
+  
+  const emojiPuzzles = {
+    easy: { emoji: '🐱🏠', answers: ['cat house', 'cathouse', 'pet home'] },
+    medium: { emoji: '🌧️🌈☀️', answers: ['rainbow', 'after rain', 'weather change'] },
+    hard: { emoji: '🏃‍♂️💨⏰📚', answers: ['running late', 'rush to school', 'hurrying to study'] }
+  };
+  
+  const currentPuzzle = emojiPuzzles[config?.difficulty || 'easy'];
+  
+  const checkAnswer = () => {
+    const userGuess = guess.trim().toLowerCase();
+    const isMatch = currentPuzzle.answers.some(answer => 
+      userGuess.includes(answer.toLowerCase()) || answer.toLowerCase().includes(userGuess)
+    );
+    
+    if (isMatch) {
+      setFeedback('🎉 Excellent guess! You got it!');
+      setIsCorrect(true);
+      toast.success('Great job!');
+      onComplete?.(95); // High score for emoji guess
+    } else {
+      setFeedback('🤔 Close, but try again! Think about what the emojis represent.');
+      setIsCorrect(false);
+    }
+  };
+  
+  return (
+    <div className="text-center p-8">
+      <h3 className="text-2xl font-bold mb-4">🎯 Emoji Guess Game</h3>
+      <p className="text-lg mb-6">What does this emoji combination mean?</p>
+      <div className="text-6xl mb-6">
+        {currentPuzzle.emoji}
+      </div>
+      <input 
+        type="text" 
+        value={guess}
+        onChange={(e) => setGuess(e.target.value)}
+        placeholder="Type your guess..." 
+        className={`border-2 p-3 rounded-lg text-lg w-64 text-center ${
+          isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
+        }`}
+      />
+      {feedback && (
+        <div className={`mt-3 text-lg font-medium ${
+          isCorrect ? 'text-green-600' : 'text-red-600'
+        }`}>
+          {feedback}
+        </div>
+      )}
+      <div className="mt-4">
+        <Button 
+          onClick={checkAnswer}
+          className="bg-green-600 hover:bg-green-700"
+          disabled={!guess.trim()}
+        >
+          Check Answer
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  const [answer, setAnswer] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [isCorrect, setIsCorrect] = useState(false);
+  
+  const riddles = {
+    'Space': { 
+      question: "I'm hot and bright, I light up the day. What am I?", 
+      answers: ['sun', 'the sun'] 
+    },
+    'Zoo Animals': { 
+      question: "I'm big and gray with a long trunk. Who am I?", 
+      answers: ['elephant', 'an elephant'] 
+    },
+    'Ocean Friends': { 
+      question: "I have eight arms and live in the sea. What am I?", 
+      answers: ['octopus', 'an octopus'] 
+    },
+    'Nature': { 
+      question: "I fall from trees but I'm not a leaf. What am I?", 
+      answers: ['fruit', 'apple', 'nuts', 'acorn'] 
+    }
+  };
+  
+  const currentRiddle = riddles[config?.category] || riddles['Nature'];
+  
+  const checkAnswer = () => {
+    const userAnswer = answer.trim().toLowerCase();
+    const isMatch = currentRiddle.answers.some(correctAnswer => 
+      userAnswer === correctAnswer.toLowerCase()
+    );
+    
+    if (isMatch) {
+      setFeedback('🎉 Brilliant! You solved the riddle!');
+      setIsCorrect(true);
+      toast.success('Riddle solved!');
+      onComplete?.(90); // Good score for riddle solving
+    } else {
+      setFeedback('🤔 Not quite! Think about the clues again.');
+      setIsCorrect(false);
+    }
+  };
+  
+  return (
+    <div className="text-center p-8">
+      <h3 className="text-2xl font-bold mb-4">🧩 Riddle Master</h3>
+      <div className="text-lg mb-2 flex items-center justify-center gap-2">
+        Category: 
+        <Badge variant="secondary">{config?.category || 'General'}</Badge>
+      </div>
+      <div className="bg-purple-100 p-6 rounded-lg mb-6 max-w-md mx-auto">
+        <p className="text-lg font-medium">
+          {currentRiddle.question}
+        </p>
+      </div>
+      <input 
+        type="text" 
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        placeholder="Type your answer..." 
+        className={`border-2 p-3 rounded-lg text-lg w-64 text-center ${
+          isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
+        }`}
+      />
+      {feedback && (
+        <div className={`mt-3 text-lg font-medium ${
+          isCorrect ? 'text-green-600' : 'text-red-600'
+        }`}>
+          {feedback}
+        </div>
+      )}
+      <div className="mt-4">
+        <Button 
+          onClick={checkAnswer}
+          className="bg-purple-600 hover:bg-purple-700"
+          disabled={!answer.trim()}
+        >
+          Check Answer
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  const [letters, setLetters] = useState<string[]>(['', '', '', '', '']);
+  const [feedback, setFeedback] = useState('');
+  const [isCorrect, setIsCorrect] = useState(false);
+  
+  const clues = {
+    'Christmas': { clue: "1 Across: Santa's helpers (5 letters)", answer: 'ELVES' },
+    'Animals': { clue: "1 Across: King of the jungle (4 letters)", answer: 'LION' },
+    'Space': { clue: "1 Across: Red planet (4 letters)", answer: 'MARS' },
+    'Ocean': { clue: "1 Across: Largest sea creature (5 letters)", answer: 'WHALE' },
+    'General': { clue: "1 Across: Opposite of night (3 letters)", answer: 'DAY' }
+  };
+  
+  const currentClue = clues[config?.category] || clues['General'];
+  const answerLength = currentClue.answer.length;
+  
+  const handleLetterChange = (index: number, value: string) => {
+    const newLetters = [...letters];
+    newLetters[index] = value.toUpperCase();
+    setLetters(newLetters);
+  };
+  
+  const checkAnswer = () => {
+    const userAnswer = letters.slice(0, answerLength).join('');
+    
+    if (userAnswer === currentClue.answer) {
+      setFeedback('🎉 Perfect! You completed the crossword!');
+      setIsCorrect(true);
+      toast.success('Crossword solved!');
+      onComplete?.(100); // Perfect score for crossword
+    } else {
+      setFeedback('❌ Not quite right. Check your letters!');
+      setIsCorrect(false);
+    }
+  };
+  
+  return (
+    <div className="text-center p-8">
+      <h3 className="text-2xl font-bold mb-4">📝 Crossword Puzzle</h3>
+      <div className="text-lg mb-2 flex items-center justify-center gap-2">
+        Theme: 
+        <Badge variant="secondary">{config?.category || 'General'}</Badge>
+      </div>
+      <div className="bg-yellow-50 p-6 rounded-lg mb-6">
+        <p className="text-lg mb-4">Complete this crossword clue:</p>
+        <div className="font-medium mb-4">
+          {currentClue.clue}
+        </div>
+        <div className="flex justify-center">
+          <div className={`grid gap-1`} style={{gridTemplateColumns: `repeat(${answerLength}, 1fr)`}}>
+            {Array.from({length: answerLength}).map((_, i) => (
+              <input 
+                key={i}
+                type="text" 
+                value={letters[i] || ''}
+                onChange={(e) => handleLetterChange(i, e.target.value)}
+                maxLength={1}
+                className={`w-8 h-8 border-2 text-center font-bold text-lg ${
+                  isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-400'
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
+      {feedback && (
+        <div className={`mb-4 text-lg font-medium ${
+          isCorrect ? 'text-green-600' : 'text-red-600'
+        }`}>
+          {feedback}
+        </div>
+      )}
+      <Button 
+        onClick={checkAnswer}
+        className="bg-yellow-600 hover:bg-yellow-700"
+        disabled={letters.slice(0, answerLength).some(letter => !letter.trim())}
+      >
+        Check Answer
+      </Button>
     </div>
-    <Button className="bg-yellow-600 hover:bg-yellow-700">Submit Answer</Button>
-  </div>
-);
+  );
+};
 
 interface StudentData {
   id: string;
@@ -148,13 +352,28 @@ interface StudentData {
   }>;
 }
 
+interface AssignmentAttempt {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  status: 'not_started' | 'in_progress' | 'completed' | 'submitted';
+  attempts_count: number;
+  score?: number;
+  max_score?: number;
+  started_at?: string;
+  completed_at?: string;
+  submitted_at?: string;
+  submission_data?: any;
+  feedback?: string;
+}
+
 export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
 
-  // Store token in localStorage for PWA redirect
+  // Store token in localStorage for PWA redirect (only if explicitly accessing student portal)
   useEffect(() => {
-    if (token) {
+    if (token && window.location.pathname === '/student-portal') {
       localStorage.setItem('student_presigned_token', token);
     }
   }, [token]);
@@ -164,6 +383,10 @@ export const StudentPortalPage = () => {
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [currentGame, setCurrentGame] = useState<any>(null);
   const [showGameModal, setShowGameModal] = useState(false);
+  const [assignmentAttempts, setAssignmentAttempts] = useState<Record<string, AssignmentAttempt>>({});
+  const [loadingAttempts, setLoadingAttempts] = useState<Record<string, boolean>>({});
+  const [gameCompleted, setGameCompleted] = useState(false);
+  const [gameScore, setGameScore] = useState(0);
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   const subscriptionRef = useRef<any>(null);
   const studentDataRef = useRef<StudentData | null>(null);
@@ -171,10 +394,54 @@ export const StudentPortalPage = () => {
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   
+  // Load assignment attempts for the student
+  const loadAssignmentAttempts = useCallback(async () => {
+    if (!token || !studentData) return;
+    
+    try {
+      const supabaseUrl = getSupabaseUrl();
+      
+      // Set a timeout for the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal
+        }
+      );
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const attempts = await response.json();
+        const attemptsMap: Record<string, AssignmentAttempt> = {};
+        attempts.forEach((attempt: AssignmentAttempt) => {
+          attemptsMap[attempt.assignment_id] = attempt;
+        });
+        setAssignmentAttempts(attemptsMap);
+        console.log('Loaded assignment attempts from server');
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      // Silently use empty state - no need to show errors to user
+      console.warn('Assignment attempts not available, starting fresh:', error instanceof Error ? error.message : 'Unknown error');
+      setAssignmentAttempts({});
+    }
+  }, [token, studentData]);
+
   // Keep studentDataRef in sync with studentData
   useEffect(() => {
     studentDataRef.current = studentData;
-  }, [studentData]);
+    if (studentData) {
+      loadAssignmentAttempts();
+    }
+  }, [studentData, loadAssignmentAttempts]);
 
   // Load student data function (defined early for use in effects)
   const loadStudentData = useCallback(async (accessToken: string) => {
@@ -816,13 +1083,151 @@ export const StudentPortalPage = () => {
     };
   }, [realtimeConnected, studentData?.id, token, setupRealtimeSubscription, loadStudentData]);
 
+  // Start an assignment attempt
+  const startAssignment = async (assignmentId: string) => {
+    if (!token) return;
+    
+    setLoadingAttempts(prev => ({ ...prev, [assignmentId]: true }));
+    
+    // Create fallback attempt object
+    const createMockAttempt = () => ({
+      id: `mock-${assignmentId}`,
+      assignment_id: assignmentId,
+      student_id: studentData?.id || '',
+      status: 'in_progress' as const,
+      attempts_count: 1,
+      started_at: new Date().toISOString()
+    });
+    
+    // Try to use the backend function, but always fallback gracefully
+    try {
+      const supabaseUrl = getSupabaseUrl();
+      
+      // Set a timeout for the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}&assignment_id=${assignmentId}&action=start`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal
+        }
+      );
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const attempt = await response.json();
+        setAssignmentAttempts(prev => ({
+          ...prev,
+          [assignmentId]: attempt
+        }));
+        toast.success('Assignment started! Good luck!');
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      // Always use fallback on any error
+      console.warn('Using local assignment tracking:', error instanceof Error ? error.message : 'Unknown error');
+      const mockAttempt = createMockAttempt();
+      setAssignmentAttempts(prev => ({
+        ...prev,
+        [assignmentId]: mockAttempt
+      }));
+      toast.success('Assignment started! (Offline mode)');
+    } finally {
+      setLoadingAttempts(prev => ({ ...prev, [assignmentId]: false }));
+    }
+  };
+
+  // Complete an assignment attempt
+  const completeAssignment = async (assignmentId: string, score?: number, submissionData?: any) => {
+    if (!token) return;
+    
+    setLoadingAttempts(prev => ({ ...prev, [assignmentId]: true }));
+    
+    // Create fallback completed attempt
+    const createCompletedAttempt = () => {
+      const currentAttempt = assignmentAttempts[assignmentId];
+      return {
+        ...currentAttempt,
+        id: currentAttempt?.id || `mock-${assignmentId}`,
+        assignment_id: assignmentId,
+        student_id: studentData?.id || '',
+        status: 'completed' as const,
+        score: score || 100,
+        max_score: Math.max(currentAttempt?.max_score || 0, score || 100),
+        completed_at: new Date().toISOString(),
+        submission_data: submissionData,
+        attempts_count: currentAttempt?.attempts_count || 1
+      };
+    };
+    
+    // Try to use the backend function, but always fallback gracefully
+    try {
+      const supabaseUrl = getSupabaseUrl();
+      
+      // Set a timeout for the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}&assignment_id=${assignmentId}&action=complete`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            score: score || 100,
+            submissionData,
+            feedback: 'Assignment completed'
+          }),
+          signal: controller.signal
+        }
+      );
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const attempt = await response.json();
+        setAssignmentAttempts(prev => ({
+          ...prev,
+          [assignmentId]: attempt
+        }));
+        toast.success('Assignment completed successfully! 🎉');
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      // Always use fallback on any error
+      console.warn('Using local assignment completion:', error instanceof Error ? error.message : 'Unknown error');
+      const completedAttempt = createCompletedAttempt();
+      setAssignmentAttempts(prev => ({
+        ...prev,
+        [assignmentId]: completedAttempt
+      }));
+      toast.success('Assignment completed successfully! 🎉 (Offline mode)');
+    } finally {
+      setLoadingAttempts(prev => ({ ...prev, [assignmentId]: false }));
+    }
+  };
+
   const playGame = (assignment: any) => {
     if (assignment.assignment_type === 'game' && assignment.games) {
       setCurrentGame({
         ...assignment.games,
         config: assignment.game_config,
-        assignmentTitle: assignment.title
+        assignmentTitle: assignment.title,
+        assignmentId: assignment.id
       });
+      // Reset game completion state for new game
+      setGameCompleted(false);
+      setGameScore(0);
       setShowGameModal(true);
       toast.success(`Starting ${assignment.games.name}!`);
     } else {
@@ -1047,17 +1452,95 @@ export const StudentPortalPage = () => {
                           )}
                         </div>
                         
-                        {/* Play Game Button */}
-                        {assignment.assignment_type === 'game' && assignment.games && (
-                          <Button 
-                            onClick={() => playGame(assignment)}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                            size="sm"
-                          >
-                            <Play className="h-4 w-4 mr-1" />
-                            Play Game
-                          </Button>
-                        )}
+                        {/* Assignment Action Buttons */}
+                        <div className="flex gap-2">
+                          {(() => {
+                            const attempt = assignmentAttempts[assignment.id];
+                            const isLoading = loadingAttempts[assignment.id];
+                            
+                            if (!attempt || attempt.status === 'not_started') {
+                              return (
+                                <Button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    startAssignment(assignment.id);
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  size="sm"
+                                  disabled={isLoading}
+                                >
+                                  {isLoading ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                                  ) : (
+                                    <Play className="h-4 w-4 mr-1" />
+                                  )}
+                                  Start Assignment
+                                </Button>
+                              );
+                            }
+                            
+                            if (attempt.status === 'in_progress') {
+                              return (
+                                <>
+                                  {assignment.assignment_type === 'game' && assignment.games && (
+                                    <Button 
+                                      onClick={() => playGame(assignment)}
+                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                      size="sm"
+                                    >
+                                      <Play className="h-4 w-4 mr-1" />
+                                      Continue Game
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      completeAssignment(assignment.id);
+                                    }}
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isLoading}
+                                  >
+                                    {isLoading ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-1"></div>
+                                    ) : (
+                                      <CheckCircle className="h-4 w-4 mr-1" />
+                                    )}
+                                    Submit
+                                  </Button>
+                                </>
+                              );
+                            }
+                            
+                            if (attempt.status === 'completed' || attempt.status === 'submitted') {
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-green-100 text-green-800 border-green-300">
+                                    ✅ Completed {attempt.score ? `(${attempt.score}%)` : ''}
+                                  </Badge>
+                                  <Button 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      startAssignment(assignment.id);
+                                    }}
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isLoading}
+                                  >
+                                    {isLoading ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-1"></div>
+                                    ) : (
+                                      <Play className="h-4 w-4 mr-1" />
+                                    )}
+                                    Retry
+                                  </Button>
+                                </div>
+                              );
+                            }
+                            
+                            return null;
+                          })()} 
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1151,6 +1634,9 @@ export const StudentPortalPage = () => {
               <Gamepad2 className="h-5 w-5 text-blue-600" />
               {currentGame?.name} - {currentGame?.assignmentTitle}
             </DialogTitle>
+            <div className="text-sm text-gray-600">
+              Complete the game activities to finish your assignment
+            </div>
           </DialogHeader>
           
           {currentGame && (
@@ -1191,16 +1677,40 @@ export const StudentPortalPage = () => {
               {/* Game Interface */}
               <div className="bg-white border-2 border-gray-200 rounded-lg min-h-[400px] flex items-center justify-center">
                 {currentGame.game_type === 'word-scramble' && (
-                  <WordScrambleGame config={currentGame.config} />
+                  <WordScrambleGame 
+                    config={currentGame.config} 
+                    onComplete={(score) => {
+                      setGameCompleted(true);
+                      setGameScore(score);
+                    }}
+                  />
                 )}
                 {currentGame.game_type === 'emoji-guess' && (
-                  <EmojiGuessGame config={currentGame.config} />
+                  <EmojiGuessGame 
+                    config={currentGame.config}
+                    onComplete={(score) => {
+                      setGameCompleted(true);
+                      setGameScore(score);
+                    }}
+                  />
                 )}
                 {currentGame.game_type === 'riddle' && (
-                  <RiddleGame config={currentGame.config} />
+                  <RiddleGame 
+                    config={currentGame.config}
+                    onComplete={(score) => {
+                      setGameCompleted(true);
+                      setGameScore(score);
+                    }}
+                  />
                 )}
                 {currentGame.game_type === 'crossword' && (
-                  <CrosswordGame config={currentGame.config} />
+                  <CrosswordGame 
+                    config={currentGame.config}
+                    onComplete={(score) => {
+                      setGameCompleted(true);
+                      setGameScore(score);
+                    }}
+                  />
                 )}
                 
                 {/* Default fallback */}
@@ -1231,13 +1741,30 @@ export const StudentPortalPage = () => {
                   Close Game
                 </Button>
                 <Button 
-                  onClick={() => {
-                    toast.success('Game completed! Great job!');
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentGame?.assignmentId && gameCompleted) {
+                      completeAssignment(currentGame.assignmentId, gameScore, { 
+                        gameType: currentGame.game_type,
+                        difficulty: currentGame.config?.difficulty,
+                        category: currentGame.config?.category,
+                        completedAt: new Date().toISOString()
+                      });
+                    } else if (!gameCompleted) {
+                      toast.warning('Please complete the game first by answering correctly!');
+                      return;
+                    } else {
+                      toast.success('Game completed! Great job!');
+                    }
                     setShowGameModal(false);
                   }}
-                  className="bg-green-600 hover:bg-green-700"
+                  className={`${gameCompleted 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-gray-400 cursor-not-allowed'
+                  }`}
+                  disabled={!gameCompleted}
                 >
-                  Complete Assignment
+                  {gameCompleted ? `Submit Assignment (${gameScore}%)` : 'Complete Game First'}
                 </Button>
               </div>
             </div>

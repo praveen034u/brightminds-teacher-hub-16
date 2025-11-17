@@ -9,12 +9,24 @@ export const LoginPage = () => {
   const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
 
   useEffect(() => {
-    // Student PWA shortcut logic: redirect if token exists
+    // Check URL params first - if someone is explicitly trying to access teacher login
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceTeacher = urlParams.get('teacher') === 'true';
+    const studentRedirect = urlParams.get('student') === 'true';
+    
+    if (forceTeacher) {
+      // Clear any student token if teacher login is explicitly requested
+      localStorage.removeItem('student_presigned_token');
+    }
+    
+    // Only auto-redirect to student portal if explicitly requested via URL param
+    // This prevents unwanted redirects when accessing localhost normally
     const studentToken = localStorage.getItem('student_presigned_token');
-    if (studentToken) {
+    if (studentToken && studentRedirect && !forceTeacher) {
       window.location.replace(`/student-portal?token=${encodeURIComponent(studentToken)}`);
       return;
     }
+    
     if (isAuthenticated) {
       navigate('/dashboard');
     }
@@ -51,6 +63,39 @@ export const LoginPage = () => {
           >
             {isLoading ? 'Loading...' : 'Sign In with Auth0'}
           </Button>
+
+          {localStorage.getItem('student_presigned_token') && (
+            <div className="text-center space-y-2">
+              <p className="text-sm text-muted-foreground mb-2">
+                Student session detected
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    const studentToken = localStorage.getItem('student_presigned_token');
+                    if (studentToken) {
+                      window.location.href = `/student-portal?token=${encodeURIComponent(studentToken)}`;
+                    }
+                  }}
+                  className="w-full"
+                >
+                  Continue as Student
+                </Button>
+                <Button 
+                  variant="ghost"
+                  onClick={() => {
+                    localStorage.removeItem('student_presigned_token');
+                    window.location.reload();
+                  }}
+                  className="w-full text-sm"
+                  size="sm"
+                >
+                  Clear Student Session
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="text-center text-sm text-muted-foreground">
             <p>Protected by Auth0</p>

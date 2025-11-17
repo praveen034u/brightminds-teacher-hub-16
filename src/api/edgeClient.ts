@@ -1,4 +1,4 @@
-import { getSupabaseUrl } from '@/config/supabase';
+import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 
 const SUPABASE_URL = getSupabaseUrl();
 
@@ -31,6 +31,7 @@ export async function callEdgeFunction(
     method,
     headers: {
       'Content-Type': 'application/json',
+      'apikey': getSupabasePublishableKey(),
     },
   };
 
@@ -38,14 +39,35 @@ export async function callEdgeFunction(
     config.body = JSON.stringify(body);
   }
 
-  const response = await fetch(url, config);
+  console.log(`🔗 Calling ${functionName}:`, url);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Request failed');
+  try {
+    const response = await fetch(url, config);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ ${functionName} error:`, {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.error || `Request failed with status ${response.status}`);
+      } catch {
+        throw new Error(`Request failed with status ${response.status}: ${errorText}`);
+      }
+    }
+
+    const result = await response.json();
+    console.log(`✅ ${functionName} success:`, result);
+    return result;
+    
+  } catch (error) {
+    console.error(`💥 ${functionName} fetch error:`, error);
+    throw error;
   }
-
-  return response.json();
 }
 
 // Convenience functions for each edge function
@@ -104,4 +126,10 @@ export const helpRequestsAPI = {
     callEdgeFunction('help-requests', auth0UserId, { method: 'POST', body: data }),
   update: (auth0UserId: string | null, id: string, data: any) =>
     callEdgeFunction('help-requests', auth0UserId, { method: 'PUT', params: { id }, body: data }),
+};
+
+export const teacherProgressAPI = {
+  getOverview: (auth0UserId: string | null) => callEdgeFunction('teacher-progress', auth0UserId),
+  getAssignmentProgress: (auth0UserId: string | null, assignmentId: string) =>
+    callEdgeFunction('teacher-progress', auth0UserId, { params: { assignment_id: assignmentId } }),
 };

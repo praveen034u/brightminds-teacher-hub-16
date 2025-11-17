@@ -6,7 +6,7 @@ import { QuickActionCard } from '@/components/cards/QuickActionCard';
 import { DashboardCard } from '@/components/cards/DashboardCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { studentsAPI, roomsAPI, assignmentsAPI, helpRequestsAPI } from '@/api/edgeClient';
+import { studentsAPI, roomsAPI, assignmentsAPI, helpRequestsAPI, meAPI } from '@/api/edgeClient';
 import { UserPlus, DoorOpen, FileText, Megaphone, Clock, CheckCircle2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,12 +30,53 @@ export const TeacherHome = () => {
 
   const loadDashboardData = async () => {
     try {
-      const [studentsData, roomsData, assignmentsData, helpRequestsData] = await Promise.all([
-        studentsAPI.list(auth0UserId),
-        roomsAPI.list(auth0UserId),
-        assignmentsAPI.list(auth0UserId),
-        helpRequestsAPI.list(auth0UserId),
-      ]);
+      console.log('🏠 Loading dashboard data for auth0UserId:', auth0UserId);
+      
+      if (!auth0UserId) {
+        console.warn('❌ No auth0UserId available');
+        toast.error('Authentication error: Please log in again');
+        return;
+      }
+
+      // First, ensure teacher is registered in database
+      console.log('👨‍🏫 Initializing teacher profile...');
+      try {
+        const teacherProfile = await meAPI.get(auth0UserId);
+        console.log('👨‍🏫 Teacher profile:', teacherProfile);
+      } catch (error) {
+        console.error('❌ Failed to initialize teacher profile:', error);
+        toast.error('Failed to initialize your profile. Please try again.');
+        return;
+      }
+
+      let studentsData, roomsData, assignmentsData, helpRequestsData;
+
+      // Load core data with fallback for help requests
+      try {
+        [studentsData, roomsData, assignmentsData] = await Promise.all([
+          studentsAPI.list(auth0UserId),
+          roomsAPI.list(auth0UserId),
+          assignmentsAPI.list(auth0UserId),
+        ]);
+
+        // Try to load help requests, but don't fail if it's not available
+        try {
+          helpRequestsData = await helpRequestsAPI.list(auth0UserId);
+        } catch (helpError) {
+          console.warn('⚠️ Help requests not available:', helpError);
+          helpRequestsData = []; // Use empty array as fallback
+        }
+      } catch (coreError) {
+        console.error('❌ Failed to load core data:', coreError);
+        throw coreError; // Re-throw if core data fails
+      }
+
+      console.log('🏠 Real API data loaded:', {
+        students: studentsData?.length || 0,
+        rooms: roomsData?.length || 0,
+        assignments: assignmentsData?.length || 0,
+        helpRequests: helpRequestsData?.length || 0
+      });
 
       setStats({
         totalStudents: studentsData.length,
@@ -47,6 +88,14 @@ export const TeacherHome = () => {
       setRooms(roomsData.slice(0, 3));
       setHelpRequests(helpRequestsData.filter((r: any) => r.status === 'pending').slice(0, 3));
       setAssignments(assignmentsData.slice(0, 3));
+
+      console.log('🏠 Final stats set:', {
+        totalStudents: studentsData.length,
+        totalRooms: roomsData.length,
+        activeAssignments: assignmentsData.filter((a: any) => a.status === 'active').length,
+        pendingHelpRequests: helpRequestsData.filter((r: any) => r.status === 'pending').length
+      });
+
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       toast.error('Failed to load dashboard data');
