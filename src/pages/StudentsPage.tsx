@@ -147,8 +147,8 @@ export const StudentsPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <Header />
-      
-      <main className="container mx-auto px-6 py-8">
+      {/* Add bottom padding for mobile footer */}
+      <main className="container mx-auto px-6 py-8 pb-20 sm:pb-8">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold mb-2">Students</h1>

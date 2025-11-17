@@ -17,6 +17,8 @@ import AssignmentsPage from "./pages/AssignmentsPage";
 import ProfilePage from "./pages/ProfilePage";
 import StudentPortalRedirect from "./pages/StudentPortalRedirect";
 import StudentPortalPage from "./pages/StudentPortalPage";
+import { Footer } from "@/components/layout/Footer";
+import { Sidebar } from "@/components/layout/Sidebar";
 
 const queryClient = new QueryClient();
 
@@ -35,49 +37,62 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<LoginPage />} />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <TeacherHome />
-                </ProtectedRoute>
-              } />
-              <Route path="/students" element={
-                <ProtectedRoute>
-                  <StudentsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/rooms" element={
-                <ProtectedRoute>
-                  <RoomsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/rooms/:roomId" element={
-                <ProtectedRoute>
-                  <RoomDetailPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/rooms/:roomId/student/:studentId" element={
-                <ProtectedRoute>
-                  <StudentActivityPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/assignments" element={
-                <ProtectedRoute>
-                  <AssignmentsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              } />
-              {/* Student Portal - No authentication required, uses token */}
-              <Route path="/student-portal" element={<StudentPortalPage />} />
-              <Route path="/student-portal-redirect" element={<ProtectedRoute><StudentPortalRedirect /></ProtectedRoute>} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            {/* Main app content */}
+            <div className="min-h-screen flex flex-col">
+              <div className="flex-1 flex">
+                {/* Sidebar: only show on desktop */}
+                <div className="hidden sm:block">
+                  <Sidebar />
+                </div>
+                {/* Main content: add bottom padding for mobile footer */}
+                <div className="flex-1 pb-20 sm:pb-0">
+                  <Routes>
+                    <Route path="/" element={<LoginPage />} />
+                    <Route path="/dashboard" element={
+                      <ProtectedRoute>
+                        <TeacherHome />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/students" element={
+                      <ProtectedRoute>
+                        <StudentsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/rooms" element={
+                      <ProtectedRoute>
+                        <RoomsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/rooms/:roomId" element={
+                      <ProtectedRoute>
+                        <RoomDetailPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/rooms/:roomId/student/:studentId" element={
+                      <ProtectedRoute>
+                        <StudentActivityPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/assignments" element={
+                      <ProtectedRoute>
+                        <AssignmentsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/profile" element={
+                      <ProtectedRoute>
+                        <ProfilePage />
+                      </ProtectedRoute>
+                    } />
+                    {/* Student Portal - No authentication required, uses token */}
+                    <Route path="/student-portal" element={<StudentPortalPage />} />
+                    <Route path="/student-portal-redirect" element={<ProtectedRoute><StudentPortalRedirect /></ProtectedRoute>} />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </div>
+              </div>
+              <Footer />
+            </div>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
