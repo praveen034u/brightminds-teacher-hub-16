@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js';
+
 // Supabase configuration
 // In production, these would come from environment variables
 // For Lovable preview, we use the provided values directly
@@ -16,3 +18,9 @@ export const getSupabaseUrl = () => {
 export const getSupabasePublishableKey = () => {
   return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || SUPABASE_CONFIG.publishableKey;
 };
+
+// Create and export Supabase client
+export const supabase = createClient(
+  getSupabaseUrl(),
+  getSupabasePublishableKey()
+);
