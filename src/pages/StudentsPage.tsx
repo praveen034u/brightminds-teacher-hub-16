@@ -21,11 +21,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { studentsAPI } from '@/api/edgeClient';
-import { UserPlus, Upload, Trash2, Edit, Copy, ExternalLink } from 'lucide-react';
+import { UserPlus, Upload, Trash2, Edit, Copy, ExternalLink, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export const StudentsPage = () => {
   const { auth0UserId } = useAuth();
+  const navigate = useNavigate();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -150,9 +152,20 @@ export const StudentsPage = () => {
       {/* Add bottom padding for mobile footer */}
       <main className="container mx-auto px-6 py-8 pb-20 sm:pb-8">
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Students</h1>
-            <p className="text-muted-foreground">Manage your students</p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="hover:bg-gray-100"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <div>
+              <h1 className="text-4xl font-bold mb-2">Students</h1>
+              <p className="text-muted-foreground">Manage your students</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Dialog open={showCsvDialog} onOpenChange={setShowCsvDialog}>

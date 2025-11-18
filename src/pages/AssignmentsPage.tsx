@@ -25,11 +25,13 @@ import {
 import { assignmentsAPI, roomsAPI, meAPI, teacherProgressAPI } from '@/api/edgeClient';
 import { supabase } from '@/config/supabase';
 import { getSupabaseUrl } from '@/config/supabase';
-import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User } from 'lucide-react';
+import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export const AssignmentsPage = () => {
   const { auth0UserId } = useAuth();
+  const navigate = useNavigate();
   const [assignments, setAssignments] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [games, setGames] = useState<any[]>([]);
@@ -39,6 +41,9 @@ export const AssignmentsPage = () => {
   const [showAssignmentDetails, setShowAssignmentDetails] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const [assignmentProgress, setAssignmentProgress] = useState<any[]>([]);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [assignmentToAssign, setAssignmentToAssign] = useState<any>(null);
+  const [selectedRoomForAssign, setSelectedRoomForAssign] = useState('');
   
   // Form state
   const [title, setTitle] = useState('');
@@ -278,6 +283,35 @@ export const AssignmentsPage = () => {
     }
   };
 
+  const handleAssignToRoom = async () => {
+    if (!assignmentToAssign || !selectedRoomForAssign) {
+      toast.error('Please select a room');
+      return;
+    }
+
+    try {
+      // Update the assignment to be assigned to the selected room
+      await assignmentsAPI.update(auth0UserId, assignmentToAssign.id, {
+        room_id: selectedRoomForAssign
+      });
+      
+      toast.success('Assignment successfully assigned to room!');
+      setShowAssignDialog(false);
+      setAssignmentToAssign(null);
+      setSelectedRoomForAssign('');
+      loadData(); // Refresh the data
+    } catch (error) {
+      console.error('Failed to assign assignment:', error);
+      toast.error('Failed to assign assignment to room');
+    }
+  };
+
+  const openAssignDialog = (assignment: any) => {
+    setAssignmentToAssign(assignment);
+    setSelectedRoomForAssign('');
+    setShowAssignDialog(true);
+  };
+
   const handleViewAssignmentDetails = async (assignment: any) => {
     try {
       setSelectedAssignment(assignment);
@@ -344,9 +378,20 @@ export const AssignmentsPage = () => {
       
       <main className="container mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Assignments</h1>
-            <p className="text-muted-foreground">Create and manage student assignments</p>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard')}
+              className="hover:bg-gray-100"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Dashboard
+            </Button>
+            <div>
+              <h1 className="text-4xl font-bold mb-2">Assignments</h1>
+              <p className="text-muted-foreground">Create and manage student assignments</p>
+            </div>
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
@@ -683,6 +728,15 @@ export const AssignmentsPage = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => openAssignDialog(assignment)}
+                        title="Assign to Room"
+                        className="hover:bg-green-50 hover:text-green-700"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleViewAssignmentDetails(assignment)}
                         title="View student progress"
                         className="hover:bg-blue-50 hover:text-blue-700"
@@ -966,6 +1020,79 @@ export const AssignmentsPage = () => {
                     📧 Send Reminders
                   </Button>
                 </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Assignment to Room Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-green-600" />
+              Assign Assignment to Room
+            </DialogTitle>
+          </DialogHeader>
+          
+          {assignmentToAssign && (
+            <div className="space-y-4">
+              {/* Assignment Info */}
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="font-medium text-blue-900">{assignmentToAssign.title}</h3>
+                <p className="text-sm text-blue-700 mt-1">{assignmentToAssign.description}</p>
+                {assignmentToAssign.rooms?.name && (
+                  <p className="text-xs text-blue-600 mt-2">
+                    Currently assigned to: <span className="font-medium">{assignmentToAssign.rooms.name}</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Room Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="assignRoom">Select Room to Assign To</Label>
+                <Select value={selectedRoomForAssign} onValueChange={setSelectedRoomForAssign}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a room..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.filter(room => room.id !== assignmentToAssign.room_id).map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{room.name}</span>
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {room.student_count || 0} students
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {rooms.filter(room => room.id !== assignmentToAssign.room_id).length === 0 && (
+                  <p className="text-sm text-gray-500 italic">
+                    No other rooms available. Create more rooms to assign this assignment to different groups.
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowAssignDialog(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleAssignToRoom}
+                  disabled={!selectedRoomForAssign}
+                  className="flex-1"
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Assign to Room
+                </Button>
               </div>
             </div>
           )}

@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { meAPI } from '@/api/edgeClient';
-import { User, Save } from 'lucide-react';
+import { User, Save, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export const ProfilePage = () => {
   const { user, auth0UserId } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
@@ -71,6 +73,17 @@ export const ProfilePage = () => {
       <main className="container mx-auto px-6 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
+            <div className="flex items-center gap-4 mb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/dashboard')}
+                className="hover:bg-gray-100"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </div>
             <h1 className="text-4xl font-bold mb-2">Teacher Profile</h1>
             <p className="text-muted-foreground">Manage your account information</p>
           </div>
