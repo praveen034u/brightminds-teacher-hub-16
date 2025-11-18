@@ -122,9 +122,21 @@ Deno.serve(async (req) => {
             student_id: student.id,
             status: 'in_progress',
             attempts_count: 1,
-            started_at: new Date().toISOString()
+            started_at: new Date().toISOString(),
+            realtime_synced: true
           }])
-          .select()
+          .select(`
+            *,
+            assignments!inner(
+              id,
+              title,
+              teacher_id
+            ),
+            students!inner(
+              id,
+              name
+            )
+          `)
           .single();
 
         if (createError) throw createError;
@@ -171,13 +183,65 @@ Deno.serve(async (req) => {
           completed_at: new Date().toISOString(),
           submission_data: submissionData,
           feedback: feedback,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          realtime_synced: true
         })
         .eq('id', existingAttempt.id)
-        .select()
+        .select(`
+          *,
+          assignments!inner(
+            id,
+            title,
+            teacher_id,
+            teachers!inner(
+              id,
+              auth0_user_id,
+              full_name
+            )
+          ),
+          students!inner(
+            id,
+            name,
+            email
+          )
+        `)
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update error details:', updateError);
+        throw updateError;
+      }
+
+      // Log successful completion for debugging
+      console.log('✅ Assignment completed successfully:', {
+        id: updatedAttempt.id,
+        assignment_id: updatedAttempt.assignment_id,
+        student_id: updatedAttempt.student_id,
+        student_name: updatedAttempt.students?.name,
+        score: updatedAttempt.score,
+        completed_at: updatedAttempt.completed_at
+      });
+
+      // Send a broadcast notification to teachers for immediate updates
+      try {
+        const broadcastChannel = supabase.channel('assignment-completion-alerts');
+        await broadcastChannel.send({
+          type: 'broadcast',
+          event: 'assignment-completed',
+          payload: {
+            assignmentId: updatedAttempt.assignment_id,
+            studentId: updatedAttempt.student_id,
+            studentName: updatedAttempt.students?.name || 'Unknown Student',
+            score: updatedAttempt.score,
+            completedAt: updatedAttempt.completed_at,
+            teacherId: updatedAttempt.assignments?.teacher_id
+          }
+        });
+        console.log('📡 Broadcast sent for assignment completion');
+      } catch (broadcastError) {
+        console.warn('Failed to send completion broadcast:', broadcastError);
+        // Don't fail the main operation if broadcast fails
+      }
 
       return new Response(JSON.stringify(updatedAttempt), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

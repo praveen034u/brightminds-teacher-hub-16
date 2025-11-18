@@ -1089,6 +1089,12 @@ export const StudentPortalPage = () => {
     
     setLoadingAttempts(prev => ({ ...prev, [assignmentId]: true }));
     
+    console.log('🚀 Starting assignment:', {
+      assignmentId,
+      studentId: studentData?.id,
+      token: token.substring(0, 10) + '...'
+    });
+    
     // Create fallback attempt object
     const createMockAttempt = () => ({
       id: `mock-${assignmentId}`,
@@ -1099,13 +1105,14 @@ export const StudentPortalPage = () => {
       started_at: new Date().toISOString()
     });
     
-    // Try to use the backend function, but always fallback gracefully
+    // Try to use the backend function first
+    let backendSuccess = false;
     try {
       const supabaseUrl = getSupabaseUrl();
       
-      // Set a timeout for the fetch request
+      console.log('📡 Attempting to start assignment via backend API...');
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
       
       const response = await fetch(
         `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}&assignment_id=${assignmentId}&action=start`,
@@ -1122,25 +1129,80 @@ export const StudentPortalPage = () => {
 
       if (response.ok) {
         const attempt = await response.json();
+        console.log('✅ Assignment started via backend API:', attempt);
         setAssignmentAttempts(prev => ({
           ...prev,
           [assignmentId]: attempt
         }));
         toast.success('Assignment started! Good luck!');
+        backendSuccess = true;
       } else {
-        throw new Error(`HTTP ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Backend API error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
     } catch (error) {
-      // Always use fallback on any error
-      console.warn('Using local assignment tracking:', error instanceof Error ? error.message : 'Unknown error');
-      const mockAttempt = createMockAttempt();
-      setAssignmentAttempts(prev => ({
-        ...prev,
-        [assignmentId]: mockAttempt
-      }));
-      toast.success('Assignment started! (Offline mode)');
+      console.warn('⚠️ Backend start failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // Try direct Supabase insert as fallback
+      try {
+        console.log('🔄 Attempting direct Supabase insert as fallback...');
+        
+        const supabaseUrl = getSupabaseUrl();
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWFlemhydWZkcmV3cGJha3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI1NTEzNzksImV4cCI6MjA0ODEyNzM3OX0.ftDq9dQLhRLlsXZ_ckUQxm2b0RZm8BQr1AAUHwhPXJc';
+        
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+        
+        const { data: insertData, error: insertError } = await supabaseClient
+          .from('assignment_attempts')
+          .upsert({
+            assignment_id: assignmentId,
+            student_id: studentData?.id,
+            status: 'in_progress',
+            attempts_count: 1,
+            started_at: new Date().toISOString()
+          }, {
+            onConflict: 'assignment_id,student_id'
+          })
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('❌ Direct Supabase insert failed:', insertError);
+          throw insertError;
+        }
+        
+        console.log('✅ Assignment started via direct Supabase insert:', insertData);
+        setAssignmentAttempts(prev => ({
+          ...prev,
+          [assignmentId]: insertData
+        }));
+        toast.success('Assignment started! Good luck! (Direct save)');
+        backendSuccess = true;
+        
+      } catch (supabaseError) {
+        console.error('❌ Both backend and direct Supabase failed:', supabaseError);
+        
+        // Final fallback - local state only
+        const mockAttempt = createMockAttempt();
+        setAssignmentAttempts(prev => ({
+          ...prev,
+          [assignmentId]: mockAttempt
+        }));
+        toast.success('Assignment started! (Local tracking - please check with teacher)');
+      }
     } finally {
       setLoadingAttempts(prev => ({ ...prev, [assignmentId]: false }));
+      
+      // Show final status
+      if (backendSuccess) {
+        console.log('🎉 Assignment start saved to database successfully!');
+        toast.info('✅ Your progress is being tracked', { duration: 2000 });
+      } else {
+        console.log('⚠️ Assignment start may not be synced to teacher dashboard');
+        toast.warning('⚠️ Progress saved locally - teacher may not see update immediately', { duration: 4000 });
+      }
     }
   };
 
@@ -1167,13 +1229,22 @@ export const StudentPortalPage = () => {
       };
     };
     
-    // Try to use the backend function, but always fallback gracefully
+    console.log('🎯 Completing assignment:', {
+      assignmentId,
+      score,
+      submissionData,
+      studentId: studentData?.id,
+      token: token.substring(0, 10) + '...'
+    });
+    
+    // Try to use the backend function first
+    let backendSuccess = false;
     try {
       const supabaseUrl = getSupabaseUrl();
       
-      // Set a timeout for the fetch request
+      console.log('📡 Attempting to complete assignment via backend API...');
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       const response = await fetch(
         `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}&assignment_id=${assignmentId}&action=complete`,
@@ -1195,25 +1266,139 @@ export const StudentPortalPage = () => {
 
       if (response.ok) {
         const attempt = await response.json();
+        console.log('✅ Assignment completed via backend API:', attempt);
         setAssignmentAttempts(prev => ({
           ...prev,
           [assignmentId]: attempt
         }));
         toast.success('Assignment completed successfully! 🎉');
+        backendSuccess = true;
       } else {
-        throw new Error(`HTTP ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Backend API error:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
     } catch (error) {
-      // Always use fallback on any error
-      console.warn('Using local assignment completion:', error instanceof Error ? error.message : 'Unknown error');
-      const completedAttempt = createCompletedAttempt();
-      setAssignmentAttempts(prev => ({
-        ...prev,
-        [assignmentId]: completedAttempt
-      }));
-      toast.success('Assignment completed successfully! 🎉 (Offline mode)');
+      console.warn('⚠️ Backend completion failed, using fallback:', error instanceof Error ? error.message : 'Unknown error');
+      
+      // Try direct Supabase insert as fallback
+      try {
+        console.log('🔄 Attempting direct Supabase insert as fallback...');
+        
+        const completedAttempt = createCompletedAttempt();
+        
+        // Use direct Supabase client to ensure data is saved
+        const supabaseUrl = getSupabaseUrl();
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWFlemhydWZkcmV3cGJha3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI1NTEzNzksImV4cCI6MjA0ODEyNzM3OX0.ftDq9dQLhRLlsXZ_ckUQxm2b0RZm8BQr1AAUHwhPXJc'; // Use anon key for student operations
+        
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+        
+        const { data: insertData, error: insertError } = await supabaseClient
+          .from('assignment_attempts')
+          .upsert({
+            assignment_id: assignmentId,
+            student_id: studentData?.id,
+            status: 'completed',
+            score: score || 100,
+            max_score: score || 100,
+            attempts_count: completedAttempt.attempts_count,
+            completed_at: new Date().toISOString(),
+            submission_data: submissionData,
+            feedback: 'Assignment completed'
+          }, {
+            onConflict: 'assignment_id,student_id'
+          })
+          .select()
+          .single();
+        
+        if (insertError) {
+          console.error('❌ Direct Supabase insert failed:', insertError);
+          throw insertError;
+        }
+        
+        console.log('✅ Assignment completed via direct Supabase insert:', insertData);
+        setAssignmentAttempts(prev => ({
+          ...prev,
+          [assignmentId]: insertData
+        }));
+        toast.success('Assignment completed successfully! 🎉 (Direct save)');
+        backendSuccess = true;
+        
+      } catch (supabaseError) {
+        console.error('❌ Both backend and direct Supabase failed:', supabaseError);
+        
+        // Final fallback - local state only
+        const completedAttempt = createCompletedAttempt();
+        setAssignmentAttempts(prev => ({
+          ...prev,
+          [assignmentId]: completedAttempt
+        }));
+        toast.success('Assignment completed successfully! 🎉 (Local save - please check with teacher)');
+      }
     } finally {
       setLoadingAttempts(prev => ({ ...prev, [assignmentId]: false }));
+      
+      // Show final status and force sync verification
+      if (backendSuccess) {
+        console.log('🎉 Assignment completion saved to database successfully!');
+        
+        // Verify the completion was actually saved by re-fetching
+        setTimeout(async () => {
+          try {
+            const supabaseUrl = getSupabaseUrl();
+            const verifyResponse = await fetch(
+              `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}&assignment_id=${assignmentId}`,
+              {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+            
+            if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json();
+              if (verifyData && verifyData.status === 'completed') {
+                console.log('✅ Completion verified in database:', verifyData);
+                toast.success('🎯 Assignment completion confirmed - teacher will see your progress!', { duration: 4000 });
+                
+                // Trigger a manual real-time broadcast to ensure teachers see the update
+                try {
+                  const { createClient } = await import('@supabase/supabase-js');
+                  const supabaseClient = createClient(supabaseUrl, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWFlemhydWZkcmV3cGJha3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI1NTEzNzksImV4cCI6MjA0ODEyNzM3OX0.ftDq9dQLhRLlsXZ_ckUQxm2b0RZm8BQr1AAUHwhPXJc');
+                  
+                  // Send a broadcast to notify teachers of the completion
+                  const channel = supabaseClient.channel('assignment-completion-alerts');
+                  await channel.send({
+                    type: 'broadcast',
+                    event: 'assignment-completed',
+                    payload: {
+                      assignmentId: assignmentId,
+                      studentId: studentData?.id,
+                      studentName: studentData?.name,
+                      completedAt: new Date().toISOString(),
+                      score: score || 100
+                    }
+                  });
+                  
+                  console.log('📡 Broadcast sent to notify teachers');
+                } catch (broadcastError) {
+                  console.warn('⚠️ Failed to send completion broadcast:', broadcastError);
+                }
+              } else {
+                console.warn('⚠️ Completion not found in verification check');
+                toast.warning('⚠️ Please check with your teacher - completion may not be visible yet', { duration: 5000 });
+              }
+            }
+          } catch (verifyError) {
+            console.warn('⚠️ Failed to verify completion:', verifyError);
+          }
+        }, 2000); // Wait 2 seconds before verification
+        
+        toast.info('✅ Progress has been saved and teacher will see the update', { duration: 3000 });
+      } else {
+        console.log('⚠️ Assignment completion may not be synced to teacher dashboard');
+        toast.error('❌ Assignment completion failed to save to database - please try again or contact your teacher', { duration: 8000 });
+      }
     }
   };
 

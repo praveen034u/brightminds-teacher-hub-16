@@ -4,15 +4,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { User, LogOut, BookOpen, LayoutDashboard, Building2 } from 'lucide-react';
+import { User, LogOut, BookOpen, LayoutDashboard, Building2, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 
 export const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshProfile } = useAuth();
   const location = useLocation();
 
   const getInitials = (name: string) => {
@@ -21,6 +23,17 @@ export const Header = () => {
       .map((n) => n[0])
       .join('')
       .toUpperCase();
+  };
+
+  const handleRefreshProfile = async () => {
+    try {
+      toast.info('Refreshing profile...');
+      await refreshProfile();
+      toast.success('Profile updated successfully!');
+    } catch (error) {
+      toast.error('Failed to refresh profile');
+      console.error('Failed to refresh profile:', error);
+    }
   };
 
     return (
@@ -52,14 +65,20 @@ export const Header = () => {
                   <span className="font-medium hidden sm:block">{user?.full_name || 'Teacher'}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem asChild>
                   <Link to="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
-                    Profile
+                    Profile Settings
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleRefreshProfile} className="cursor-pointer">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Profile Data
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   Logout
                 </DropdownMenuItem>

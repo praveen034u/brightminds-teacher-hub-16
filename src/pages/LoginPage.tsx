@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { testAuth0Configuration } from '@/utils/auth0Debug';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { loginWithRedirect, isAuthenticated, isLoading } = useAuth0();
+  const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0();
+
+  // Debug Auth0 configuration only when needed (removed automatic debug to prevent spam)
 
   useEffect(() => {
     // Check URL params first - if someone is explicitly trying to access teacher login
@@ -27,13 +30,19 @@ export const LoginPage = () => {
       return;
     }
     
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    if (isAuthenticated && !window.location.pathname.includes('/dashboard')) {
+      console.log('✅ User is authenticated, attempting to navigate to dashboard');
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
   const handleLogin = () => {
-    loginWithRedirect();
+    console.log('🔑 Login button clicked, initiating Auth0 redirect...');
+    try {
+      loginWithRedirect();
+    } catch (error) {
+      console.error('❌ Auth0 login error:', error);
+    }
   };
 
   return (
@@ -63,6 +72,16 @@ export const LoginPage = () => {
           >
             {isLoading ? 'Loading...' : 'Sign In with Auth0'}
           </Button>
+          
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm">
+              <p className="text-red-800 font-medium mb-1">Authentication Error:</p>
+              <p className="text-red-600">{error.message}</p>
+              <p className="text-red-500 text-xs mt-2">
+                Check console for more details
+              </p>
+            </div>
+          )}
 
           {localStorage.getItem('student_presigned_token') && (
             <div className="text-center space-y-2">
@@ -102,6 +121,22 @@ export const LoginPage = () => {
             <p className="text-xs mt-1">
               Enterprise-grade security for your classroom
             </p>
+            
+            {/* Debug button for development */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                const result = await testAuth0Configuration();
+                const message = result.success 
+                  ? '✅ Auth0 Connection: SUCCESS'
+                  : `❌ Auth0 Connection: FAILED - ${result.error}`;
+                alert(message);
+              }}
+              className="mt-2 text-xs"
+            >
+              Test Auth0
+            </Button>
           </div>
         </CardContent>
       </Card>

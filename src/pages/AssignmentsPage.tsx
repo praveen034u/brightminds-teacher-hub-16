@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ import {
 import { assignmentsAPI, roomsAPI, meAPI, teacherProgressAPI } from '@/api/edgeClient';
 import { supabase } from '@/config/supabase';
 import { getSupabaseUrl } from '@/config/supabase';
-import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, UserPlus } from 'lucide-react';
+import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, UserPlus, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
@@ -46,6 +46,14 @@ export const AssignmentsPage = () => {
   const [assignmentToAssign, setAssignmentToAssign] = useState<any>(null);
   const [selectedRoomForAssign, setSelectedRoomForAssign] = useState('');
   
+  // Real-time subscription state
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const subscriptionRef = useRef<any>(null);
+  const broadcastChannelRef = useRef<any>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 5;
+  
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -60,19 +68,243 @@ export const AssignmentsPage = () => {
   });
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
 
+  // Reconnection logic with exponential backoff
+  const attemptReconnect = useCallback(() => {
+    if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+      console.log('Max reconnection attempts reached for assignment attempts');
+      toast.error('Live updates disconnected. Please refresh the page.', { duration: 5000 });
+      return;
+    }
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    reconnectAttemptsRef.current += 1;
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 10000);
+
+    console.log(`Attempting to reconnect assignment attempts (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}) in ${delay}ms...`);
+    
+    reconnectTimeoutRef.current = setTimeout(async () => {
+      if (subscriptionRef.current && supabase) {
+        await supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Reuse the setupRealtimeSubscription function
+      if (!auth0UserId || !supabase) {
+        console.log('Cannot setup real-time subscription: missing auth0UserId or supabase');
+        return;
+      }
+
+      const channelName = `teacher-assignments-${auth0UserId}-${Date.now()}`;
+      const channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'assignment_attempts'
+          },
+          (payload) => {
+            console.log('🔔 Assignment attempt change detected:', payload);
+            
+            const attemptData = payload.new || payload.old;
+            
+            if (attemptData && typeof attemptData === 'object' && 'assignment_id' in attemptData) {
+              console.log('📊 Attempt data:', {
+                assignmentId: (attemptData as any).assignment_id,
+                studentId: (attemptData as any).student_id,
+                status: (attemptData as any).status,
+                score: (attemptData as any).score,
+                event: payload.eventType
+              });
+              
+              if (payload.eventType === 'INSERT' && 'status' in attemptData && attemptData.status === 'in_progress') {
+                toast.info(`📝 ${(attemptData as any).student_name || 'A student'} started an assignment`, { duration: 3000 });
+              } else if (payload.eventType === 'UPDATE' && 'status' in attemptData && attemptData.status === 'completed') {
+                const studentName = (attemptData as any).student_name || 'A student';
+                const score = (attemptData as any).score;
+                toast.success(`🎉 ${studentName} completed an assignment${score ? ` with ${score}% score` : ''}!`, { duration: 5000 });
+                
+                // Force immediate data refresh for completed assignments
+                console.log('🎯 Assignment completed - forcing immediate refresh...');
+                setTimeout(() => {
+                  loadData();
+                  console.log('🔄 Forced refresh completed for assignment completion');
+                }, 500);
+              }
+              
+              console.log('🔄 Auto-refreshing assignments due to attempt change...');
+              loadData();
+            }
+          }
+        )
+        .subscribe((status, err) => {
+          console.log('🔔 Assignment attempts subscription status:', status);
+          if (err) console.error('🔔 Subscription error:', err);
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Successfully subscribed to assignment attempts updates!');
+            setRealtimeConnected(true);
+            reconnectAttemptsRef.current = 0;
+            toast.success('📡 Live progress updates enabled', { duration: 2000 });
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ Failed to subscribe to assignment attempts');
+            setRealtimeConnected(false);
+            attemptReconnect();
+          } else if (status === 'TIMED_OUT') {
+            console.error('⏱️ Assignment attempts subscription timed out');
+            setRealtimeConnected(false);
+            attemptReconnect();
+          } else if (status === 'CLOSED') {
+            console.log('🔌 Assignment attempts subscription closed');
+            setRealtimeConnected(false);
+          }
+        });
+
+      if (channel) {
+        subscriptionRef.current = channel;
+      }
+    }, delay);
+  }, [auth0UserId]);
+
+  // Setup real-time subscription for assignment attempts
+  const setupRealtimeSubscription = useCallback(() => {
+    if (!auth0UserId || !supabase) {
+      console.log('Cannot setup real-time subscription: missing auth0UserId or supabase');
+      return null;
+    }
+
+    console.log('🔔 Setting up real-time subscription for assignment attempts...');
+    
+    const channelName = `teacher-assignments-${auth0UserId}-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'assignment_attempts'
+        },
+        (payload) => {
+          console.log('🔔 Assignment attempt change detected:', payload);
+          
+          // Get the assignment attempt data
+          const attemptData = payload.new || payload.old;
+          
+          if (attemptData && typeof attemptData === 'object' && 'assignment_id' in attemptData) {
+            console.log('📊 Attempt data:', {
+              assignmentId: (attemptData as any).assignment_id,
+              studentId: (attemptData as any).student_id,
+              status: (attemptData as any).status,
+              score: (attemptData as any).score,
+              event: payload.eventType
+            });
+            
+            // Show real-time notification
+            if (payload.eventType === 'INSERT' && 'status' in attemptData && attemptData.status === 'in_progress') {
+              toast.info('📝 A student started an assignment', { duration: 3000 });
+            } else if (payload.eventType === 'UPDATE' && 'status' in attemptData && attemptData.status === 'completed') {
+              toast.success('🎉 A student completed an assignment!', { duration: 5000 });
+            }
+            
+            // Auto-refresh assignment data to show updated progress
+            console.log('🔄 Auto-refreshing assignments due to attempt change...');
+            loadData();
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('🔔 Assignment attempts subscription status:', status);
+        if (err) console.error('🔔 Subscription error:', err);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to assignment attempts updates!');
+          setRealtimeConnected(true);
+          reconnectAttemptsRef.current = 0;
+          toast.success('📡 Live progress updates enabled', { duration: 2000 });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Failed to subscribe to assignment attempts');
+          setRealtimeConnected(false);
+          attemptReconnect();
+        } else if (status === 'TIMED_OUT') {
+          console.error('⏱️ Assignment attempts subscription timed out');
+          setRealtimeConnected(false);
+          attemptReconnect();
+        } else if (status === 'CLOSED') {
+          console.log('🔌 Assignment attempts subscription closed');
+          setRealtimeConnected(false);
+        }
+      });
+
+    return channel;
+  }, [auth0UserId, attemptReconnect]);
+
   useEffect(() => {
     loadData();
     
-    // Set up auto-refresh for real-time updates
+    // Set up real-time subscription
+    const channel = setupRealtimeSubscription();
+    if (channel) {
+      subscriptionRef.current = channel;
+    }
+    
+    // Setup broadcast channel for immediate completion alerts
+    let broadcastChannel = null;
+    if (supabase) {
+      broadcastChannel = supabase
+        .channel('assignment-completion-alerts')
+        .on(
+          'broadcast',
+          { event: 'assignment-completed' },
+          (payload) => {
+            console.log('🎯 Received assignment completion broadcast:', payload);
+            const { studentName, assignmentId, score } = payload.payload || {};
+            
+            if (studentName && assignmentId) {
+              toast.success(`🎉 ${studentName} just completed an assignment${score ? ` (${score}%)` : ''}!`, { 
+                duration: 6000
+              });
+              
+              // Immediate refresh to show the completion
+              setTimeout(() => {
+                console.log('🔄 Refreshing from broadcast notification...');
+                loadData();
+              }, 1000);
+            }
+          }
+        )
+        .subscribe();
+      
+      broadcastChannelRef.current = broadcastChannel;
+    }
+    
+    // Set up auto-refresh as backup for real-time updates
     const refreshInterval = setInterval(() => {
       if (!loading) {
         console.log('🔄 Auto-refreshing assignment progress...');
         loadData();
       }
-    }, 30000); // Refresh every 30 seconds
+    }, 60000); // Refresh every 60 seconds (reduced frequency since we have real-time)
     
-    return () => clearInterval(refreshInterval);
-  }, [auth0UserId]);
+    return () => {
+      clearInterval(refreshInterval);
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (subscriptionRef.current && supabase) {
+        supabase.removeChannel(subscriptionRef.current);
+      }
+      if (broadcastChannelRef.current && supabase) {
+        supabase.removeChannel(broadcastChannelRef.current);
+      }
+    };
+  }, [auth0UserId, setupRealtimeSubscription]);
 
   const refreshData = () => {
     console.log('🔄 Manual refresh triggered');
@@ -315,12 +547,70 @@ export const AssignmentsPage = () => {
 
   const handleViewAssignmentDetails = async (assignment: any) => {
     try {
+      console.log('📊 Loading assignment details for:', assignment.id, assignment.title);
       setSelectedAssignment(assignment);
       setShowAssignmentDetails(true);
       setAssignmentProgress([]); // Reset progress data
       
-      // Fetch students and their assignment attempts
+      // Use the teacher-progress API to get comprehensive data
       const supabaseUrl = getSupabaseUrl();
+      
+      console.log('🔍 Fetching detailed progress data...');
+      const progressResponse = await fetch(
+        `${supabaseUrl}/functions/v1/teacher-progress?auth0_user_id=${auth0UserId}&assignment_id=${assignment.id}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      if (progressResponse.ok) {
+        const progressResult = await progressResponse.json();
+        console.log('📊 Progress API response:', progressResult);
+        
+        if (progressResult.progress && Array.isArray(progressResult.progress)) {
+          const progressData = progressResult.progress.map((student: any) => ({
+            id: student.student_id,
+            student_name: student.student_name,
+            student_email: student.student_email || 'No email',
+            status: student.status,
+            attempts: student.status === 'not_started' ? 0 : 1,
+            score: student.score,
+            started_at: student.started_at,
+            completed_at: student.completed_at,
+          }));
+          
+          console.log('✅ Processed progress data:', progressData);
+          setAssignmentProgress(progressData);
+        } else {
+          console.warn('⚠️ No progress array in response');
+          // Fallback: try to get students directly
+          await loadStudentsDirectly(assignment);
+        }
+      } else {
+        console.error('❌ Progress API failed, status:', progressResponse.status);
+        const errorText = await progressResponse.text();
+        console.error('❌ Progress API error:', errorText);
+        
+        // Fallback: try to get students directly
+        await loadStudentsDirectly(assignment);
+      }
+    } catch (error) {
+      console.error('❌ Error loading assignment details:', error);
+      toast.error('Failed to load assignment details');
+      
+      // Last fallback
+      await loadStudentsDirectly(assignment);
+    }
+  };
+  
+  const loadStudentsDirectly = async (assignment: any) => {
+    try {
+      console.log('🔄 Fallback: Loading students directly...');
+      const supabaseUrl = getSupabaseUrl();
+      
+      // Fetch students directly
       const studentsResponse = await fetch(
         `${supabaseUrl}/functions/v1/students?auth0_user_id=${auth0UserId}`,
         {
@@ -332,20 +622,32 @@ export const AssignmentsPage = () => {
       
       if (studentsResponse.ok) {
         const students = await studentsResponse.json();
+        console.log('👥 Students data:', students);
         
         // Fetch assignment attempts using Supabase client
+        console.log('📝 Fetching assignment attempts for assignment:', assignment.id);
         const { data: attempts, error: attemptsError } = await supabase
           .from('assignment_attempts')
           .select('*')
           .eq('assignment_id', assignment.id);
         
+        console.log('📝 Assignment attempts data:', attempts);
+        console.log('📝 Assignment attempts error:', attemptsError);
+        
         if (attemptsError) {
-          console.warn('Error fetching assignment attempts:', attemptsError);
+          console.warn('⚠️ Error fetching assignment attempts:', attemptsError);
         }
         
         // Create progress data for each student
         const progressData = students.map((student: any) => {
           const attempt = attempts?.find(a => a.student_id === student.id);
+          
+          console.log(`🎯 Student ${student.name} (${student.id}):`, {
+            hasAttempt: !!attempt,
+            attemptStatus: attempt?.status,
+            attemptScore: attempt?.score,
+            attemptCount: attempt?.attempts_count
+          });
           
           return {
             id: student.id,
@@ -359,13 +661,15 @@ export const AssignmentsPage = () => {
           };
         });
         
+        console.log('✅ Final progress data:', progressData);
         setAssignmentProgress(progressData);
       } else {
+        console.error('❌ Failed to fetch students');
         toast.error('No students found for this teacher');
       }
     } catch (error) {
-      console.error('Error loading assignment details:', error);
-      toast.error('Failed to load assignment details');
+      console.error('❌ Error in loadStudentsDirectly:', error);
+      toast.error('Failed to load student data');
     }
   };
 
@@ -392,16 +696,44 @@ export const AssignmentsPage = () => {
             <div>
               <h1 className="text-4xl font-bold mb-2">Assignments</h1>
               <p className="text-muted-foreground">Create and manage student assignments</p>
+              {/* Debug info for authentication troubleshooting */}
+              {auth0UserId && (
+                <p className="text-xs text-blue-600 mt-1">
+                  ✅ Authenticated as: {auth0UserId.slice(-8)}
+                </p>
+              )}
             </div>
           </div>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <FileText className="mr-2 h-4 w-4" />
-                Create Assignment
+          <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {realtimeConnected ? (
+                <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span>Live Updates</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-full">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                  <span>Connecting...</span>
+                </div>
+              )}
+              <Button
+                variant="outline"
+                onClick={refreshData}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            </div>
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Create Assignment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Assignment</DialogTitle>
               </DialogHeader>
@@ -666,6 +998,7 @@ export const AssignmentsPage = () => {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Filter */}
@@ -1005,12 +1338,131 @@ export const AssignmentsPage = () => {
 
               {/* Action Buttons */}
               <div className="flex justify-between pt-4 border-t">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowAssignmentDetails(false)}
-                >
-                  Close
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAssignmentDetails(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => selectedAssignment && handleViewAssignmentDetails(selectedAssignment)}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh Progress
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      // Debug function to check assignment attempts
+                      if (!selectedAssignment) return;
+                      console.log('🔍 Debugging assignment attempts for:', selectedAssignment.id);
+                      
+                      try {
+                        // Direct query to assignment_attempts table
+                        const { data: allAttempts, error } = await supabase
+                          .from('assignment_attempts')
+                          .select('*')
+                          .eq('assignment_id', selectedAssignment.id);
+                        
+                        console.log('📊 All attempts for assignment:', allAttempts);
+                        console.log('❌ Query error:', error);
+                        
+                        // Show results in toast
+                        if (allAttempts && allAttempts.length > 0) {
+                          toast.success(`Found ${allAttempts.length} assignment attempts in database`);
+                          console.log('📋 Attempt details:');
+                          allAttempts.forEach(attempt => {
+                            console.log(`  Student ${attempt.student_id}: ${attempt.status}, Score: ${attempt.score}`);
+                          });
+                        } else {
+                          toast.warning('No assignment attempts found in database');
+                        }
+                        
+                      } catch (error) {
+                        console.error('Debug error:', error);
+                        toast.error('Debug query failed');
+                      }
+                    }}
+                    className="text-xs"
+                  >
+                    🐛 Debug DB
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      // Create sample assignment attempts for testing
+                      if (!selectedAssignment || !auth0UserId) return;
+                      
+                      console.log('🧪 Creating sample assignment attempts...');
+                      
+                      try {
+                        // Get students for this teacher first
+                        const supabaseUrl = getSupabaseUrl();
+                        const studentsResponse = await fetch(
+                          `${supabaseUrl}/functions/v1/students?auth0_user_id=${auth0UserId}`,
+                          {
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                          }
+                        );
+                        
+                        if (!studentsResponse.ok) {
+                          throw new Error('Failed to fetch students');
+                        }
+                        
+                        const students = await studentsResponse.json();
+                        console.log('👥 Found students:', students);
+                        
+                        if (students.length === 0) {
+                          toast.warning('No students found to create sample attempts');
+                          return;
+                        }
+                        
+                        // Create sample attempts for students
+                        const sampleAttempts = students.slice(0, 3).map((student: any, index: number) => ({
+                          assignment_id: selectedAssignment.id,
+                          student_id: student.id,
+                          status: ['completed', 'in_progress', 'completed'][index],
+                          attempts_count: [2, 1, 1][index],
+                          score: [85, null, 92][index],
+                          max_score: [85, null, 92][index],
+                          started_at: new Date(Date.now() - (24 * 60 * 60 * 1000) * (index + 1)).toISOString(),
+                          completed_at: index !== 1 ? new Date(Date.now() - (12 * 60 * 60 * 1000) * (index + 1)).toISOString() : null,
+                          submission_data: { sampleData: true }
+                        }));
+                        
+                        console.log('📝 Creating sample attempts:', sampleAttempts);
+                        
+                        const { data: insertedAttempts, error: insertError } = await supabase
+                          .from('assignment_attempts')
+                          .upsert(sampleAttempts, { onConflict: 'assignment_id,student_id' })
+                          .select();
+                        
+                        if (insertError) {
+                          console.error('Insert error:', insertError);
+                          toast.error('Failed to create sample attempts: ' + insertError.message);
+                        } else {
+                          console.log('✅ Sample attempts created:', insertedAttempts);
+                          toast.success(`Created ${insertedAttempts?.length || 0} sample assignment attempts`);
+                          
+                          // Refresh the assignment details
+                          handleViewAssignmentDetails(selectedAssignment);
+                        }
+                        
+                      } catch (error) {
+                        console.error('Sample creation error:', error);
+                        toast.error('Failed to create sample attempts');
+                      }
+                    }}
+                    className="text-xs bg-yellow-100 hover:bg-yellow-200"
+                  >
+                    🧪 Create Test Data
+                  </Button>
+                </div>
                 <div className="flex gap-2">
                   <Button variant="outline">
                     📊 Export Progress
@@ -1102,3 +1554,4 @@ export const AssignmentsPage = () => {
 };
 
 export default AssignmentsPage;
+
