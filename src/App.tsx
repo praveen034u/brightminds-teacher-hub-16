@@ -18,86 +18,101 @@ import ProfilePage from "./pages/ProfilePage";
 import StudentPortalRedirect from "./pages/StudentPortalRedirect";
 import StudentPortalPage from "./pages/StudentPortalPage";
 import { Footer } from "@/components/layout/Footer";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <Auth0Provider
-      domain="dev-jbrriuc5vyjmiwtx.us.auth0.com"
-      clientId="hRgZXlSYVCedu8jYuTWadyoTA3T8EISD"
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: "https://dev-jbrriuc5vyjmiwtx.us.auth0.com/userinfo"
-      }}
-    >
-      <AuthProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <Auth0Provider
+        domain="dev-jbrriuc5vyjmiwtx.us.auth0.com"
+        clientId="hRgZXlSYVCedu8jYuTWadyoTA3T8EISD"
+        authorizationParams={{
+          redirect_uri: window.location.origin,
+          audience: "https://dev-jbrriuc5vyjmiwtx.us.auth0.com/userinfo"
+        }}
+      >
+        <AuthProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
             {/* Main app content */}
             <div className="min-h-screen flex flex-col">
-              <div className="flex-1 flex">
-                {/* Sidebar: only show on desktop */}
-                <div className="hidden sm:block">
-                  <Sidebar />
-                </div>
-                {/* Main content: add bottom padding for mobile footer */}
-                <div className="flex-1 pb-20 sm:pb-0">
-                  <Routes>
-                    <Route path="/" element={<LoginPage />} />
-                    <Route path="/dashboard" element={
-                      <ProtectedRoute>
-                        <TeacherHome />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/students" element={
-                      <ProtectedRoute>
-                        <StudentsPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/rooms" element={
-                      <ProtectedRoute>
-                        <RoomsPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/rooms/:roomId" element={
-                      <ProtectedRoute>
-                        <RoomDetailPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/rooms/:roomId/student/:studentId" element={
-                      <ProtectedRoute>
-                        <StudentActivityPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/assignments" element={
-                      <ProtectedRoute>
-                        <AssignmentsPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/profile" element={
-                      <ProtectedRoute>
-                        <ProfilePage />
-                      </ProtectedRoute>
-                    } />
-                    {/* Student Portal - No authentication required, uses token */}
-                    <Route path="/student-portal" element={<StudentPortalPage />} />
-                    <Route path="/student-portal-redirect" element={<ProtectedRoute><StudentPortalRedirect /></ProtectedRoute>} />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </div>
-              </div>
+              <Routes>
+                {/* Routes without sidebar */}
+                <Route path="/" element={<LoginPage />} />
+                <Route path="/student-portal" element={<StudentPortalPage />} />
+                <Route path="*" element={<NotFound />} />
+                
+                {/* Routes with sidebar - wrapped in DashboardLayout */}
+                <Route path="/dashboard" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <TeacherHome />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/students" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <StudentsPage />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/rooms" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <RoomsPage />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/rooms/:roomId" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <RoomDetailPage />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/rooms/:roomId/student/:studentId" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <StudentActivityPage />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/assignments" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <AssignmentsPage />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/profile" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/student-portal-redirect" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <StudentPortalRedirect />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+              </Routes>
               <Footer />
             </div>
           </BrowserRouter>
         </TooltipProvider>
-      </AuthProvider>
-    </Auth0Provider>
-  </QueryClientProvider>
+        </AuthProvider>
+      </Auth0Provider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

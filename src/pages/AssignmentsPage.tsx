@@ -28,6 +28,7 @@ import { getSupabaseUrl } from '@/config/supabase';
 import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { LoadingState } from '@/components/LoadingState';
 
 export const AssignmentsPage = () => {
   const { auth0UserId } = useAuth();
@@ -686,9 +687,7 @@ export const AssignmentsPage = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          </div>
+          <LoadingState type="assignments" count={6} />
         ) : filteredAssignments.length > 0 ? (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredAssignments.map((assignment) => (
