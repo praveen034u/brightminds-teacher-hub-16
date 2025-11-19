@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { getSupabaseUrl } from '@/config/supabase';
+import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 
 interface Teacher {
   id: string;
@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         token = await getAccessTokenSilently();
       } catch (tokenError) {
-        console.warn('Could not get access token, proceeding without authentication header');
+        console.warn('Could not get access token, proceeding with apikey authentication');
       }
 
       // Extract real user data from Auth0
@@ -87,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        'apikey': getSupabasePublishableKey(),
       };
 
       if (token) {
@@ -106,10 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // First, try GET request (original method)
       let response = await fetch(apiUrl, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        }
+        headers
       });
       
       console.log('📥 GET API Response status:', response.status, response.statusText);
@@ -163,7 +161,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.ok) {
           const teacher = await response.json();
           console.log('✅ Teacher profile loaded successfully via POST:', teacher);
-          setUser(teacher);
+          
+          // If teacher is null, set an empty profile placeholder
+          if (teacher === null) {
+            console.log('No teacher profile found, user needs to complete profile');
+            setUser({
+              id: '',
+              auth0_user_id: userId,
+              full_name: realUserName,
+              email: realUserEmail,
+            } as Teacher);
+          } else {
+            setUser(teacher);
+          }
         } else {
           const errorText = await response.text();
           console.error('❌ Both GET and POST failed:', {

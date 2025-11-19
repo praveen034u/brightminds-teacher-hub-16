@@ -141,17 +141,46 @@ Deno.serve(async (req) => {
         });
       }
     }
+    }
 
     if (req.method === 'PUT') {
-      // Update teacher profile
+      // Update or create teacher profile
       const body = await req.json();
       
-      const { data: teacher, error } = await supabase
+      // First check if teacher exists
+      const { data: existingTeacher } = await supabase
         .from('teachers')
-        .update(body)
+        .select('*')
         .eq('auth0_user_id', auth0UserId)
-        .select()
         .single();
+
+      let teacher, error;
+
+      if (existingTeacher) {
+        // Update existing teacher
+        const result = await supabase
+          .from('teachers')
+          .update(body)
+          .eq('auth0_user_id', auth0UserId)
+          .select()
+          .single();
+        
+        teacher = result.data;
+        error = result.error;
+      } else {
+        // Create new teacher
+        const result = await supabase
+          .from('teachers')
+          .insert({
+            auth0_user_id: auth0UserId,
+            ...body
+          })
+          .select()
+          .single();
+        
+        teacher = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 

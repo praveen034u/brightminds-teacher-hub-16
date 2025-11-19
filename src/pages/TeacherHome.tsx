@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { QuickActionCard } from '@/components/cards/QuickActionCard';
@@ -10,8 +10,9 @@ import { studentsAPI, roomsAPI, assignmentsAPI, helpRequestsAPI, meAPI } from '@
 import { UserPlus, DoorOpen, FileText, Megaphone, Clock, CheckCircle2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
-export const TeacherHome = () => {
-  const { user, auth0UserId } = useAuth();
+const TeacherHome = () => {
+  const { user, auth0UserId, isLoading } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalRooms: 0,
@@ -22,8 +23,16 @@ export const TeacherHome = () => {
   const [helpRequests, setHelpRequests] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
 
+  // Redirect to profile page if teacher profile is incomplete (missing full_name)
   useEffect(() => {
-    if (user) {
+    if (!isLoading && user && (!user.full_name || user.full_name.trim() === '')) {
+      console.log('Profile incomplete, redirecting to profile page');
+      navigate('/profile', { replace: true });
+    }
+  }, [user, isLoading, navigate]);
+
+  useEffect(() => {
+    if (user && user.full_name && user.full_name.trim() !== '') {
       loadDashboardData();
     }
   }, [user, auth0UserId]);
@@ -114,8 +123,28 @@ export const TeacherHome = () => {
     }
   };
 
-  if (!user || !auth0UserId) {
-    return null;
+  // Show loading while auth is loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading if user has no profile (redirect will happen via useEffect)
+  if (!user || !auth0UserId || !user.full_name || user.full_name.trim() === '') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Setting up your profile...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -313,8 +342,9 @@ export const TeacherHome = () => {
           </DashboardCard>
         )}
       </main>
+
     </div>
   );
-};
+}
 
 export default TeacherHome;

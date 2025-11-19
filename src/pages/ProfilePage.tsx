@@ -10,8 +10,8 @@ import { User, Save, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
-export const ProfilePage = () => {
-  const { user, auth0UserId } = useAuth();
+const ProfilePage = () => {
+  const { user, auth0UserId, isLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -58,6 +58,11 @@ export const ProfilePage = () => {
 
       await meAPI.update(auth0UserId, updateData);
       toast.success('Profile updated successfully');
+      
+      // Redirect to dashboard after successful profile creation/update
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1000);
     } catch (error) {
       console.error('Failed to update profile:', error);
       toast.error('Failed to update profile');
@@ -65,6 +70,32 @@ export const ProfilePage = () => {
       setLoading(false);
     }
   };
+
+  // Show loading state while auth is initializing
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Ensure user exists before rendering
+  if (!user || !auth0UserId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Unable to load profile. Please try logging in again.</p>
+          <Button onClick={() => navigate('/')} className="mt-4">
+            Back to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
