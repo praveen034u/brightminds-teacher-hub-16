@@ -122,21 +122,23 @@ export const LoginPage = () => {
               Enterprise-grade security for your classroom
             </p>
             
-            {/* Debug button for development */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                const result = await testAuth0Configuration();
-                const message = result.success 
-                  ? '✅ Auth0 Connection: SUCCESS'
-                  : `❌ Auth0 Connection: FAILED - ${result.error}`;
-                alert(message);
-              }}
-              className="mt-2 text-xs"
-            >
-              Test Auth0
-            </Button>
+            {/* Debug button for development only */}
+            {import.meta.env.DEV && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  const result = await testAuth0Configuration();
+                  const message = result.success 
+                    ? '✅ Auth0 Connection: SUCCESS'
+                    : `❌ Auth0 Connection: FAILED - ${result.error}`;
+                  alert(message);
+                }}
+                className="mt-2 text-xs"
+              >
+                Test Auth0
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

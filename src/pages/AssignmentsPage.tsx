@@ -24,8 +24,8 @@ import {
 } from '@/components/ui/select';
 import { assignmentsAPI, roomsAPI, meAPI, teacherProgressAPI } from '@/api/edgeClient';
 import { supabase } from '@/config/supabase';
-import { getSupabaseUrl } from '@/config/supabase';
-import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, UserPlus, RefreshCw } from 'lucide-react';
+import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
+import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
@@ -42,9 +42,6 @@ export const AssignmentsPage = () => {
   const [showAssignmentDetails, setShowAssignmentDetails] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const [assignmentProgress, setAssignmentProgress] = useState<any[]>([]);
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [assignmentToAssign, setAssignmentToAssign] = useState<any>(null);
-  const [selectedRoomForAssign, setSelectedRoomForAssign] = useState('');
   
   // Real-time subscription state
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -60,6 +57,27 @@ export const AssignmentsPage = () => {
   const [dueDate, setDueDate] = useState('');
   const [roomType, setRoomType] = useState<'prebuilt' | 'custom'>('prebuilt');
   const [selectedPrebuiltRoom, setSelectedPrebuiltRoom] = useState('');
+  const [selectedRoom, setSelectedRoom] = useState('none');
+  
+  // Custom room assignment templates
+  const [savedAssignmentTemplates, setSavedAssignmentTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templatesFeatureAvailable, setTemplatesFeatureAvailable] = useState(false);
+
+  // Auto-enable template saving for custom rooms
+  useEffect(() => {
+    if (roomType === 'custom') {
+      setSaveAsTemplate(true);
+      if (!templateName.trim()) {
+        setTemplateName(`Custom Room Assignment ${new Date().toLocaleDateString()}`);
+      }
+    } else {
+      setSaveAsTemplate(false);
+      setTemplateName('');
+    }
+  }, [roomType]);
   
   // Game configuration state
   const [selectedGameConfig, setSelectedGameConfig] = useState({
@@ -359,51 +377,36 @@ export const AssignmentsPage = () => {
         return;
       }
       
-      // Get real-time progress data from teacher-progress API
+      // Temporarily disable progress API due to authentication issues
+      // Use basic assignment data with zero progress values
       let assignmentsWithProgress;
-      try {
-        const progressData = await teacherProgressAPI.getOverview(auth0UserId);
-        console.log('📊 Progress data received:', progressData);
-        
-        // Match progress data with assignments
-        assignmentsWithProgress = assignmentsData.map((assignment: any) => {
-          const progress = progressData.find((p: any) => p.id === assignment.id);
-          if (progress) {
-            return {
-              ...assignment,
-              totalStudents: progress.total_students,
-              completedStudents: progress.completed,
-              inProgressStudents: progress.in_progress,
-              notStartedStudents: progress.not_started,
-              averageScore: Math.round(progress.average_score)
-            };
-          } else {
-            // Fallback if no progress data available
-            return {
-              ...assignment,
-              totalStudents: 0,
-              completedStudents: 0,
-              inProgressStudents: 0,
-              notStartedStudents: 0,
-              averageScore: 0
-            };
-          }
-        });
-      } catch (progressError) {
-        console.warn('⚠️ Failed to load progress data, using basic assignment data:', progressError);
-        // Use assignments without progress data as fallback
-        assignmentsWithProgress = assignmentsData.map((assignment: any) => ({
-          ...assignment,
-          totalStudents: 0,
-          completedStudents: 0,
-          inProgressStudents: 0,
-          notStartedStudents: 0,
-          averageScore: 0
-        }));
-      }
+      console.log('📊 Using basic assignment data (progress API temporarily disabled)');
+      assignmentsWithProgress = assignmentsData.map((assignment: any) => ({
+        ...assignment,
+        totalStudents: 0,
+        completedStudents: 0,
+        inProgressStudents: 0,
+        notStartedStudents: 0,
+        averageScore: 0
+      }));
       
       setAssignments(assignmentsWithProgress);
       setRooms(roomsData);
+      
+      // Load saved assignment templates for custom rooms
+      try {
+        console.log('📝 Loading assignment templates from local storage...');
+        
+        // Load from localStorage as fallback while server function is being fixed
+        const localTemplates = JSON.parse(localStorage.getItem(`templates_${auth0UserId}`) || '[]');
+        console.log('📋 Loaded local templates:', localTemplates?.length || 0);
+        setSavedAssignmentTemplates(localTemplates || []);
+        setTemplatesFeatureAvailable(true);
+      } catch (error) {
+        console.warn('⚠️ Error loading assignment templates:', error);
+        // Don't let template loading errors break the main app
+        setSavedAssignmentTemplates([]);
+      }
       
       // Fetch games from Supabase with enhanced data
       const { data: gamesData, error } = await supabase
@@ -429,7 +432,19 @@ export const AssignmentsPage = () => {
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    console.log('🚀 Starting assignment creation...');
+    console.log('📋 Form state:', { title, description, dueDate, roomType, selectedPrebuiltRoom, selectedRoom });
+    
+    if (!validateForm()) {
+      console.log('❌ Form validation failed');
+      return;
+    }
+
+    if (!auth0UserId) {
+      console.error('❌ No auth0UserId available');
+      toast.error('Authentication error: Please log in again');
+      return;
+    }
 
     try {
       const assignmentData = {
@@ -440,13 +455,121 @@ export const AssignmentsPage = () => {
         description,
         dueDate,
         status: 'active',
+        room_id: selectedRoom && selectedRoom !== 'none' ? selectedRoom : null, // Add room assignment
       };
 
-      console.log('Creating assignment with data:', assignmentData);
-      console.log('Auth0 User ID:', auth0UserId);
+      console.log('📤 Creating assignment with data:', assignmentData);
+      console.log('🔑 Auth0 User ID:', auth0UserId);
+      console.log('🎮 Selected game config:', selectedGameConfig);
+      console.log('🏠 Selected room:', selectedRoom);
 
-      await assignmentsAPI.create(auth0UserId, assignmentData);
-      toast.success('Assignment created successfully');
+      // For custom rooms, save as template if requested
+      if (roomType === 'custom' && saveAsTemplate && templateName.trim()) {
+        try {
+          // Get the actual teacher ID from the teacher profile API
+          const teacherProfile = await meAPI.get(auth0UserId);
+          const actualTeacherId = teacherProfile?.id;
+          
+          if (!actualTeacherId) {
+            throw new Error('Could not get teacher ID');
+          }
+          
+          const templateData = {
+            teacher_id: actualTeacherId,
+            template_type: 'custom_room',
+            name: templateName.trim(),
+            title,
+            description,
+            template_data: {
+              roomType,
+              roomValue: '',
+              gameConfig: null
+            }
+          };
+          
+          console.log('📝 Attempting to save template:', {
+            templateName: templateName.trim(),
+            actualTeacherId,
+            auth0UserId,
+            templateData
+          });
+          
+          // Save template - use local storage until server function is fixed
+        console.log('📝 Saving assignment template locally...');
+        
+        let templateError = null;
+        
+        try {
+          // Create template object with unique ID
+          const templateObj = {
+            id: `template_${Date.now()}`,
+            ...templateData,
+            teacher_id: actualTeacherId,
+            created_at: new Date().toISOString()
+          };
+          
+          // Get existing templates from localStorage
+          const existingTemplates = JSON.parse(localStorage.getItem(`templates_${auth0UserId}`) || '[]');
+          
+          // Add new template
+          const updatedTemplates = [templateObj, ...existingTemplates];
+          
+          // Save to localStorage
+          localStorage.setItem(`templates_${auth0UserId}`, JSON.stringify(updatedTemplates));
+          
+          console.log('✅ Template saved locally:', templateObj);
+          toast.success(`Template "${templateName}" saved locally for future use!`);
+          
+          // Update the templates list in state
+          setSavedAssignmentTemplates(updatedTemplates);
+        } catch (localError) {
+          console.error('❌ Failed to save template locally:', localError);
+          templateError = {
+            code: '500',
+            message: 'Failed to save template locally',
+            details: localError.message,
+            hint: undefined
+          };
+        }
+            
+          if (templateError) {
+            console.error('❌ Template save error details:', {
+              code: templateError.code,
+              message: templateError.message,
+              details: templateError.details,
+              hint: templateError.hint,
+              fullError: templateError
+            });
+            
+            if (templateError.code === 'PGRST106' || templateError.message.includes('does not exist')) {
+              console.warn('📝 Assignment templates table does not exist. Please run the SQL migration first.');
+              toast.warning('Assignment created! To save templates, please contact your administrator to set up the templates table.');
+            } else if (templateError.code === '42501') {
+              console.warn('🔒 RLS policy error - please run the RLS fix SQL script');
+              toast.warning('Assignment created! Template saving needs database permissions to be fixed.');
+            } else {
+              console.error('❌ Failed to save template:', templateError.message || 'Unknown error');
+              toast.warning(`Assignment created but template save failed: ${templateError.message || 'Unknown error'}`);
+            }
+          } else {
+            console.log('✅ Assignment template saved successfully');
+            toast.success('Assignment created and saved as template!');
+            // Reload templates
+            loadData();
+          }
+        } catch (templateError) {
+          console.error('❌ Error saving template:', templateError);
+          toast.warning('Assignment created but template save failed');
+        }
+      }
+
+      const result = await assignmentsAPI.create(auth0UserId, assignmentData);
+      console.log('✅ Assignment created successfully:', result);
+      
+      if (roomType === 'prebuilt' || !saveAsTemplate) {
+        toast.success('Assignment created successfully');
+      }
+      
       setShowCreateDialog(false);
       
       // Reset form
@@ -455,42 +578,79 @@ export const AssignmentsPage = () => {
       setDueDate('');
       setRoomType('prebuilt');
       setSelectedPrebuiltRoom('');
+      setSelectedRoom('none');
       setSelectedGameConfig({ difficulty: 'easy', category: '' });
       setAvailableCategories([]);
+      setSelectedTemplate('');
+      setSaveAsTemplate(false);
+      setTemplateName('');
       
       loadData();
-    } catch (error) {
-      console.error('Error creating assignment:', error);
-      toast.error('Failed to create assignment');
+    } catch (error: any) {
+      console.error('❌ Error creating assignment:', error);
+      
+      // More detailed error logging
+      if (error?.response) {
+        console.error('📡 API Response Error:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        toast.error(`Failed to create assignment: ${error.response.status} ${error.response.statusText}`);
+      } else if (error?.message) {
+        console.error('💬 Error Message:', error.message);
+        toast.error(`Failed to create assignment: ${error.message}`);
+      } else {
+        console.error('🔍 Unknown error type:', typeof error, error);
+        toast.error('Failed to create assignment: Unknown error occurred');
+      }
     }
   };
 
 
 
   const validateForm = () => {
+    console.log('🔍 Validating form...');
+    
     if (!title.trim()) {
+      console.log('❌ Validation failed: No title');
       toast.error('Please enter a title');
       return false;
     }
     if (!description.trim()) {
+      console.log('❌ Validation failed: No description');
       toast.error('Please enter a description');
       return false;
     }
     if (!dueDate) {
+      console.log('❌ Validation failed: No due date');
       toast.error('Please select a due date');
       return false;
     }
     if (roomType === 'prebuilt' && !selectedPrebuiltRoom) {
+      console.log('❌ Validation failed: No game selected for prebuilt room');
       toast.error('Please select a game');
       return false;
     }
     if (roomType === 'prebuilt' && selectedPrebuiltRoom) {
       const selectedGame = games.find(g => g.id === selectedPrebuiltRoom);
+      console.log('🎮 Selected game for validation:', selectedGame);
       if (selectedGame?.categories && selectedGame.categories.length > 0 && !selectedGameConfig.category) {
+        console.log('❌ Validation failed: No category selected for game with categories');
         toast.error('Please select a category for this game');
         return false;
       }
     }
+    
+    // Validate custom room template saving
+    if (roomType === 'custom' && saveAsTemplate && !templateName.trim()) {
+      console.log('❌ Validation failed: No template name provided');
+      toast.error('Please enter a template name to save');
+      return false;
+    }
+    
+    console.log('✅ Form validation passed');
     return true;
   };
 
@@ -516,34 +676,7 @@ export const AssignmentsPage = () => {
     }
   };
 
-  const handleAssignToRoom = async () => {
-    if (!assignmentToAssign || !selectedRoomForAssign) {
-      toast.error('Please select a room');
-      return;
-    }
 
-    try {
-      // Update the assignment to be assigned to the selected room
-      await assignmentsAPI.update(auth0UserId, assignmentToAssign.id, {
-        room_id: selectedRoomForAssign
-      });
-      
-      toast.success('Assignment successfully assigned to room!');
-      setShowAssignDialog(false);
-      setAssignmentToAssign(null);
-      setSelectedRoomForAssign('');
-      loadData(); // Refresh the data
-    } catch (error) {
-      console.error('Failed to assign assignment:', error);
-      toast.error('Failed to assign assignment to room');
-    }
-  };
-
-  const openAssignDialog = (assignment: any) => {
-    setAssignmentToAssign(assignment);
-    setSelectedRoomForAssign('');
-    setShowAssignDialog(true);
-  };
 
   const handleViewAssignmentDetails = async (assignment: any) => {
     try {
@@ -933,21 +1066,107 @@ export const AssignmentsPage = () => {
                     
                     <TabsContent value="custom" className="mt-4">
                       <div className="space-y-4">
-                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
-                          <div className="space-y-4">
-                            <div className="h-16 w-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-600 flex items-center justify-center mx-auto">
-                              <FileText className="h-8 w-8 text-white" />
+                        {/* Saved Templates Selection - only show if we have templates or if the feature is available */}
+                        {savedAssignmentTemplates.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Use Saved Template (Optional)</Label>
+                            <Select value={selectedTemplate} onValueChange={(value) => {
+                              setSelectedTemplate(value);
+                              if (value && value !== 'new') {
+                                const template = savedAssignmentTemplates.find(t => t.id === value);
+                                if (template) {
+                                  setTitle(template.title);
+                                  setDescription(template.description);
+                                }
+                              }
+                            }}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a saved template or create new..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="new">
+                                  <div className="flex items-center gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    <span>Create New Assignment</span>
+                                  </div>
+                                </SelectItem>
+                                {savedAssignmentTemplates.map((template) => (
+                                  <SelectItem key={template.id} value={template.id}>
+                                    <div className="flex items-center justify-between w-full">
+                                      <span>{template.name}</span>
+                                      <span className="text-xs text-gray-500 ml-2">
+                                        {new Date(template.created_at).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        
+                        {/* Save as Template Option - only show if feature is available */}
+                        {templatesFeatureAvailable && (
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="saveAsTemplate"
+                                checked={saveAsTemplate}
+                                onChange={(e) => setSaveAsTemplate(e.target.checked)}
+                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                              />
+                              <Label htmlFor="saveAsTemplate" className="text-sm font-medium">
+                                Save as Template for Future Use
+                              </Label>
+                            </div>
+                          
+                          {saveAsTemplate && (
+                            <div className="space-y-1">
+                              <Label htmlFor="templateName" className="text-sm">Template Name *</Label>
+                              <Input
+                                id="templateName"
+                                value={templateName}
+                                onChange={(e) => setTemplateName(e.target.value)}
+                                placeholder="Enter a name for this template..."
+                                className="w-full"
+                              />
+                              <p className="text-xs text-gray-500">
+                                This will save the assignment details as a reusable template.
+                              </p>
+                            </div>
+                          )}
+                          </div>
+                        )}
+                        
+                        {/* Show message if templates feature is not available */}
+                        {!templatesFeatureAvailable && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            <div className="flex items-center gap-2 text-amber-800">
+                              <span className="text-sm">💡</span>
+                              <span className="text-sm font-medium">Templates Feature</span>
+                            </div>
+                            <p className="text-xs text-amber-700 mt-1">
+                              To save and reuse assignment templates, the database needs to be set up. Contact your administrator to enable this feature.
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
+                          <div className="space-y-3">
+                            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center mx-auto">
+                              <FileText className="h-6 w-6 text-white" />
                             </div>
                             <div className="space-y-2">
-                              <h3 className="text-lg font-semibold text-gray-800">Custom Room Coming Soon</h3>
+                              <h3 className="text-lg font-semibold text-gray-800">Custom Room Assignment</h3>
                               <p className="text-sm text-gray-600 max-w-md mx-auto">
-                                Upload your own custom content and create personalized learning experiences for your students.
+                                Create custom assignments with your own content. Save as templates for easy reuse.
                               </p>
                             </div>
                             <div className="flex justify-center gap-2">
-                              <Badge variant="outline" className="text-xs">📁 File Upload</Badge>
-                              <Badge variant="outline" className="text-xs">🎨 Custom Content</Badge>
-                              <Badge variant="outline" className="text-xs">📚 Your Materials</Badge>
+                              <Badge variant="outline" className="text-xs">📝 Custom Content</Badge>
+                              <Badge variant="outline" className="text-xs">💾 Save Templates</Badge>
+                              <Badge variant="outline" className="text-xs">🔄 Reuse Later</Badge>
                             </div>
                           </div>
                         </div>
@@ -992,8 +1211,43 @@ export const AssignmentsPage = () => {
                   />
                 </div>
 
+                {/* Room Assignment */}
+                <div className="space-y-2">
+                  <Label htmlFor="assignRoom" className="text-sm font-medium">Assign to Room (Optional)</Label>
+                  <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Choose a room to assign this assignment..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-gray-400"></div>
+                          <span>No room assignment</span>
+                        </div>
+                      </SelectItem>
+                      {rooms.map((room) => (
+                        <SelectItem key={room.id} value={room.id}>
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                              <span>{room.name}</span>
+                            </div>
+                            <span className="text-xs text-gray-500 ml-2">({room.student_count || 0} students)</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">
+                    {selectedRoom && selectedRoom !== 'none'
+                      ? `This assignment will be available to students in the selected room.`
+                      : `Assignment will be available to all students. You can assign it to a specific room later.`
+                    }
+                  </p>
+                </div>
+
                 <Button type="submit" className="w-full">
-                  Create Assignment
+                  {roomType === 'custom' && saveAsTemplate ? 'Create and Save Assignment' : 'Create Assignment'}
                 </Button>
               </form>
             </DialogContent>
@@ -1057,15 +1311,6 @@ export const AssignmentsPage = () => {
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openAssignDialog(assignment)}
-                        title="Assign to Room"
-                        className="hover:bg-green-50 hover:text-green-700"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1477,78 +1722,7 @@ export const AssignmentsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Assign Assignment to Room Dialog */}
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-green-600" />
-              Assign Assignment to Room
-            </DialogTitle>
-          </DialogHeader>
-          
-          {assignmentToAssign && (
-            <div className="space-y-4">
-              {/* Assignment Info */}
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-medium text-blue-900">{assignmentToAssign.title}</h3>
-                <p className="text-sm text-blue-700 mt-1">{assignmentToAssign.description}</p>
-                {assignmentToAssign.rooms?.name && (
-                  <p className="text-xs text-blue-600 mt-2">
-                    Currently assigned to: <span className="font-medium">{assignmentToAssign.rooms.name}</span>
-                  </p>
-                )}
-              </div>
 
-              {/* Room Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="assignRoom">Select Room to Assign To</Label>
-                <Select value={selectedRoomForAssign} onValueChange={setSelectedRoomForAssign}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a room..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rooms.filter(room => room.id !== assignmentToAssign.room_id).map((room) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{room.name}</span>
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {room.student_count || 0} students
-                          </Badge>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {rooms.filter(room => room.id !== assignmentToAssign.room_id).length === 0 && (
-                  <p className="text-sm text-gray-500 italic">
-                    No other rooms available. Create more rooms to assign this assignment to different groups.
-                  </p>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowAssignDialog(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleAssignToRoom}
-                  disabled={!selectedRoomForAssign}
-                  className="flex-1"
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Assign to Room
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
