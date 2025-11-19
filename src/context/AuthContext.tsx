@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { getSupabaseUrl } from '@/config/supabase';
+import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 
 interface Teacher {
   id: string;
@@ -53,13 +53,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           {
             headers: {
               'Content-Type': 'application/json',
+              'apikey': getSupabasePublishableKey(),
             },
           }
         );
         
         if (response.ok) {
           const teacher = await response.json();
-          setUser(teacher);
+          
+          // If teacher is null, set an empty profile placeholder
+          if (teacher === null) {
+            console.log('No teacher profile found, user needs to complete profile');
+            setUser({
+              id: '',
+              auth0_user_id: userId,
+              full_name: '',
+              email: auth0User.email || '',
+            } as Teacher);
+          } else {
+            setUser(teacher);
+          }
         } else {
           console.error('Failed to load teacher profile');
           setUser(null);

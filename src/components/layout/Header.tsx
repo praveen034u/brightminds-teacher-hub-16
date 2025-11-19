@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +14,7 @@ import { useLocation } from 'react-router-dom';
 
 export const Header = () => {
   const { user, logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const location = useLocation();
 
   const getInitials = (name: string) => {
@@ -59,9 +61,19 @@ export const Header = () => {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={logout} className="cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
+                <DropdownMenuItem asChild>
+                  <button
+                    className="w-full flex items-center gap-2 cursor-pointer bg-transparent border-none p-0 text-left"
+                    disabled={isLoggingOut}
+                    onClick={async () => {
+                      setIsLoggingOut(true);
+                      await new Promise((resolve) => setTimeout(resolve, 500));
+                      logout();
+                    }}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    {isLoggingOut ? 'Logging out...' : 'Logout'}
+                  </button>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

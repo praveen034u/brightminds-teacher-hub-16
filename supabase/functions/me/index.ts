@@ -32,24 +32,8 @@ Deno.serve(async (req) => {
       }
 
       if (!teacher) {
-        // Create mock teacher if doesn't exist
-        const { data: newTeacher, error: insertError } = await supabase
-          .from('teachers')
-          .insert({
-            auth0_user_id: auth0UserId,
-            full_name: 'Mrs. Sharma',
-            email: 'sharma@brightminds.edu',
-            school_name: 'Bright Future Elementary',
-            grades_taught: ['3', '4', '5'],
-            subjects: ['English', 'Math', 'Science'],
-            preferred_language: 'English',
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        return new Response(JSON.stringify(newTeacher), {
+        // If teacher does not exist, return null (frontend will handle profile creation)
+        return new Response(JSON.stringify(null), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -60,15 +44,43 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'PUT') {
-      // Update teacher profile
+      // Update or create teacher profile
       const body = await req.json();
       
-      const { data: teacher, error } = await supabase
+      // First check if teacher exists
+      const { data: existingTeacher } = await supabase
         .from('teachers')
-        .update(body)
+        .select('*')
         .eq('auth0_user_id', auth0UserId)
-        .select()
         .single();
+
+      let teacher, error;
+
+      if (existingTeacher) {
+        // Update existing teacher
+        const result = await supabase
+          .from('teachers')
+          .update(body)
+          .eq('auth0_user_id', auth0UserId)
+          .select()
+          .single();
+        
+        teacher = result.data;
+        error = result.error;
+      } else {
+        // Create new teacher
+        const result = await supabase
+          .from('teachers')
+          .insert({
+            auth0_user_id: auth0UserId,
+            ...body
+          })
+          .select()
+          .single();
+        
+        teacher = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
