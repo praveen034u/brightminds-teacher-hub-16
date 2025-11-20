@@ -17,3 +17,15 @@ verify_jwt = false
 
 [functions.student-portal]
 verify_jwt = false
+
+[functions.teacher-progress]
+verify_jwt = false
+
+[functions.assignment-attempts]
+verify_jwt = false
+
+[functions.assignment-templates]
+verify_jwt = false
+
+[functions.templates]
+verify_jwt = false

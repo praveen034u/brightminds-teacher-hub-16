@@ -1149,7 +1149,7 @@ export const StudentPortalPage = () => {
         console.log('🔄 Attempting direct Supabase insert as fallback...');
         
         const supabaseUrl = getSupabaseUrl();
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWFlemhydWZkcmV3cGJha3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI1NTEzNzksImV4cCI6MjA0ODEyNzM3OX0.ftDq9dQLhRLlsXZ_ckUQxm2b0RZm8BQr1AAUHwhPXJc';
+        const supabaseKey = getSupabasePublishableKey();
         
         const { createClient } = await import('@supabase/supabase-js');
         const supabaseClient = createClient(supabaseUrl, supabaseKey);
@@ -1289,7 +1289,7 @@ export const StudentPortalPage = () => {
         
         // Use direct Supabase client to ensure data is saved
         const supabaseUrl = getSupabaseUrl();
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWFlemhydWZkcmV3cGJha3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI1NTEzNzksImV4cCI6MjA0ODEyNzM3OX0.ftDq9dQLhRLlsXZ_ckUQxm2b0RZm8BQr1AAUHwhPXJc'; // Use anon key for student operations
+        const supabaseKey = getSupabasePublishableKey(); // Use correct project key for student operations
         
         const { createClient } = await import('@supabase/supabase-js');
         const supabaseClient = createClient(supabaseUrl, supabaseKey);
@@ -1364,7 +1364,7 @@ export const StudentPortalPage = () => {
                 // Trigger a manual real-time broadcast to ensure teachers see the update
                 try {
                   const { createClient } = await import('@supabase/supabase-js');
-                  const supabaseClient = createClient(supabaseUrl, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWFlemhydWZkcmV3cGJha3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI1NTEzNzksImV4cCI6MjA0ODEyNzM3OX0.ftDq9dQLhRLlsXZ_ckUQxm2b0RZm8BQr1AAUHwhPXJc');
+                  const supabaseClient = createClient(supabaseUrl, getSupabasePublishableKey());
                   
                   // Send a broadcast to notify teachers of the completion
                   const channel = supabaseClient.channel('assignment-completion-alerts');

@@ -72,7 +72,35 @@ Deno.serve(async (req) => {
     if (req.method === 'POST') {
       const body = await req.json();
       
-      console.log('Assignment creation request body:', body);
+      console.log('🚨🚨🚨 BACKEND DEBUG: Assignment creation request received! 🚨🚨🚨');
+      console.log('📥 Assignment creation request body:', JSON.stringify(body, null, 2));
+      console.log('🔍 Key fields received:');
+      console.log(`   - roomType: ${body.roomType}`);
+      console.log(`   - room_id: ${body.room_id} (type: ${typeof body.room_id})`);
+      console.log(`   - roomValue: ${body.roomValue}`);
+      console.log(`   - title: ${body.title}`);
+      
+      // CRITICAL: Check if room_id is actually present
+      if (body.hasOwnProperty('room_id')) {
+        console.log('✅ room_id field is present in request body');
+        if (body.room_id) {
+          console.log(`✅ room_id has value: ${body.room_id}`);
+        } else {
+          console.log('⚠️ room_id field is present but value is falsy:', body.room_id);
+        }
+      } else {
+        console.log('❌ room_id field is MISSING from request body!');
+      }
+      
+      // CRITICAL DEBUG: Check if room_id is being lost somewhere
+      if (body.roomType === 'prebuilt' && body.room_id) {
+        console.log('🎯 PRE-BUILT + ROOM ASSIGNMENT DETECTED:');
+        console.log(`   Frontend sent room_id: ${body.room_id}`);
+        console.log(`   This assignment SHOULD be restricted to students in room: ${body.room_id}`);
+      } else if (body.roomType === 'prebuilt' && !body.room_id) {
+        console.log('⚠️ PRE-BUILT WITHOUT ROOM ASSIGNMENT:');
+        console.log(`   Frontend did NOT send room_id - assignment will be available to ALL students`);
+      }
       
       let assignmentData;
       
@@ -113,8 +141,18 @@ Deno.serve(async (req) => {
           assignment_type: 'game',
           game_id: game.id,
           game_config: body.gameConfig || {},
-          room_id: null // No specific room for game assignments
+          room_id: body.room_id || null // Respect room assignment for game assignments
         };
+        
+        console.log('🎮 PRE-BUILT GAME ASSIGNMENT DATA:');
+        console.log(`   - Game ID: ${game.id}`);
+        console.log(`   - Room ID from body: ${body.room_id}`);
+        console.log(`   - Final room_id: ${assignmentData.room_id}`);
+        if (assignmentData.room_id) {
+          console.log(`   ✅ Assignment will be LIMITED to students in room: ${assignmentData.room_id}`);
+        } else {
+          console.log(`   ⚠️ Assignment will be AVAILABLE TO ALL STUDENTS (no room restriction)`);
+        }
       } else {
         // For custom room assignments (existing logic)
         console.log('Creating room assignment');
@@ -129,13 +167,43 @@ Deno.serve(async (req) => {
         };
       }
 
-      console.log('Assignment data to insert:', assignmentData);
+      console.log('📝 Assignment data to insert:', assignmentData);
 
       const { data: assignment, error } = await supabase
         .from('assignments')
         .insert(assignmentData)
         .select()
         .single();
+        
+      if (assignment) {
+        console.log('✅ Assignment created successfully:');
+        console.log(`   - Title: ${assignment.title}`);
+        console.log(`   - Type: ${assignment.assignment_type}`);
+        console.log(`   - Room ID: ${assignment.room_id || 'None (available to all students)'}`);
+        console.log(`   - Teacher ID: ${assignment.teacher_id}`);
+        
+        // Verify room assignment if specified
+        if (assignment.room_id) {
+          console.log(`🔍 Verifying room assignment for room: ${assignment.room_id}`);
+          
+          // Get students in this room
+          supabase
+            .from('room_students')
+            .select(`
+              students!inner(
+                name
+              )
+            `)
+            .eq('room_id', assignment.room_id)
+            .then(({ data: roomStudents }) => {
+              const studentNames = roomStudents?.map(rs => rs.students?.name).join(', ') || 'No students';
+              console.log(`   📊 Students in room ${assignment.room_id}: ${studentNames}`);
+              console.log(`   ✅ Assignment "${assignment.title}" should ONLY be visible to: ${studentNames}`);
+            });
+        } else {
+          console.log(`   ⚠️ No room assignment - this assignment will be visible to ALL students of teacher ${assignment.teacher_id}`);
+        }
+      }
 
       if (error) {
         console.error('Assignment insert error:', error);
@@ -143,6 +211,12 @@ Deno.serve(async (req) => {
       }
 
       console.log('Assignment created successfully:', assignment);
+      console.log('🔍 VERIFICATION - Assignment saved with room_id:', assignment?.room_id);
+      if (assignment?.room_id) {
+        console.log(`✅ CONFIRMED: Assignment "${assignment.title}" is restricted to room ID: ${assignment.room_id}`);
+      } else {
+        console.log(`⚠️ WARNING: Assignment "${assignment.title}" has NO room restriction (available to all students)`);
+      }
 
       return new Response(JSON.stringify(assignment), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

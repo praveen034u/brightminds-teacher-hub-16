@@ -447,6 +447,16 @@ export const AssignmentsPage = () => {
     }
 
     try {
+      // DEBUG: Check room selection values before creating assignment data
+      console.log('🔍 PRE-ASSIGNMENT CREATION DEBUG:');
+      console.log(`   - selectedRoom value: "${selectedRoom}"`);
+      console.log(`   - selectedRoom type: ${typeof selectedRoom}`);
+      console.log(`   - selectedRoom !== 'none': ${selectedRoom !== 'none'}`);
+      console.log(`   - selectedRoom && selectedRoom !== 'none': ${selectedRoom && selectedRoom !== 'none'}`);
+      
+      const finalRoomId = selectedRoom && selectedRoom !== 'none' ? selectedRoom : null;
+      console.log(`   - Final room_id will be: ${finalRoomId}`);
+
       const assignmentData = {
         roomType: roomType,
         roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : '',
@@ -455,13 +465,23 @@ export const AssignmentsPage = () => {
         description,
         dueDate,
         status: 'active',
-        room_id: selectedRoom && selectedRoom !== 'none' ? selectedRoom : null, // Add room assignment
+        room_id: finalRoomId, // Add room assignment
       };
 
-      console.log('📤 Creating assignment with data:', assignmentData);
+      console.log('📤 Creating assignment with data:', JSON.stringify(assignmentData, null, 2));
       console.log('🔑 Auth0 User ID:', auth0UserId);
       console.log('🎮 Selected game config:', selectedGameConfig);
       console.log('🏠 Selected room:', selectedRoom);
+      
+      // Debug: Show exactly what room data is being sent
+      if (roomType === 'prebuilt' && selectedRoom && selectedRoom !== 'none') {
+        const selectedRoomData = rooms.find(r => r.id === selectedRoom);
+        console.log('🎯 PRE-BUILT GAME + ROOM ASSIGNMENT:');
+        console.log(`   Room Name: ${selectedRoomData?.name || 'Unknown'}`);
+        console.log(`   Room ID: ${selectedRoom}`);
+        console.log(`   Students in Room: ${selectedRoomData?.student_count || 0}`);
+        console.log(`   Assignment should ONLY go to students in this room!`);
+      }
 
       // For custom rooms, save as template if requested
       if (roomType === 'custom' && saveAsTemplate && templateName.trim()) {
@@ -689,17 +709,8 @@ export const AssignmentsPage = () => {
       const supabaseUrl = getSupabaseUrl();
       
       console.log('🔍 Fetching detailed progress data...');
-      const progressResponse = await fetch(
-        `${supabaseUrl}/functions/v1/teacher-progress?auth0_user_id=${auth0UserId}&assignment_id=${assignment.id}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      if (progressResponse.ok) {
-        const progressResult = await progressResponse.json();
+      try {
+        const progressResult = await teacherProgressAPI.getAssignmentProgress(auth0UserId, assignment.id);
         console.log('📊 Progress API response:', progressResult);
         
         if (progressResult.progress && Array.isArray(progressResult.progress)) {
@@ -721,10 +732,8 @@ export const AssignmentsPage = () => {
           // Fallback: try to get students directly
           await loadStudentsDirectly(assignment);
         }
-      } else {
-        console.error('❌ Progress API failed, status:', progressResponse.status);
-        const errorText = await progressResponse.text();
-        console.error('❌ Progress API error:', errorText);
+      } catch (error) {
+        console.error('❌ Progress API error:', error);
         
         // Fallback: try to get students directly
         await loadStudentsDirectly(assignment);
@@ -1214,7 +1223,16 @@ export const AssignmentsPage = () => {
                 {/* Room Assignment */}
                 <div className="space-y-2">
                   <Label htmlFor="assignRoom" className="text-sm font-medium">Assign to Room (Optional)</Label>
-                  <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+                  <Select value={selectedRoom} onValueChange={(value) => {
+                    setSelectedRoom(value);
+                    console.log('🏠 Room selection changed to:', value);
+                    const room = rooms.find(r => r.id === value);
+                    if (room) {
+                      console.log(`   📊 Selected room "${room.name}" has ${room.student_count || 0} students`);
+                    } else if (value === 'none') {
+                      console.log('   ⚠️ No room selected - assignment will be available to all students');
+                    }
+                  }}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Choose a room to assign this assignment..." />
                     </SelectTrigger>

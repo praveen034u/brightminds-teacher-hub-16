@@ -62,18 +62,63 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Get all students for this teacher
-        const { data: students, error: studentsError } = await supabase
-          .from('students')
-          .select('id, name, email')
-          .eq('teacher_id', teacherId);
-
-        if (studentsError) {
-          console.error('Students lookup error:', studentsError);
-          return new Response(JSON.stringify({ error: 'Failed to get students' }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+        // Get students based on assignment type and room assignment
+        let students = [];
+        
+        if (assignment.assignment_type === 'game') {
+          // For game assignments, get all students under this teacher
+          const { data: allStudents, error: studentsError } = await supabase
+            .from('students')
+            .select('id, name, email')
+            .eq('teacher_id', teacherId);
+            
+          if (studentsError) {
+            console.error('Students lookup error:', studentsError);
+            return new Response(JSON.stringify({ error: 'Failed to get students' }), {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          
+          students = allStudents || [];
+        } else if (assignment.room_id) {
+          // For room assignments, get only students in the assigned room
+          const { data: roomStudents, error: studentsError } = await supabase
+            .from('room_students')
+            .select(`
+              students!inner(
+                id,
+                name,
+                email
+              )
+            `)
+            .eq('room_id', assignment.room_id);
+            
+          if (studentsError) {
+            console.error('Room students lookup error:', studentsError);
+            return new Response(JSON.stringify({ error: 'Failed to get room students' }), {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          
+          students = roomStudents?.map(rs => rs.students) || [];
+        } else {
+          // For assignments not assigned to any room, get all students under this teacher
+          const { data: allStudents, error: studentsError } = await supabase
+            .from('students')
+            .select('id, name, email')
+            .eq('teacher_id', teacherId);
+            
+          if (studentsError) {
+            console.error('Students lookup error:', studentsError);
+            return new Response(JSON.stringify({ error: 'Failed to get students' }), {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          
+          students = allStudents || [];
         }
 
         // Get attempts for this assignment
@@ -141,25 +186,37 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Get total student count
-        const { data: students, error: studentsError } = await supabase
-          .from('students')
-          .select('id')
-          .eq('teacher_id', teacherId);
-
-        if (studentsError) {
-          console.error('Students count error:', studentsError);
-          return new Response(JSON.stringify({ error: 'Failed to get student count' }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-
-        const totalStudents = students.length;
-
         // Get progress for each assignment
         const progressData = await Promise.all(
           assignments.map(async (assignment) => {
+            // Get relevant students for this assignment
+            let relevantStudents = [];
+            
+            if (assignment.assignment_type === 'game') {
+              // For game assignments, include all students under this teacher
+              const { data: allStudents } = await supabase
+                .from('students')
+                .select('id')
+                .eq('teacher_id', teacherId);
+              relevantStudents = allStudents || [];
+            } else if (assignment.room_id) {
+              // For room assignments, include only students in the assigned room
+              const { data: roomStudents } = await supabase
+                .from('room_students')
+                .select('student_id')
+                .eq('room_id', assignment.room_id);
+              relevantStudents = roomStudents?.map(rs => ({ id: rs.student_id })) || [];
+            } else {
+              // For assignments not assigned to any room, include all students under this teacher
+              const { data: allStudents } = await supabase
+                .from('students')
+                .select('id')
+                .eq('teacher_id', teacherId);
+              relevantStudents = allStudents || [];
+            }
+
+            const totalStudents = relevantStudents.length;
+
             const { data: attempts } = await supabase
               .from('assignment_attempts')
               .select('status, score')
