@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 const ProfilePage = () => {
-  const { user, auth0UserId, isLoading } = useAuth();
+  const { user, auth0UserId, isLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -25,6 +26,12 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (user) {
+      // Check if this is a first-time setup (user has no school_name, grades, or subjects)
+      const isNewUser = !user.school_name && 
+                        (!user.grades_taught || user.grades_taught.length === 0) && 
+                        (!user.subjects || user.subjects.length === 0);
+      setIsFirstTimeSetup(isNewUser);
+      
       setFormData({
         full_name: user.full_name || '',
         email: user.email || '',
@@ -41,6 +48,12 @@ const ProfilePage = () => {
     setLoading(true);
 
     try {
+      if (!auth0UserId) {
+        toast.error('Authentication error. Please try logging in again.');
+        setLoading(false);
+        return;
+      }
+
       const updateData = {
         full_name: formData.full_name,
         email: formData.email,
@@ -56,13 +69,26 @@ const ProfilePage = () => {
         preferred_language: formData.preferred_language,
       };
 
+      console.log('📤 Updating profile with data:', { auth0UserId, updateData });
+
       await meAPI.update(auth0UserId, updateData);
-      toast.success('Profile updated successfully');
       
-      // Redirect to dashboard after successful profile creation/update
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 1000);
+      // Refresh the profile context to get updated user data
+      await refreshProfile();
+      
+      if (isFirstTimeSetup) {
+        // For first-time setup, redirect to dashboard after completion
+        toast.success('Profile setup complete! Redirecting to dashboard...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+      } else {
+        // For subsequent edits, redirect to dashboard
+        toast.success('Profile updated successfully');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
+      }
     } catch (error) {
       console.error('Failed to update profile:', error);
       toast.error('Failed to update profile');
@@ -104,19 +130,27 @@ const ProfilePage = () => {
       <main className="container mx-auto px-6 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-                className="hover:bg-gray-100"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </div>
-            <h1 className="text-4xl font-bold mb-2">Teacher Profile</h1>
-            <p className="text-muted-foreground">Manage your account information</p>
+            {!isFirstTimeSetup && (
+              <div className="flex items-center gap-4 mb-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/dashboard')}
+                  className="hover:bg-gray-100"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </div>
+            )}
+            <h1 className="text-4xl font-bold mb-2">
+              {isFirstTimeSetup ? 'Welcome! Complete Your Profile' : 'Teacher Profile'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isFirstTimeSetup 
+                ? 'Please fill in your information to get started' 
+                : 'Manage your account information'}
+            </p>
           </div>
 
           <Card>
@@ -191,31 +225,20 @@ const ProfilePage = () => {
 
                 <Button type="submit" className="w-full" disabled={loading}>
                   <Save className="mr-2 h-4 w-4" />
-                  {loading ? 'Saving...' : 'Save Changes'}
+                  {loading ? 'Saving...' : (isFirstTimeSetup ? 'Complete Setup & Continue' : 'Save Changes')}
                 </Button>
+                
+                {!isFirstTimeSetup && (
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full mt-2" 
+                    onClick={() => navigate('/dashboard')}
+                  >
+                    Cancel
+                  </Button>
+                )}
               </form>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Account Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Auth0 User ID:</span>
-                  <span className="font-mono">{user?.auth0_user_id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Account Created:</span>
-                  <span>
-                    {user?.created_at
-                      ? new Date(user.created_at).toLocaleDateString()
-                      : 'N/A'}
-                  </span>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
