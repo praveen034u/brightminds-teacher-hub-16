@@ -184,7 +184,6 @@ const ProfilePage = () => {
                     required
                   />
                 </div>
-
                 <div>
                   <Label htmlFor="school_name">School Name</Label>
                   <Input
@@ -193,7 +192,6 @@ const ProfilePage = () => {
                     onChange={(e) => setFormData({ ...formData, school_name: e.target.value })}
                   />
                 </div>
-
                 <div>
                   <Label htmlFor="grades_taught">Grades Taught (comma separated)</Label>
                   <Input
