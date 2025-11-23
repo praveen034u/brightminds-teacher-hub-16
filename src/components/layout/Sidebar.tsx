@@ -11,8 +11,8 @@ export const Sidebar = () => {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full bg-card border-r border-border z-40 transition-all duration-300 flex flex-col ${collapsed ? 'w-16' : 'w-56'}`}
-      style={{ marginTop: '120px', height: 'calc(100vh - 120px)' }} // Increased marginTop to move sidebar further down
+      className={`sticky bg-card border-r border-border transition-all duration-300 flex flex-col ${collapsed ? 'w-16' : 'w-56'}`}
+      style={{ top: '0', height: '100vh' }}
     >
       {/* Collapse/Expand Button */}
       <div className="flex items-center justify-end p-2 border-b border-border" style={{ minHeight: '56px' }}>

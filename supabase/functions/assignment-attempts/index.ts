@@ -17,13 +17,13 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const url = new URL(req.url);
-    const token = url.searchParams.get('token');
+    const token = url.searchParams.get('token') || req.headers.get('authorization')?.replace('Bearer ', '');
     const assignmentId = url.searchParams.get('assignment_id');
     const action = url.searchParams.get('action');
 
     if (!token) {
-      return new Response(JSON.stringify({ error: 'Access token required' }), {
-        status: 400,
+      return new Response(JSON.stringify({ code: 401, message: 'Missing authorization header' }), {
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

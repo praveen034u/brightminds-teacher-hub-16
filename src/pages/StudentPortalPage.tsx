@@ -34,8 +34,9 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
       toast.success('Correct answer!');
       onComplete?.(100); // Perfect score for correct answer
     } else {
-      setFeedback('❌ Try again! Hint: Think about common words.');
+      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
       setIsCorrect(false);
+      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
   };
   
@@ -100,8 +101,9 @@ const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (sco
       toast.success('Great job!');
       onComplete?.(95); // High score for emoji guess
     } else {
-      setFeedback('🤔 Close, but try again! Think about what the emojis represent.');
+      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
       setIsCorrect(false);
+      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
   };
   
@@ -179,8 +181,9 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
       toast.success('Riddle solved!');
       onComplete?.(90); // Good score for riddle solving
     } else {
-      setFeedback('🤔 Not quite! Think about the clues again.');
+      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
       setIsCorrect(false);
+      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
   };
   
@@ -256,8 +259,9 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
       toast.success('Crossword solved!');
       onComplete?.(100); // Perfect score for crossword
     } else {
-      setFeedback('❌ Not quite right. Check your letters!');
+      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
       setIsCorrect(false);
+      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
   };
   
@@ -383,7 +387,14 @@ export const StudentPortalPage = () => {
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [currentGame, setCurrentGame] = useState<any>(null);
   const [showGameModal, setShowGameModal] = useState(false);
-  const [assignmentAttempts, setAssignmentAttempts] = useState<Record<string, AssignmentAttempt>>({});
+  // Assignment attempts state with localStorage fallback
+  const [assignmentAttempts, setAssignmentAttempts] = useState<Record<string, AssignmentAttempt>>(() => {
+    try {
+      const cached = localStorage.getItem('student_assignment_attempts');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return {};
+  });
   const [loadingAttempts, setLoadingAttempts] = useState<Record<string, boolean>>({});
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameScore, setGameScore] = useState(0);
@@ -397,26 +408,21 @@ export const StudentPortalPage = () => {
   // Load assignment attempts for the student
   const loadAssignmentAttempts = useCallback(async () => {
     if (!token || !studentData) return;
-    
     try {
       const supabaseUrl = getSupabaseUrl();
-      
-      // Set a timeout for the fetch request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-      
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       const response = await fetch(
         `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}`,
         {
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           signal: controller.signal
         }
       );
-      
       clearTimeout(timeoutId);
-
       if (response.ok) {
         const attempts = await response.json();
         const attemptsMap: Record<string, AssignmentAttempt> = {};
@@ -424,14 +430,15 @@ export const StudentPortalPage = () => {
           attemptsMap[attempt.assignment_id] = attempt;
         });
         setAssignmentAttempts(attemptsMap);
+        // Save to localStorage for fallback
+        localStorage.setItem('student_assignment_attempts', JSON.stringify(attemptsMap));
         console.log('Loaded assignment attempts from server');
       } else {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      // Silently use empty state - no need to show errors to user
-      console.warn('Assignment attempts not available, starting fresh:', error instanceof Error ? error.message : 'Unknown error');
-      setAssignmentAttempts({});
+      // On error, keep state and do not clear localStorage
+      console.warn('Assignment attempts not available, using cached state:', error instanceof Error ? error.message : 'Unknown error');
     }
   }, [token, studentData]);
 
@@ -577,6 +584,16 @@ export const StudentPortalPage = () => {
 
       const data = await response.json();
       console.log('Successfully loaded student data:', data);
+      console.log('📊 Assignments received:', data.assignments?.length || 0);
+      data.assignments?.forEach((assignment: any, index: number) => {
+        console.log(`  Assignment ${index + 1}:`, {
+          title: assignment.title,
+          type: assignment.assignment_type,
+          game_id: assignment.game_id,
+          has_games_object: !!assignment.games,
+          games_name: assignment.games?.name
+        });
+      });
       setStudentData(data);
       setError(null);
     } catch (err) {
@@ -1120,6 +1137,7 @@ export const StudentPortalPage = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           signal: controller.signal
         }
@@ -1220,10 +1238,11 @@ export const StudentPortalPage = () => {
         id: currentAttempt?.id || `mock-${assignmentId}`,
         assignment_id: assignmentId,
         student_id: studentData?.id || '',
-        status: 'completed' as const,
-        score: score || 100,
-        max_score: Math.max(currentAttempt?.max_score || 0, score || 100),
+        status: 'submitted' as const,
+        score: score !== undefined ? score : 0,
+        max_score: 100,
         completed_at: new Date().toISOString(),
+        submitted_at: new Date().toISOString(),
         submission_data: submissionData,
         attempts_count: currentAttempt?.attempts_count || 1
       };
@@ -1252,11 +1271,13 @@ export const StudentPortalPage = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            score: score || 100,
+            score: score !== undefined ? score : 0,
             submissionData,
-            feedback: 'Assignment completed'
+            feedback: 'Assignment submitted',
+            status: 'submitted'
           }),
           signal: controller.signal
         }
@@ -1267,11 +1288,16 @@ export const StudentPortalPage = () => {
       if (response.ok) {
         const attempt = await response.json();
         console.log('✅ Assignment completed via backend API:', attempt);
-        setAssignmentAttempts(prev => ({
-          ...prev,
-          [assignmentId]: attempt
-        }));
-        toast.success('Assignment completed successfully! 🎉');
+        setAssignmentAttempts(prev => {
+          const updated = {
+            ...prev,
+            [assignmentId]: { ...attempt, status: 'submitted' }
+          };
+          localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
+          return updated;
+        });
+        
+        toast.success('Assignment submitted successfully! 🎉');
         backendSuccess = true;
       } else {
         const errorText = await response.text();
@@ -1299,13 +1325,14 @@ export const StudentPortalPage = () => {
           .upsert({
             assignment_id: assignmentId,
             student_id: studentData?.id,
-            status: 'completed',
-            score: score || 100,
-            max_score: score || 100,
+            status: 'submitted',
+            score: score !== undefined ? score : 0,
+            max_score: 100,
             attempts_count: completedAttempt.attempts_count,
             completed_at: new Date().toISOString(),
+            submitted_at: new Date().toISOString(),
             submission_data: submissionData,
-            feedback: 'Assignment completed'
+            feedback: 'Assignment submitted'
           }, {
             onConflict: 'assignment_id,student_id'
           })
@@ -1318,11 +1345,16 @@ export const StudentPortalPage = () => {
         }
         
         console.log('✅ Assignment completed via direct Supabase insert:', insertData);
-        setAssignmentAttempts(prev => ({
-          ...prev,
-          [assignmentId]: insertData
-        }));
-        toast.success('Assignment completed successfully! 🎉 (Direct save)');
+        setAssignmentAttempts(prev => {
+          const updated = {
+            ...prev,
+            [assignmentId]: { ...insertData, status: 'submitted' }
+          };
+          localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
+          return updated;
+        });
+        
+        toast.success('Assignment submitted successfully! 🎉 (Direct save)');
         backendSuccess = true;
         
       } catch (supabaseError) {
@@ -1330,18 +1362,22 @@ export const StudentPortalPage = () => {
         
         // Final fallback - local state only
         const completedAttempt = createCompletedAttempt();
-        setAssignmentAttempts(prev => ({
-          ...prev,
-          [assignmentId]: completedAttempt
-        }));
-        toast.success('Assignment completed successfully! 🎉 (Local save - please check with teacher)');
+        setAssignmentAttempts(prev => {
+          const updated = {
+            ...prev,
+            [assignmentId]: completedAttempt
+          };
+          localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
+          return updated;
+        });
+        toast.success('Assignment submitted successfully! 🎉 (Local save - please check with teacher)');
       }
     } finally {
       setLoadingAttempts(prev => ({ ...prev, [assignmentId]: false }));
       
       // Show final status and force sync verification
       if (backendSuccess) {
-        console.log('🎉 Assignment completion saved to database successfully!');
+        console.log('🎉 Assignment submission saved to database successfully!');
         
         // Verify the completion was actually saved by re-fetching
         setTimeout(async () => {
@@ -1351,15 +1387,18 @@ export const StudentPortalPage = () => {
               `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}&assignment_id=${assignmentId}`,
               {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                }
               }
             );
             
             if (verifyResponse.ok) {
               const verifyData = await verifyResponse.json();
-              if (verifyData && verifyData.status === 'completed') {
+              if (verifyData && (verifyData.status === 'completed' || verifyData.status === 'submitted')) {
                 console.log('✅ Completion verified in database:', verifyData);
-                toast.success('🎯 Assignment completion confirmed - teacher will see your progress!', { duration: 4000 });
+                toast.success('🎯 Assignment submission confirmed - teacher will see your progress!', { duration: 4000 });
                 
                 // Trigger a manual real-time broadcast to ensure teachers see the update
                 try {
@@ -1403,9 +1442,20 @@ export const StudentPortalPage = () => {
   };
 
   const playGame = (assignment: any) => {
-    if (assignment.assignment_type === 'game' && assignment.games) {
+    console.log('🎮 playGame called with assignment:', assignment);
+    
+    if (assignment.assignment_type === 'game') {
+      // Handle both cases: with games object and without
+      const gameName = assignment.games?.name || assignment.title || 'Game';
+      const gameType = assignment.games?.game_type || 'word-scramble'; // default game type
+      
       setCurrentGame({
-        ...assignment.games,
+        id: assignment.game_id || assignment.id,
+        name: gameName,
+        game_type: gameType,
+        game_path: assignment.games?.game_path || '',
+        categories: assignment.games?.categories || [],
+        skills: assignment.games?.skills || [],
         config: assignment.game_config,
         assignmentTitle: assignment.title,
         assignmentId: assignment.id
@@ -1414,7 +1464,7 @@ export const StudentPortalPage = () => {
       setGameCompleted(false);
       setGameScore(0);
       setShowGameModal(true);
-      toast.success(`Starting ${assignment.games.name}!`);
+      toast.success(`Starting ${gameName}!`);
     } else {
       toast.error('This assignment is not a game');
     }
@@ -1479,22 +1529,7 @@ export const StudentPortalPage = () => {
                 <p className="text-sm text-gray-600">{studentData.email || 'Student Portal'}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {realtimeConnected ? (
-                <div className="flex items-center gap-2 text-xs text-green-600">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span>Live Updates Active</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  <span>Connecting...</span>
-                </div>
-              )}
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                Active
-              </Badge>
-            </div>
+            
           </div>
         </div>
       </div>
@@ -1556,6 +1591,18 @@ export const StudentPortalPage = () => {
           ) : (
             <div className="grid gap-4">
               {studentData.assignments.map((assignment) => {
+                // Debug assignment structure
+                if (assignment.assignment_type === 'game') {
+                  console.log('🎮 Game Assignment:', {
+                    id: assignment.id,
+                    title: assignment.title,
+                    assignment_type: assignment.assignment_type,
+                    game_id: assignment.game_id,
+                    games: assignment.games,
+                    game_config: assignment.game_config
+                  });
+                }
+                
                 const room = studentData.rooms.find(r => r.id === assignment.room_id);
                 const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
                 const isOverdue = dueDate && dueDate < new Date();
@@ -1589,11 +1636,13 @@ export const StudentPortalPage = () => {
                       </p>
                       
                       {/* Game Information */}
-                      {assignment.assignment_type === 'game' && assignment.games && (
+                      {assignment.assignment_type === 'game' && (
                         <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                           <div className="flex items-center gap-2 mb-2">
                             <Gamepad2 className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-blue-800">{assignment.games.name}</span>
+                            <span className="text-sm font-medium text-blue-800">
+                              {assignment.games?.name || 'Interactive Game Activity'}
+                            </span>
                           </div>
                           {assignment.game_config && (
                             <div className="text-xs text-blue-700">
@@ -1613,7 +1662,7 @@ export const StudentPortalPage = () => {
                               )}
                             </div>
                           )}
-                          {assignment.games.skills && (
+                          {assignment.games?.skills && (
                             <div className="flex gap-1 mt-2">
                               {assignment.games.skills.slice(0, 3).map((skill: string) => (
                                 <Badge key={skill} variant="secondary" className="text-xs">
@@ -1643,31 +1692,31 @@ export const StudentPortalPage = () => {
                             const attempt = assignmentAttempts[assignment.id];
                             const isLoading = loadingAttempts[assignment.id];
                             
-                            if (!attempt || attempt.status === 'not_started') {
+                            // Debug log to see what's happening
+                            console.log(`Assignment ${assignment.id} attempt:`, attempt);
+                            
+                            // Check for submitted/completed status FIRST
+                            if (attempt && (attempt.status === 'completed' || attempt.status === 'submitted')) {
                               return (
-                                <Button 
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    startAssignment(assignment.id);
-                                  }}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                                  size="sm"
-                                  disabled={isLoading}
-                                >
-                                  {isLoading ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
-                                  ) : (
-                                    <Play className="h-4 w-4 mr-1" />
-                                  )}
-                                  Start Assignment
-                                </Button>
+                                <Badge className="bg-green-100 text-green-800 border-green-300">
+                                  ✅ Submitted {attempt.score !== undefined ? `(${attempt.score}%)` : ''}
+                                </Badge>
                               );
                             }
                             
-                            if (attempt.status === 'in_progress') {
+                            if (attempt && attempt.status === 'in_progress') {
+                              // DEBUG: Check assignment structure for games
+                              console.log('🎮 DEBUG: Assignment in progress:', {
+                                id: assignment.id,
+                                title: assignment.title,
+                                assignment_type: assignment.assignment_type,
+                                games: assignment.games,
+                                game_id: assignment.games?.id
+                              });
+                              
                               return (
                                 <>
-                                  {assignment.assignment_type === 'game' && assignment.games && (
+                                  {assignment.assignment_type === 'game' && (
                                     <Button 
                                       onClick={() => playGame(assignment)}
                                       className="bg-green-600 hover:bg-green-700 text-white"
@@ -1697,33 +1746,25 @@ export const StudentPortalPage = () => {
                               );
                             }
                             
-                            if (attempt.status === 'completed' || attempt.status === 'submitted') {
-                              return (
-                                <div className="flex items-center gap-2">
-                                  <Badge className="bg-green-100 text-green-800 border-green-300">
-                                    ✅ Completed {attempt.score ? `(${attempt.score}%)` : ''}
-                                  </Badge>
-                                  <Button 
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      startAssignment(assignment.id);
-                                    }}
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={isLoading}
-                                  >
-                                    {isLoading ? (
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-1"></div>
-                                    ) : (
-                                      <Play className="h-4 w-4 mr-1" />
-                                    )}
-                                    Retry
-                                  </Button>
-                                </div>
-                              );
-                            }
-                            
-                            return null;
+                            // Default: not started or no attempt record
+                            return (
+                              <Button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  startAssignment(assignment.id);
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                size="sm"
+                                disabled={isLoading}
+                              >
+                                {isLoading ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                                ) : (
+                                  <Play className="h-4 w-4 mr-1" />
+                                )}
+                                Start Assignment
+                              </Button>
+                            );
                           })()} 
                         </div>
                       </div>
@@ -1928,28 +1969,22 @@ export const StudentPortalPage = () => {
                 <Button 
                   onClick={(e) => {
                     e.preventDefault();
-                    if (currentGame?.assignmentId && gameCompleted) {
+                    if (currentGame?.assignmentId) {
                       completeAssignment(currentGame.assignmentId, gameScore, { 
                         gameType: currentGame.game_type,
                         difficulty: currentGame.config?.difficulty,
                         category: currentGame.config?.category,
-                        completedAt: new Date().toISOString()
+                        completedAt: new Date().toISOString(),
+                        attemptedAnswer: gameCompleted
                       });
-                    } else if (!gameCompleted) {
-                      toast.warning('Please complete the game first by answering correctly!');
-                      return;
+                      setShowGameModal(false);
                     } else {
-                      toast.success('Game completed! Great job!');
+                      toast.error('Unable to submit assignment');
                     }
-                    setShowGameModal(false);
                   }}
-                  className={`${gameCompleted 
-                    ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-gray-400 cursor-not-allowed'
-                  }`}
-                  disabled={!gameCompleted}
+                  className="bg-green-600 hover:bg-green-700"
                 >
-                  {gameCompleted ? `Submit Assignment (${gameScore}%)` : 'Complete Game First'}
+                  Submit Assignment {gameCompleted ? `(${gameScore}%)` : '(Not Attempted)'}
                 </Button>
               </div>
             </div>

@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 const ProfilePage = () => {
-  const { user, auth0UserId, isLoading } = useAuth();
+  const { user, auth0UserId, isLoading, markProfileComplete } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -58,6 +58,9 @@ const ProfilePage = () => {
 
       await meAPI.update(auth0UserId, updateData);
       toast.success('Profile updated successfully');
+      
+      // Mark profile as complete to allow dashboard access
+      markProfileComplete();
       
       // Redirect to dashboard after successful profile creation/update
       setTimeout(() => {
@@ -194,28 +197,6 @@ const ProfilePage = () => {
                   {loading ? 'Saving...' : 'Save Changes'}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Account Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Auth0 User ID:</span>
-                  <span className="font-mono">{user?.auth0_user_id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Account Created:</span>
-                  <span>
-                    {user?.created_at
-                      ? new Date(user.created_at).toLocaleDateString()
-                      : 'N/A'}
-                  </span>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

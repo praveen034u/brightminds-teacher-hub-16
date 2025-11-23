@@ -20,8 +20,10 @@ interface AuthContextType {
   auth0UserId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isNewUser: boolean;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  markProfileComplete: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<Teacher | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [auth0UserId, setAuth0UserId] = useState<string | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   const loadTeacher = async () => {
     // Reduced logging to prevent spam
@@ -118,6 +121,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (teacher && teacher.auth0_user_id) {
           console.log('✅ Valid teacher profile found via GET:', teacher);
+          // Check if profile is complete (has school_name or subjects/grades)
+          const profileIncomplete = !teacher.school_name && 
+            (!teacher.subjects || teacher.subjects.length === 0) && 
+            (!teacher.grades_taught || teacher.grades_taught.length === 0);
+          
+          if (profileIncomplete) {
+            console.log('📝 Profile incomplete, marking as new user');
+            setIsNewUser(true);
+          } else {
+            setIsNewUser(false);
+          }
           setUser(teacher);
         } else {
           console.log('⚠️ GET returned null/empty - teacher not found, creating new profile...');
@@ -131,9 +145,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (createResponse.ok) {
             const newTeacher = await createResponse.json();
             console.log('✅ New teacher profile created via POST:', newTeacher);
+            setIsNewUser(true); // New profile created, needs completion
             setUser(newTeacher);
           } else {
             console.log('❌ POST also failed, creating temporary profile');
+            setIsNewUser(true); // Temporary profile needs completion
             setUser({
               id: userId,
               auth0_user_id: userId,
@@ -165,6 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // If teacher is null, set an empty profile placeholder
           if (teacher === null) {
             console.log('No teacher profile found, user needs to complete profile');
+            setIsNewUser(true);
             setUser({
               id: '',
               auth0_user_id: userId,
@@ -172,6 +189,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: realUserEmail,
             } as Teacher);
           } else {
+            // Check if profile is complete
+            const profileIncomplete = !teacher.school_name && 
+              (!teacher.subjects || teacher.subjects.length === 0) && 
+              (!teacher.grades_taught || teacher.grades_taught.length === 0);
+            setIsNewUser(profileIncomplete);
             setUser(teacher);
           }
         } else {
@@ -184,6 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           // Create a temporary user profile to avoid infinite loops
           console.log('🔄 Creating temporary user profile...');
+          setIsNewUser(true);
           setUser({
             id: userId,
             auth0_user_id: userId,
@@ -205,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         // Create a temporary user profile to avoid blocking access
         console.log('🔄 Creating temporary user profile due to API failure...');
+        setIsNewUser(true);
         setUser({
           id: userId,
           auth0_user_id: userId,
@@ -227,6 +251,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = async () => {
     setIsLoading(true);
     await loadTeacher();
+  };
+
+  const markProfileComplete = () => {
+    console.log('✅ Marking profile as complete');
+    setIsNewUser(false);
   };
 
   useEffect(() => {
@@ -252,14 +281,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }
 
+  // Debug logging for isNewUser state
+  console.log('🔍 AuthContext state:', {
+    isNewUser,
+    hasUser: !!user,
+    userSchool: user?.school_name,
+    userSubjects: user?.subjects,
+    userGrades: user?.grades_taught,
+    isLoading
+  });
+
   return (
     <AuthContext.Provider value={{ 
       user, 
       auth0UserId, 
       isLoading, 
       isAuthenticated: contextIsAuthenticated,
+      isNewUser,
       logout,
-      refreshProfile
+      refreshProfile,
+      markProfileComplete
     }}>
       {children}
     </AuthContext.Provider>

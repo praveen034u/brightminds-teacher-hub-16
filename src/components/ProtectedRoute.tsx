@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
 interface ProtectedRouteProps {
@@ -6,7 +6,8 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { isAuthenticated, isLoading, user, auth0UserId } = useAuth();
+  const { isAuthenticated, isLoading, user, auth0UserId, isNewUser } = useAuth();
+  const location = useLocation();
 
   // Debug logging for ProtectedRoute
   console.log('🔒 ProtectedRoute check:', { 
@@ -31,6 +32,12 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (!isAuthenticated) {
     console.log('❌ ProtectedRoute: Not authenticated, redirecting to login');
     return <Navigate to="/" replace />;
+  }
+
+  // If user is new and trying to access any route other than profile, redirect to profile
+  if (isNewUser && location.pathname !== '/profile') {
+    console.log('📝 ProtectedRoute: New user detected, redirecting to profile page');
+    return <Navigate to="/profile" replace />;
   }
 
   console.log('✅ ProtectedRoute: Access granted');
