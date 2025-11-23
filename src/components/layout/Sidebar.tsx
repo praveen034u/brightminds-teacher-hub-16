@@ -2,23 +2,24 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
-export const Sidebar = () => {
-  const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
+}
 
-  // Hide sidebar on dashboard page
-  // Sidebar should always be visible, including on dashboard
+export const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
+  const location = useLocation();
 
   return (
     <aside
       className={`fixed left-0 top-0 h-full bg-card border-r border-border z-40 transition-all duration-300 flex flex-col ${collapsed ? 'w-16' : 'w-56'}`}
-      style={{ marginTop: '120px', height: 'calc(100vh - 120px)' }} // Increased marginTop to move sidebar further down
+      style={{ marginTop: '120px', height: 'calc(100vh - 120px)' }}
     >
       {/* Collapse/Expand Button */}
       <div className="flex items-center justify-end p-2 border-b border-border" style={{ minHeight: '56px' }}>
         <button
           className="rounded-full p-2 hover:bg-accent focus:outline-none"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
