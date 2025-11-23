@@ -11,6 +11,42 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 
 // Simple game components
+// Utility: fuzzy matching to accept near-miss answers (typos, small variations)
+const normalizeForCompare = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const levenshtein = (a: string, b: string) => {
+  const an = a.length;
+  const bn = b.length;
+  if (an === 0) return bn;
+  if (bn === 0) return an;
+  const matrix = Array.from({ length: an + 1 }, () => new Array(bn + 1).fill(0));
+  for (let i = 0; i <= an; i++) matrix[i][0] = i;
+  for (let j = 0; j <= bn; j++) matrix[0][j] = j;
+  for (let i = 1; i <= an; i++) {
+    for (let j = 1; j <= bn; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return matrix[an][bn];
+};
+
+const fuzzyEqual = (a: string, b: string) => {
+  const na = normalizeForCompare(a);
+  const nb = normalizeForCompare(b);
+  if (na === nb) return true;
+  const maxLen = Math.max(na.length, nb.length);
+  if (maxLen === 0) return true;
+  const dist = levenshtein(na, nb);
+  // allow 1 edit for short words, ~20% of length for longer words
+  const threshold = maxLen <= 4 ? 1 : Math.max(1, Math.floor(maxLen * 0.2));
+  return dist <= threshold;
+};
+
 const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -25,10 +61,10 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
   const currentWord = scrambledWords[config?.difficulty || 'easy'];
   
   const checkAnswer = () => {
-    const userAnswer = answer.trim().toLowerCase();
-    const correctAnswer = currentWord.correct.toLowerCase();
+    const userAnswer = answer.trim();
+    const correctAnswer = currentWord.correct;
     
-    if (userAnswer === correctAnswer) {
+    if (fuzzyEqual(userAnswer, correctAnswer)) {
       setFeedback('🎉 Correct! Well done!');
       setIsCorrect(true);
       toast.success('Correct answer!');
@@ -168,9 +204,11 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
   const currentRiddle = riddles[config?.category] || riddles['Nature'];
   
   const checkAnswer = () => {
-    const userAnswer = answer.trim().toLowerCase();
+    const userAnswer = answer.trim();
     const isMatch = currentRiddle.answers.some(correctAnswer => 
-      userAnswer === correctAnswer.toLowerCase()
+      fuzzyEqual(userAnswer, correctAnswer) ||
+      userAnswer.toLowerCase().includes(correctAnswer.toLowerCase()) ||
+      correctAnswer.toLowerCase().includes(userAnswer.toLowerCase())
     );
     
     if (isMatch) {
@@ -250,7 +288,7 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
   const checkAnswer = () => {
     const userAnswer = letters.slice(0, answerLength).join('');
     
-    if (userAnswer === currentClue.answer) {
+    if (fuzzyEqual(userAnswer, currentClue.answer)) {
       setFeedback('🎉 Perfect! You completed the crossword!');
       setIsCorrect(true);
       toast.success('Crossword solved!');
