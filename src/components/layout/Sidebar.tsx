@@ -1,6 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -8,12 +7,12 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
-  const location = useLocation();
+  // location not needed here; parent DashboardLayout controls remounting
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full bg-card border-r border-border z-40 transition-all duration-300 flex flex-col ${collapsed ? 'w-16' : 'w-56'}`}
-      style={{ marginTop: '120px', height: 'calc(100vh - 120px)' }}
+      className={`fixed left-0 bg-card border-r border-border z-40 transition-all duration-300 flex flex-col ${collapsed ? 'w-16' : 'w-56'}`}
+      style={{ top: 'var(--header-height, 76px)', height: 'calc(100vh - var(--header-height, 76px))' }}
     >
       {/* Collapse/Expand Button */}
       <div className="flex items-center justify-end p-2 border-b border-border" style={{ minHeight: '56px' }}>
