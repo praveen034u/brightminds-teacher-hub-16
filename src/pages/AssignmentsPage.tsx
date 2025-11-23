@@ -719,7 +719,8 @@ export const AssignmentsPage = () => {
             student_name: student.student_name,
             student_email: student.student_email || 'No email',
             status: student.status,
-            attempts: student.status === 'not_started' ? 0 : 1,
+            // Use attempts_count provided by the teacher-progress function when available
+            attempts: (typeof student.attempts_count !== 'undefined') ? student.attempts_count : (student.status === 'not_started' ? 0 : 1),
             score: student.score,
             started_at: student.started_at,
             completed_at: student.completed_at,

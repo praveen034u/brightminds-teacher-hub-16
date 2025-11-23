@@ -124,7 +124,8 @@ Deno.serve(async (req) => {
         // Get attempts for this assignment
         const { data: attempts, error: attemptsError } = await supabase
           .from('assignment_attempts')
-          .select('student_id, status, score, created_at, completed_at')
+          // include attempts_count so callers can show how many times a student retried
+          .select('student_id, status, score, attempts_count, created_at, completed_at')
           .eq('assignment_id', assignmentId);
 
         if (attemptsError) {
@@ -143,6 +144,8 @@ Deno.serve(async (req) => {
             student_name: student.name,
             student_email: student.email,
             status: attempt?.status || 'not_started',
+            // number of tries the student has made (0 if none)
+            attempts_count: attempt?.attempts_count || 0,
             score: attempt?.score || null,
             started_at: attempt?.created_at || null,
             completed_at: attempt?.completed_at || null

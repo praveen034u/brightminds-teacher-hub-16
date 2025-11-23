@@ -1154,13 +1154,40 @@ export const StudentPortalPage = () => {
         const { createClient } = await import('@supabase/supabase-js');
         const supabaseClient = createClient(supabaseUrl, supabaseKey);
         
+        // Check for an existing attempt so we don't overwrite attempts_count during fallback
+        const { data: existingAttempt, error: existingError } = await supabaseClient
+          .from('assignment_attempts')
+          .select('*')
+          .eq('assignment_id', assignmentId)
+          .eq('student_id', studentData?.id)
+          .single();
+
+        let attemptsCount = 1;
+        let upsertStatus: any = 'in_progress';
+
+        if (!existingError && existingAttempt) {
+          // If previously completed/submitted, increment attempts_count for a retry
+          if (existingAttempt.status === 'completed' || existingAttempt.status === 'submitted') {
+            attemptsCount = (existingAttempt.attempts_count || 0) + 1;
+            upsertStatus = 'in_progress';
+          } else if (existingAttempt.status === 'in_progress') {
+            // Keep the current attempts_count if already in progress
+            attemptsCount = existingAttempt.attempts_count || 1;
+            upsertStatus = 'in_progress';
+          } else {
+            // from not_started -> start with 1
+            attemptsCount = existingAttempt.attempts_count || 1;
+            upsertStatus = 'in_progress';
+          }
+        }
+
         const { data: insertData, error: insertError } = await supabaseClient
           .from('assignment_attempts')
           .upsert({
             assignment_id: assignmentId,
             student_id: studentData?.id,
-            status: 'in_progress',
-            attempts_count: 1,
+            status: upsertStatus,
+            attempts_count: attemptsCount,
             started_at: new Date().toISOString()
           }, {
             onConflict: 'assignment_id,student_id'
