@@ -1579,7 +1579,12 @@ export const AssignmentsPage = () => {
                             )}
                           </div>
                           <div className="text-sm">
-                            {student.score ? `${student.score}%` : '-'}
+                            {typeof student.correct === 'number' && typeof student.total === 'number' && student.total > 0
+                              ? `${Math.round((student.correct / student.total) * 100)}% (${student.correct}/${student.total})`
+                              : (student.score
+                                 && student.score > 0
+                                  ? `${student.score}%`
+                                  : '0%')}
                           </div>
                           <div className="text-sm">
                             {student.attempts || 0}
@@ -1608,6 +1613,14 @@ export const AssignmentsPage = () => {
                     onClick={() => setShowAssignmentDetails(false)}
                   >
                     Close
+                  </Button>
+                   <Button
+                    variant="outline"
+                    onClick={() => selectedAssignment && handleViewAssignmentDetails(selectedAssignment)}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh Progress
                   </Button>
                   <Button
                     variant="outline"
@@ -1654,78 +1667,7 @@ export const AssignmentsPage = () => {
                   >
                     🐛 Debug DB
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      // Create sample assignment attempts for testing
-                      if (!selectedAssignment || !auth0UserId) return;
-                      
-                      console.log('🧪 Creating sample assignment attempts...');
-                      
-                      try {
-                        // Get students for this teacher first
-                        const supabaseUrl = getSupabaseUrl();
-                        const studentsResponse = await fetch(
-                          `${supabaseUrl}/functions/v1/students?auth0_user_id=${auth0UserId}`,
-                          {
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                          }
-                        );
-                        
-                        if (!studentsResponse.ok) {
-                          throw new Error('Failed to fetch students');
-                        }
-                        
-                        const students = await studentsResponse.json();
-                        console.log('👥 Found students:', students);
-                        
-                        if (students.length === 0) {
-                          toast.warning('No students found to create sample attempts');
-                          return;
-                        }
-                        
-                        // Create sample attempts for students
-                        const sampleAttempts = students.slice(0, 3).map((student: any, index: number) => ({
-                          assignment_id: selectedAssignment.id,
-                          student_id: student.id,
-                          status: ['completed', 'in_progress', 'completed'][index],
-                          attempts_count: [2, 1, 1][index],
-                          score: [85, null, 92][index],
-                          max_score: [85, null, 92][index],
-                          started_at: new Date(Date.now() - (24 * 60 * 60 * 1000) * (index + 1)).toISOString(),
-                          completed_at: index !== 1 ? new Date(Date.now() - (12 * 60 * 60 * 1000) * (index + 1)).toISOString() : null,
-                          submission_data: { sampleData: true }
-                        }));
-                        
-                        console.log('📝 Creating sample attempts:', sampleAttempts);
-                        
-                        const { data: insertedAttempts, error: insertError } = await supabase
-                          .from('assignment_attempts')
-                          .upsert(sampleAttempts, { onConflict: 'assignment_id,student_id' })
-                          .select();
-                        
-                        if (insertError) {
-                          console.error('Insert error:', insertError);
-                          toast.error('Failed to create sample attempts: ' + insertError.message);
-                        } else {
-                          console.log('✅ Sample attempts created:', insertedAttempts);
-                          toast.success(`Created ${insertedAttempts?.length || 0} sample assignment attempts`);
-                          
-                          // Refresh the assignment details
-                          handleViewAssignmentDetails(selectedAssignment);
-                        }
-                        
-                      } catch (error) {
-                        console.error('Sample creation error:', error);
-                        toast.error('Failed to create sample attempts');
-                      }
-                    }}
-                    className="text-xs bg-yellow-100 hover:bg-yellow-200"
-                  >
-                    🧪 Create Test Data
-                  </Button>
+                 
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline">

@@ -1286,8 +1286,8 @@ export const StudentPortalPage = () => {
         assignment_id: assignmentId,
         student_id: studentData?.id || '',
         status: 'completed' as const,
-        score: score || 100,
-        max_score: Math.max(currentAttempt?.max_score || 0, score || 100),
+  score: typeof score === 'number' ? score : 100,
+  max_score: Math.max(currentAttempt?.max_score || 0, typeof score === 'number' ? score : 100),
         completed_at: new Date().toISOString(),
         submission_data: submissionData,
         attempts_count: currentAttempt?.attempts_count || 1
@@ -1319,7 +1319,7 @@ export const StudentPortalPage = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            score: score || 100,
+            score: typeof score === 'number' ? score : 100,
             submissionData,
             feedback: 'Assignment completed'
           }),
@@ -1365,8 +1365,8 @@ export const StudentPortalPage = () => {
             assignment_id: assignmentId,
             student_id: studentData?.id,
             status: 'completed',
-            score: score || 100,
-            max_score: score || 100,
+            score: typeof score === 'number' ? score : 100,
+            max_score: typeof score === 'number' ? score : 100,
             attempts_count: completedAttempt.attempts_count,
             completed_at: new Date().toISOString(),
             submission_data: submissionData,
@@ -1441,7 +1441,7 @@ export const StudentPortalPage = () => {
                       studentId: studentData?.id,
                       studentName: studentData?.name,
                       completedAt: new Date().toISOString(),
-                      score: score || 100
+                      score: typeof score === 'number' ? score : 100
                     }
                   });
                   
@@ -1993,28 +1993,24 @@ export const StudentPortalPage = () => {
                 <Button 
                   onClick={(e) => {
                     e.preventDefault();
-                    if (currentGame?.assignmentId && gameCompleted) {
-                      completeAssignment(currentGame.assignmentId, gameScore, { 
+                    if (currentGame?.assignmentId) {
+                      // If not completed, treat as wrong answer (score 0)
+                      const scoreToSubmit = gameCompleted ? gameScore : 0;
+                      completeAssignment(currentGame.assignmentId, scoreToSubmit, { 
                         gameType: currentGame.game_type,
                         difficulty: currentGame.config?.difficulty,
                         category: currentGame.config?.category,
-                        completedAt: new Date().toISOString()
+                        completedAt: new Date().toISOString(),
+                        forcedSubmit: !gameCompleted
                       });
-                    } else if (!gameCompleted) {
-                      toast.warning('Please complete the game first by answering correctly!');
-                      return;
-                    } else {
-                      toast.success('Game completed! Great job!');
+                      setShowGameModal(false);
                     }
-                    setShowGameModal(false);
                   }}
-                  className={`${gameCompleted 
+                  className={gameCompleted 
                     ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-gray-400 cursor-not-allowed'
-                  }`}
-                  disabled={!gameCompleted}
+                    : 'bg-yellow-500 hover:bg-yellow-600'}
                 >
-                  {gameCompleted ? `Submit Assignment (${gameScore}%)` : 'Complete Game First'}
+                  {gameCompleted ? `Submit Assignment (${gameScore}%)` : 'Submit Anyway (Score: 0%)'}
                 </Button>
               </div>
             </div>
