@@ -1608,20 +1608,8 @@ export const AssignmentsPage = () => {
               {/* Action Buttons */}
               <div className="flex justify-between pt-4 border-t">
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowAssignmentDetails(false)}
-                  >
-                    Close
-                  </Button>
-                   <Button
-                    variant="outline"
-                    onClick={() => selectedAssignment && handleViewAssignmentDetails(selectedAssignment)}
-                    className="flex items-center gap-2"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Refresh Progress
-                  </Button>
+                  
+                   
                   <Button
                     variant="outline"
                     onClick={() => selectedAssignment && handleViewAssignmentDetails(selectedAssignment)}
@@ -1630,52 +1618,14 @@ export const AssignmentsPage = () => {
                     <RefreshCw className="h-4 w-4" />
                     Refresh Progress
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      // Debug function to check assignment attempts
-                      if (!selectedAssignment) return;
-                      console.log('🔍 Debugging assignment attempts for:', selectedAssignment.id);
-                      
-                      try {
-                        // Direct query to assignment_attempts table
-                        const { data: allAttempts, error } = await supabase
-                          .from('assignment_attempts')
-                          .select('*')
-                          .eq('assignment_id', selectedAssignment.id);
-                        
-                        console.log('📊 All attempts for assignment:', allAttempts);
-                        console.log('❌ Query error:', error);
-                        
-                        // Show results in toast
-                        if (allAttempts && allAttempts.length > 0) {
-                          toast.success(`Found ${allAttempts.length} assignment attempts in database`);
-                          console.log('📋 Attempt details:');
-                          allAttempts.forEach(attempt => {
-                            console.log(`  Student ${attempt.student_id}: ${attempt.status}, Score: ${attempt.score}`);
-                          });
-                        } else {
-                          toast.warning('No assignment attempts found in database');
-                        }
-                        
-                      } catch (error) {
-                        console.error('Debug error:', error);
-                        toast.error('Debug query failed');
-                      }
-                    }}
-                    className="text-xs"
-                  >
-                    🐛 Debug DB
-                  </Button>
+                
                  
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline">
                     📊 Export Progress
                   </Button>
-                  <Button>
-                    📧 Send Reminders
-                  </Button>
+                 
                 </div>
               </div>
             </div>
