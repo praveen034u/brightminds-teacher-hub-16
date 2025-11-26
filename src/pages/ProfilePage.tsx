@@ -127,17 +127,7 @@ const ProfilePage = () => {
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
             {!isFirstTimeSetup && (
-              <div className="flex items-center gap-4 mb-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/dashboard')}
-                  className="hover:bg-gray-100"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </div>
+
             )}
             <h1 className="text-4xl font-bold mb-2">
               {isFirstTimeSetup ? 'Welcome! Complete Your Profile' : 'Teacher Profile'}
