@@ -179,15 +179,16 @@ const Sidebar = React.forwardRef<
       data-variant={variant}
       data-side={side}
     >
-      {/* This is what handles the sidebar gap on desktop */}
+      {/* Placeholder (visually inert) - do NOT participate in layout to avoid pushing header/main when sidebar opens */}
       <div
+        aria-hidden
         className={cn(
-          "relative h-svh w-[--sidebar-width] bg-transparent transition-[width] duration-200 ease-linear",
-          "group-data-[collapsible=offcanvas]:w-0",
+          // Keep it absolutely positioned and zero-width so it doesn't shift page layout
+          "absolute top-0 left-0 h-svh w-0 bg-transparent pointer-events-none",
+          // Keep rotation class for right-side variants (visual only)
           "group-data-[side=right]:rotate-180",
-          variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))]"
-            : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]",
+          // Keep transition class for any visual effects but no layout impact
+          "transition-[width] duration-200 ease-linear",
         )}
       />
       <div

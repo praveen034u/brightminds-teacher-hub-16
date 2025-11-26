@@ -141,11 +141,19 @@ Deno.serve(async (req) => {
         });
       }
     }
-    }
 
     if (req.method === 'PUT') {
+      if (!auth0UserId) {
+        return new Response(JSON.stringify({ error: 'auth0_user_id is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Update or create teacher profile
       const body = await req.json();
+      
+      console.log('🔄 PUT request - updating teacher:', { auth0UserId, body });
       
       // First check if teacher exists
       const { data: existingTeacher } = await supabase

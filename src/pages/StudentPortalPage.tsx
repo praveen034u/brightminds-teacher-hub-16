@@ -11,6 +11,42 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 
 // Simple game components
+// Utility: fuzzy matching to accept near-miss answers (typos, small variations)
+const normalizeForCompare = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const levenshtein = (a: string, b: string) => {
+  const an = a.length;
+  const bn = b.length;
+  if (an === 0) return bn;
+  if (bn === 0) return an;
+  const matrix = Array.from({ length: an + 1 }, () => new Array(bn + 1).fill(0));
+  for (let i = 0; i <= an; i++) matrix[i][0] = i;
+  for (let j = 0; j <= bn; j++) matrix[0][j] = j;
+  for (let i = 1; i <= an; i++) {
+    for (let j = 1; j <= bn; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+  return matrix[an][bn];
+};
+
+const fuzzyEqual = (a: string, b: string) => {
+  const na = normalizeForCompare(a);
+  const nb = normalizeForCompare(b);
+  if (na === nb) return true;
+  const maxLen = Math.max(na.length, nb.length);
+  if (maxLen === 0) return true;
+  const dist = levenshtein(na, nb);
+  // allow 1 edit for short words, ~20% of length for longer words
+  const threshold = maxLen <= 4 ? 1 : Math.max(1, Math.floor(maxLen * 0.2));
+  return dist <= threshold;
+};
+
 const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -25,10 +61,10 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
   const currentWord = scrambledWords[config?.difficulty || 'easy'];
   
   const checkAnswer = () => {
-    const userAnswer = answer.trim().toLowerCase();
-    const correctAnswer = currentWord.correct.toLowerCase();
+    const userAnswer = answer.trim();
+    const correctAnswer = currentWord.correct;
     
-    if (userAnswer === correctAnswer) {
+    if (fuzzyEqual(userAnswer, correctAnswer)) {
       setFeedback('🎉 Correct! Well done!');
       setIsCorrect(true);
       toast.success('Correct answer!');
@@ -170,9 +206,11 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
   const currentRiddle = riddles[config?.category] || riddles['Nature'];
   
   const checkAnswer = () => {
-    const userAnswer = answer.trim().toLowerCase();
+    const userAnswer = answer.trim();
     const isMatch = currentRiddle.answers.some(correctAnswer => 
-      userAnswer === correctAnswer.toLowerCase()
+      fuzzyEqual(userAnswer, correctAnswer) ||
+      userAnswer.toLowerCase().includes(correctAnswer.toLowerCase()) ||
+      correctAnswer.toLowerCase().includes(userAnswer.toLowerCase())
     );
     
     if (isMatch) {
@@ -253,7 +291,7 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
   const checkAnswer = () => {
     const userAnswer = letters.slice(0, answerLength).join('');
     
-    if (userAnswer === currentClue.answer) {
+    if (fuzzyEqual(userAnswer, currentClue.answer)) {
       setFeedback('🎉 Perfect! You completed the crossword!');
       setIsCorrect(true);
       toast.success('Crossword solved!');
@@ -1172,13 +1210,40 @@ export const StudentPortalPage = () => {
         const { createClient } = await import('@supabase/supabase-js');
         const supabaseClient = createClient(supabaseUrl, supabaseKey);
         
+        // Check for an existing attempt so we don't overwrite attempts_count during fallback
+        const { data: existingAttempt, error: existingError } = await supabaseClient
+          .from('assignment_attempts')
+          .select('*')
+          .eq('assignment_id', assignmentId)
+          .eq('student_id', studentData?.id)
+          .single();
+
+        let attemptsCount = 1;
+        let upsertStatus: any = 'in_progress';
+
+        if (!existingError && existingAttempt) {
+          // If previously completed/submitted, increment attempts_count for a retry
+          if (existingAttempt.status === 'completed' || existingAttempt.status === 'submitted') {
+            attemptsCount = (existingAttempt.attempts_count || 0) + 1;
+            upsertStatus = 'in_progress';
+          } else if (existingAttempt.status === 'in_progress') {
+            // Keep the current attempts_count if already in progress
+            attemptsCount = existingAttempt.attempts_count || 1;
+            upsertStatus = 'in_progress';
+          } else {
+            // from not_started -> start with 1
+            attemptsCount = existingAttempt.attempts_count || 1;
+            upsertStatus = 'in_progress';
+          }
+        }
+
         const { data: insertData, error: insertError } = await supabaseClient
           .from('assignment_attempts')
           .upsert({
             assignment_id: assignmentId,
             student_id: studentData?.id,
-            status: 'in_progress',
-            attempts_count: 1,
+            status: upsertStatus,
+            attempts_count: attemptsCount,
             started_at: new Date().toISOString()
           }, {
             onConflict: 'assignment_id,student_id'
@@ -1239,8 +1304,8 @@ export const StudentPortalPage = () => {
         assignment_id: assignmentId,
         student_id: studentData?.id || '',
         status: 'submitted' as const,
-        score: score !== undefined ? score : 0,
-        max_score: 100,
+        score: typeof score === 'number' ? score : 0,
+        max_score: Math.max(currentAttempt?.max_score || 100, typeof score === 'number' ? score : 0),
         completed_at: new Date().toISOString(),
         submitted_at: new Date().toISOString(),
         submission_data: submissionData,
@@ -1274,7 +1339,7 @@ export const StudentPortalPage = () => {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            score: score !== undefined ? score : 0,
+            score: typeof score === 'number' ? score : 0,
             submissionData,
             feedback: 'Assignment submitted',
             status: 'submitted'
@@ -1326,8 +1391,8 @@ export const StudentPortalPage = () => {
             assignment_id: assignmentId,
             student_id: studentData?.id,
             status: 'submitted',
-            score: score !== undefined ? score : 0,
-            max_score: 100,
+            score: typeof score === 'number' ? score : 0,
+            max_score: typeof score === 'number' ? score : 0,
             attempts_count: completedAttempt.attempts_count,
             completed_at: new Date().toISOString(),
             submitted_at: new Date().toISOString(),
@@ -1415,7 +1480,7 @@ export const StudentPortalPage = () => {
                       studentId: studentData?.id,
                       studentName: studentData?.name,
                       completedAt: new Date().toISOString(),
-                      score: score || 100
+                      score: typeof score === 'number' ? score : 100
                     }
                   });
                   
@@ -1970,21 +2035,25 @@ export const StudentPortalPage = () => {
                   onClick={(e) => {
                     e.preventDefault();
                     if (currentGame?.assignmentId) {
-                      completeAssignment(currentGame.assignmentId, gameScore, { 
+                      // If not completed, treat as wrong answer (score 0)
+                      const scoreToSubmit = gameCompleted ? gameScore : 0;
+                      completeAssignment(currentGame.assignmentId, scoreToSubmit, { 
                         gameType: currentGame.game_type,
                         difficulty: currentGame.config?.difficulty,
                         category: currentGame.config?.category,
                         completedAt: new Date().toISOString(),
-                        attemptedAnswer: gameCompleted
+                        forcedSubmit: !gameCompleted
                       });
                       setShowGameModal(false);
                     } else {
                       toast.error('Unable to submit assignment');
                     }
                   }}
-                  className="bg-green-600 hover:bg-green-700"
+                  className={gameCompleted 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-yellow-500 hover:bg-yellow-600'}
                 >
-                  Submit Assignment {gameCompleted ? `(${gameScore}%)` : '(Not Attempted)'}
+                  {gameCompleted ? `Submit Assignment (${gameScore}%)` : 'Submit Anyway (Score: 0%)'}
                 </Button>
               </div>
             </div>

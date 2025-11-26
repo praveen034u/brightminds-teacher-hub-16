@@ -65,6 +65,8 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Header height used by layout components */
+    --header-height: 76px;
   }
 
   .dark {

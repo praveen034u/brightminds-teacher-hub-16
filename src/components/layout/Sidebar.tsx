@@ -1,24 +1,24 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { LayoutDashboard, Building2, User, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
 
-export const Sidebar = () => {
-  const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  collapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
+}
 
-  // Hide sidebar on dashboard page
-  // Sidebar should always be visible, including on dashboard
+export const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
+  // location not needed here; parent DashboardLayout controls remounting
 
   return (
     <aside
-      className={`sticky bg-card border-r border-border transition-all duration-300 flex flex-col ${collapsed ? 'w-16' : 'w-56'}`}
-      style={{ top: '0', height: '100vh' }}
+      className={`fixed left-0 bg-card border-r border-border z-40 transition-all duration-300 flex flex-col ${collapsed ? 'w-16' : 'w-56'}`}
+      style={{ top: 'var(--header-height, 76px)', height: 'calc(100vh - var(--header-height, 76px))' }}
     >
       {/* Collapse/Expand Button */}
       <div className="flex items-center justify-end p-2 border-b border-border" style={{ minHeight: '56px' }}>
         <button
           className="rounded-full p-2 hover:bg-accent focus:outline-none"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => setCollapsed(!collapsed)}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
