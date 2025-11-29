@@ -627,7 +627,7 @@ export const StudentPortalPage = () => {
         console.log(`  Assignment ${index + 1}:`, {
           title: assignment.title,
           type: assignment.assignment_type,
-          game_id: assignment.game_id,
+          game_id: assignment.games?.id,
           has_games_object: !!assignment.games,
           games_name: assignment.games?.name
         });
@@ -1662,7 +1662,7 @@ export const StudentPortalPage = () => {
                     id: assignment.id,
                     title: assignment.title,
                     assignment_type: assignment.assignment_type,
-                    game_id: assignment.game_id,
+                    game_id: assignment.games?.id,
                     games: assignment.games,
                     game_config: assignment.game_config
                   });

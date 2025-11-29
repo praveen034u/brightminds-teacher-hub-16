@@ -59,14 +59,14 @@ export const AssignmentsPage = () => {
   const [selectedPrebuiltRoom, setSelectedPrebuiltRoom] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('none');
   
-  // Custom room assignment templates
+  // Custom assignment templates
   const [savedAssignmentTemplates, setSavedAssignmentTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templatesFeatureAvailable, setTemplatesFeatureAvailable] = useState(false);
 
-  // Auto-enable template saving for custom rooms
+  // Auto-enable template saving for custom assignments
   useEffect(() => {
     if (roomType === 'custom') {
       setSaveAsTemplate(true);
@@ -393,7 +393,7 @@ export const AssignmentsPage = () => {
       setAssignments(assignmentsWithProgress);
       setRooms(roomsData);
       
-      // Load saved assignment templates for custom rooms
+      // Load saved assignment templates for custom assignments
       try {
         console.log('📝 Loading assignment templates from local storage...');
         
@@ -483,7 +483,7 @@ export const AssignmentsPage = () => {
         console.log(`   Assignment should ONLY go to students in this room!`);
       }
 
-      // For custom rooms, save as template if requested
+      // For custom assignments, save as template if requested
       if (roomType === 'custom' && saveAsTemplate && templateName.trim()) {
         try {
           // Get the actual teacher ID from the teacher profile API
@@ -883,7 +883,7 @@ export const AssignmentsPage = () => {
                       </TabsTrigger>
                       <TabsTrigger value="custom" className="flex items-center gap-2">
                         <Upload className="h-4 w-4" />
-                        Custom Rooms
+                        Custom Assignments
                       </TabsTrigger>
                     </TabsList>
                     

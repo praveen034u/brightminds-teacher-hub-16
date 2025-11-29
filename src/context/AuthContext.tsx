@@ -263,6 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [auth0User, isAuthenticated, auth0Loading]);
 
   const logout = () => {
+    setIsLoading(true);
     setUser(null);
     setAuth0UserId(null);
     auth0Logout({ logoutParams: { returnTo: window.location.origin } });
