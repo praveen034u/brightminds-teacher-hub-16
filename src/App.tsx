@@ -17,6 +17,7 @@ import AssignmentsPage from "./pages/AssignmentsPage";
 import ProfilePage from "./pages/ProfilePage";
 import StudentPortalRedirect from "./pages/StudentPortalRedirect";
 import StudentPortalPage from "./pages/StudentPortalPage";
+import QuestionPapersPage from "./pages/QuestionPapersPage";
 import { Footer } from "@/components/layout/Footer";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -87,6 +88,13 @@ const App = () => (
                   <DashboardLayout>
                     <ProtectedRoute>
                       <AssignmentsPage />
+                    </ProtectedRoute>
+                  </DashboardLayout>
+                } />
+                <Route path="/question-papers" element={
+                  <DashboardLayout>
+                    <ProtectedRoute>
+                      <QuestionPapersPage />
                     </ProtectedRoute>
                   </DashboardLayout>
                 } />

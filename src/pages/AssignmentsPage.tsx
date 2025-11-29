@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,12 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
 
-export const AssignmentsPage = () => {
+
+function AssignmentsPage() {
+  // Form state for assignment creation
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  
   const { auth0UserId } = useAuth();
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -52,12 +57,13 @@ export const AssignmentsPage = () => {
   const maxReconnectAttempts = 5;
   
   // Form state
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [grade, setGrade] = useState('');
   const [roomType, setRoomType] = useState<'prebuilt' | 'custom'>('prebuilt');
   const [selectedPrebuiltRoom, setSelectedPrebuiltRoom] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('none');
+  const [selectedQuestionPaper, setSelectedQuestionPaper] = useState('');
+  const [questionPapers, setQuestionPapers] = useState<any[]>([]);
   
   // Custom room assignment templates
   const [savedAssignmentTemplates, setSavedAssignmentTemplates] = useState<any[]>([]);
@@ -71,7 +77,7 @@ export const AssignmentsPage = () => {
     if (roomType === 'custom') {
       setSaveAsTemplate(true);
       if (!templateName.trim()) {
-        setTemplateName(`Custom Room Assignment ${new Date().toLocaleDateString()}`);
+        setTemplateName(`Custom Assignment ${new Date().toLocaleDateString()}`);
       }
     } else {
       setSaveAsTemplate(false);
@@ -408,6 +414,33 @@ export const AssignmentsPage = () => {
         setSavedAssignmentTemplates([]);
       }
       
+      // Load question papers from Supabase (with localStorage fallback)
+      try {
+        console.log('📄 Loading question papers...');
+        const { data: questionPapersData, error: qpError } = await supabase
+          .from('question_papers')
+          .select('*')
+          .eq('teacher_id', auth0UserId)
+          .order('created_at', { ascending: false });
+        
+        if (qpError) {
+          console.warn('Error loading question papers from Supabase, using localStorage:', qpError);
+          // Fallback to localStorage
+          const localPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
+          setQuestionPapers(localPapers || []);
+        } else {
+          console.log('📄 Loaded question papers:', questionPapersData?.length || 0);
+          setQuestionPapers(questionPapersData || []);
+          // Sync localStorage with Supabase
+          localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify(questionPapersData || []));
+        }
+      } catch (error) {
+        console.warn('⚠️ Error loading question papers:', error);
+        // Fallback to localStorage
+        const localPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
+        setQuestionPapers(localPapers || []);
+      }
+      
       // Fetch games from Supabase with enhanced data
       const { data: gamesData, error } = await supabase
         .from('games')
@@ -459,13 +492,15 @@ export const AssignmentsPage = () => {
 
       const assignmentData = {
         roomType: roomType,
-        roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : '',
+        roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : selectedQuestionPaper,
         gameConfig: roomType === 'prebuilt' ? selectedGameConfig : null,
         title,
         description,
+        grade,
         dueDate,
         status: 'active',
         room_id: finalRoomId, // Add room assignment
+        question_paper_id: roomType === 'custom' ? selectedQuestionPaper : null, // Link to question paper
       };
 
       console.log('📤 Creating assignment with data:', JSON.stringify(assignmentData, null, 2));
@@ -594,10 +629,12 @@ export const AssignmentsPage = () => {
       
       // Reset form
       setTitle('');
+      setGrade('');
       setDescription('');
       setDueDate('');
       setRoomType('prebuilt');
       setSelectedPrebuiltRoom('');
+      setSelectedQuestionPaper('');
       setSelectedRoom('none');
       setSelectedGameConfig({ difficulty: 'easy', category: '' });
       setAvailableCategories([]);
@@ -638,6 +675,11 @@ export const AssignmentsPage = () => {
       toast.error('Please enter a title');
       return false;
     }
+    if (!grade) {
+      console.log('❌ Validation failed: No grade selected');
+      toast.error('Please select a grade level');
+      return false;
+    }
     if (!description.trim()) {
       console.log('❌ Validation failed: No description');
       toast.error('Please enter a description');
@@ -661,6 +703,11 @@ export const AssignmentsPage = () => {
         toast.error('Please select a category for this game');
         return false;
       }
+    }
+    if (roomType === 'custom' && !selectedQuestionPaper) {
+      console.log('❌ Validation failed: No question paper selected for custom assignment');
+      toast.error('Please select a question paper');
+      return false;
     }
     
     // Validate custom room template saving
@@ -876,7 +923,7 @@ export const AssignmentsPage = () => {
                   Create Assignment
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto px-6">
               <DialogHeader>
                 <DialogTitle>Create New Assignment</DialogTitle>
               </DialogHeader>
@@ -892,7 +939,7 @@ export const AssignmentsPage = () => {
                       </TabsTrigger>
                       <TabsTrigger value="custom" className="flex items-center gap-2">
                         <Upload className="h-4 w-4" />
-                        Custom Rooms
+                        Custom Assignment
                       </TabsTrigger>
                     </TabsList>
                     
@@ -1162,23 +1209,92 @@ export const AssignmentsPage = () => {
                           </div>
                         )}
                         
-                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
-                          <div className="space-y-3">
-                            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center mx-auto">
-                              <FileText className="h-6 w-6 text-white" />
-                            </div>
-                            <div className="space-y-2">
-                              <h3 className="text-lg font-semibold text-gray-800">Custom Room Assignment</h3>
-                              <p className="text-sm text-gray-600 max-w-md mx-auto">
-                                Create custom assignments with your own content. Save as templates for easy reuse.
-                              </p>
-                            </div>
-                            <div className="flex justify-center gap-2">
-                              <Badge variant="outline" className="text-xs">📝 Custom Content</Badge>
-                              <Badge variant="outline" className="text-xs">💾 Save Templates</Badge>
-                              <Badge variant="outline" className="text-xs">🔄 Reuse Later</Badge>
-                            </div>
+                        <div className="space-y-4">
+                          {/* Question Paper Selection */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Select Question Paper *</Label>
+                            <Select value={selectedQuestionPaper} onValueChange={setSelectedQuestionPaper}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Choose a saved question paper..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {questionPapers.length === 0 ? (
+                                  <SelectItem value="no-papers" disabled>
+                                    No question papers available
+                                  </SelectItem>
+                                ) : (
+                                  questionPapers.map((paper) => (
+                                    <SelectItem key={paper.id} value={paper.id}>
+                                      <div className="flex items-center justify-between w-full">
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="h-3 w-3" />
+                                          <span>{paper.title}</span>
+                                        </div>
+                                        <span className="text-xs text-gray-500 ml-2">
+                                          ({paper.question_count || 0} questions)
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            
+                            {/* Show selected question paper details */}
+                            {selectedQuestionPaper && questionPapers.find(p => p.id === selectedQuestionPaper) && (
+                              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <div className="h-8 w-8 rounded bg-green-600 flex items-center justify-center flex-shrink-0">
+                                    <CheckCircle className="h-5 w-5 text-white" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-green-900 mb-1">
+                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.title}
+                                    </div>
+                                    <p className="text-xs text-green-700">
+                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.description || 'No description'}
+                                    </p>
+                                    <div className="flex gap-2 mt-2">
+                                      <Badge variant="outline" className="text-xs bg-white">
+                                        📝 {questionPapers.find(p => p.id === selectedQuestionPaper)?.question_count || 0} Questions
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs bg-white">
+                                        🏆 {questionPapers.find(p => p.id === selectedQuestionPaper)?.total_marks || 0} Marks
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
+                          
+                          {/* Help section */}
+                          {questionPapers.length === 0 && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <div className="flex items-start gap-2">
+                                <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-white text-sm">💡</span>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium text-blue-900 mb-1">No Question Papers Yet</div>
+                                  <p className="text-xs text-blue-700 mb-3">
+                                    Create question papers from the <strong>Question Papers</strong> page. 
+                                    You can create questions using OCR (scan images), manual entry, or AI generation.
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate('/question-papers')}
+                                    className="text-xs"
+                                  >
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    Go to Question Papers
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </TabsContent>
@@ -1195,6 +1311,30 @@ export const AssignmentsPage = () => {
                     placeholder="Enter assignment title..."
                     className="w-full"
                   />
+                </div>
+
+                {/* Grade */}
+                <div className="space-y-1">
+                  <Label htmlFor="grade" className="text-sm">Grade *</Label>
+                  <Select value={grade} onValueChange={setGrade}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select grade level..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Grade 1</SelectItem>
+                      <SelectItem value="2">Grade 2</SelectItem>
+                      <SelectItem value="3">Grade 3</SelectItem>
+                      <SelectItem value="4">Grade 4</SelectItem>
+                      <SelectItem value="5">Grade 5</SelectItem>
+                      <SelectItem value="6">Grade 6</SelectItem>
+                      <SelectItem value="7">Grade 7</SelectItem>
+                      <SelectItem value="8">Grade 8</SelectItem>
+                      <SelectItem value="9">Grade 9</SelectItem>
+                      <SelectItem value="10">Grade 10</SelectItem>
+                      <SelectItem value="11">Grade 11</SelectItem>
+                      <SelectItem value="12">Grade 12</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Description */}
@@ -1320,6 +1460,11 @@ export const AssignmentsPage = () => {
                             >
                               {assignment.status}
                             </Badge>
+                            {assignment.grade && (
+                              <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                                Grade {assignment.grade}
+                              </Badge>
+                            )}
                             {assignment.rooms?.name && (
                               <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                                 {assignment.rooms.name}

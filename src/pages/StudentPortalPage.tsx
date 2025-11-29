@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle } from 'lucide-react';
+import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
@@ -374,6 +374,12 @@ interface StudentData {
       categories?: string[];
       skills?: string[];
     };
+    questions?: Array<{
+      id: string | number;
+      text: string;
+      options?: string[];
+      answer?: string | number;
+    }>;
   }>;
   classmates: Array<{
     id: string;
@@ -425,6 +431,63 @@ export const StudentPortalPage = () => {
   const [loadingAttempts, setLoadingAttempts] = useState<Record<string, boolean>>({});
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameScore, setGameScore] = useState(0);
+  // Custom assignment modal state
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [currentCustomAssignment, setCurrentCustomAssignment] = useState<any>(null);
+  const [customAnswers, setCustomAnswers] = useState<any[]>([]);
+  const [customScore, setCustomScore] = useState<number | null>(null);
+  const [customCompleted, setCustomCompleted] = useState(false);
+  // Start a custom assignment (question paper)
+  const startCustomAssignment = (assignment: any) => {
+    setCurrentCustomAssignment(assignment);
+    setCustomAnswers(Array.isArray(assignment.questions) ? Array(assignment.questions.length).fill('') : []);
+    setCustomScore(null);
+    setCustomCompleted(false);
+    setShowCustomModal(true);
+    toast.success(`Starting ${assignment.title}!`);
+  };
+
+  // Handle answer change for custom assignment
+  const handleCustomAnswerChange = (idx: number, value: string) => {
+    setCustomAnswers((prev) => {
+      const copy = [...prev];
+      copy[idx] = value;
+      return copy;
+    });
+  };
+
+  // Submit custom assignment answers
+  const submitCustomAssignment = () => {
+    if (!currentCustomAssignment) return;
+    const questions = currentCustomAssignment.questions || [];
+    let score = 0;
+    let maxScore = questions.length;
+    // Score calculation: compare answer index or text
+    questions.forEach((q: any, idx: number) => {
+      if (q.answer !== undefined && q.options) {
+        // MCQ: check if selected option index matches
+        if (String(q.answer) === String(customAnswers[idx])) score++;
+      } else if (q.answer !== undefined) {
+        // Text: check if answer matches (case-insensitive)
+        if ((customAnswers[idx] || '').trim().toLowerCase() === String(q.answer).trim().toLowerCase()) score++;
+      } else {
+        // No answer key, skip scoring
+        maxScore--;
+      }
+    });
+    const percent = maxScore > 0 ? Math.round((score / maxScore) * 100) : 100;
+    setCustomScore(percent);
+    setCustomCompleted(true);
+    // Mark assignment as complete
+    if (currentCustomAssignment.id) {
+      completeAssignment(currentCustomAssignment.id, percent, {
+        answers: customAnswers,
+        completedAt: new Date().toISOString(),
+      });
+    }
+    toast.success(`Assignment submitted! Score: ${percent}%`);
+    setShowCustomModal(false);
+  };
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   const subscriptionRef = useRef<any>(null);
   const studentDataRef = useRef<StudentData | null>(null);
@@ -1707,10 +1770,37 @@ export const StudentPortalPage = () => {
                           {(() => {
                             const attempt = assignmentAttempts[assignment.id];
                             const isLoading = loadingAttempts[assignment.id];
-                            
+                            // --- Custom assignment support ---
+                            const isCustom = assignment.assignment_type !== 'game' && Array.isArray(assignment.questions);
+                            // --- Custom assignment always shows modal for answering ---
+                            if (isCustom) {
+                              return (
+                                <Button
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    // Always open modal for answering, regardless of attempt status
+                                    if (!attempt || attempt.status !== 'in_progress') {
+                                      await startAssignment(assignment.id);
+                                    }
+                                    startCustomAssignment(assignment);
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                                  size="sm"
+                                  disabled={isLoading}
+                                >
+                                  {isLoading ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
+                                  ) : (
+                                    <Play className="h-4 w-4 mr-1" />
+                                  )}
+                                  {attempt && attempt.status === 'in_progress' ? 'Continue Assignment' : 'Start Assignment'}
+                                </Button>
+                              );
+                            }
+                            // Default for games and others
                             if (!attempt || attempt.status === 'not_started') {
                               return (
-                                <Button 
+                                <Button
                                   onClick={(e) => {
                                     e.preventDefault();
                                     startAssignment(assignment.id);
@@ -1728,12 +1818,11 @@ export const StudentPortalPage = () => {
                                 </Button>
                               );
                             }
-                            
                             if (attempt.status === 'in_progress') {
                               return (
                                 <>
                                   {assignment.assignment_type === 'game' && assignment.games && (
-                                    <Button 
+                                    <Button
                                       onClick={() => playGame(assignment)}
                                       className="bg-green-600 hover:bg-green-700 text-white"
                                       size="sm"
@@ -1742,7 +1831,7 @@ export const StudentPortalPage = () => {
                                       Continue Game
                                     </Button>
                                   )}
-                                  <Button 
+                                  <Button
                                     onClick={(e) => {
                                       e.preventDefault();
                                       completeAssignment(assignment.id);
@@ -1761,14 +1850,13 @@ export const StudentPortalPage = () => {
                                 </>
                               );
                             }
-                            
                             if (attempt.status === 'completed' || attempt.status === 'submitted') {
                               return (
                                 <div className="flex items-center gap-2">
                                   <Badge className="bg-green-100 text-green-800 border-green-300">
                                     ✅ Completed {attempt.score ? `(${attempt.score}%)` : ''}
                                   </Badge>
-                                  <Button 
+                                  <Button
                                     onClick={(e) => {
                                       e.preventDefault();
                                       startAssignment(assignment.id);
@@ -1787,9 +1875,68 @@ export const StudentPortalPage = () => {
                                 </div>
                               );
                             }
-                            
                             return null;
-                          })()} 
+                          })()}
+      {/* Custom Assignment Modal */}
+      <Dialog open={showCustomModal} onOpenChange={setShowCustomModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                <FileText className="h-6 w-6 text-blue-600" />
+                {currentCustomAssignment?.title || 'Assignment'}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mb-2 text-gray-700">{currentCustomAssignment?.description}</div>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              submitCustomAssignment();
+            }}
+          >
+            <ol className="space-y-4">
+              {currentCustomAssignment?.questions?.map((q: any, idx: number) => (
+                <li key={q.id || idx} className="border-b pb-3">
+                  <div className="font-medium mb-1">Q{idx + 1}. {q.text}</div>
+                  {q.options && q.options.length > 0 ? (
+                    <div className="flex flex-col gap-1 ml-4">
+                      {q.options.map((opt: string, i: number) => (
+                        <label key={i} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name={`q${idx}`}
+                            value={i}
+                            checked={String(customAnswers[idx]) === String(i)}
+                            onChange={() => handleCustomAnswerChange(idx, String(i))}
+                          />
+                          <span>{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      className="border rounded px-2 py-1 text-sm w-full mt-1"
+                      placeholder="Your answer..."
+                      value={customAnswers[idx] || ''}
+                      onChange={e => handleCustomAnswerChange(idx, e.target.value)}
+                    />
+                  )}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowCustomModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
+                Submit Assignment
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
                         </div>
                       </div>
                     </CardContent>

@@ -169,22 +169,28 @@ const TeacherHome = () => {
             color="primary"
           />
           <QuickActionCard
-            title="Create Room"
+            title="Rooms"
             icon={DoorOpen}
             to="/rooms"
             color="secondary"
           />
           <QuickActionCard
-            title="Create Assignment"
+            title="Question Papers"
+            icon={FileText}
+            to="/question-papers"
+            color="accent"
+          />
+          <QuickActionCard
+            title="Assignments"
             icon={FileText}
             to="/assignments"
-            color="accent"
+            color="primary"
           />
           <QuickActionCard
             title="Send Announcement"
             icon={Megaphone}
             onClick={() => toast.info('Announcement feature coming soon!')}
-            color="primary"
+            color="secondary"
           />
         </div>
 
