@@ -65,14 +65,14 @@ function AssignmentsPage() {
   const [selectedQuestionPaper, setSelectedQuestionPaper] = useState('');
   const [questionPapers, setQuestionPapers] = useState<any[]>([]);
   
-  // Custom room assignment templates
+  // Custom assignment templates
   const [savedAssignmentTemplates, setSavedAssignmentTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [templatesFeatureAvailable, setTemplatesFeatureAvailable] = useState(false);
 
-  // Auto-enable template saving for custom rooms
+  // Auto-enable template saving for custom assignments
   useEffect(() => {
     if (roomType === 'custom') {
       setSaveAsTemplate(true);
@@ -399,7 +399,7 @@ function AssignmentsPage() {
       setAssignments(assignmentsWithProgress);
       setRooms(roomsData);
       
-      // Load saved assignment templates for custom rooms
+      // Load saved assignment templates for custom assignments
       try {
         console.log('📝 Loading assignment templates from local storage...');
         
@@ -518,7 +518,7 @@ function AssignmentsPage() {
         console.log(`   Assignment should ONLY go to students in this room!`);
       }
 
-      // For custom rooms, save as template if requested
+      // For custom assignments, save as template if requested
       if (roomType === 'custom' && saveAsTemplate && templateName.trim()) {
         try {
           // Get the actual teacher ID from the teacher profile API
@@ -874,15 +874,6 @@ function AssignmentsPage() {
       <main className="container mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-              className="hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
             <div>
               <h1 className="text-4xl font-bold mb-2">Assignments</h1>
               <p className="text-muted-foreground">Create and manage student assignments</p>

@@ -36,6 +36,7 @@ export const StudentsPage = () => {
     name: '',
     email: '',
     gender: '',
+    grade: '',
     date_of_birth: '',
     primary_language: 'English',
     skills: '',
@@ -66,6 +67,7 @@ export const StudentsPage = () => {
       const studentData = {
         ...formData,
         skills: formData.skills ? JSON.parse(`["${formData.skills.split(',').map(s => s.trim()).join('","')}"]`) : [],
+        grade: formData.grade,
       };
       await studentsAPI.create(auth0UserId, studentData);
       toast.success('Student added successfully');
@@ -74,6 +76,7 @@ export const StudentsPage = () => {
         name: '',
         email: '',
         gender: '',
+        grade: '',
         date_of_birth: '',
         primary_language: 'English',
         skills: '',
@@ -153,15 +156,6 @@ export const StudentsPage = () => {
       <main className="container mx-auto px-6 py-8 pb-20 sm:pb-8">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-              className="hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
             <div>
               <h1 className="text-4xl font-bold mb-2">Students</h1>
               <p className="text-muted-foreground">Manage your students</p>
@@ -175,7 +169,7 @@ export const StudentsPage = () => {
                   Upload CSV
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[80vh] overflow-y-auto rounded-xl shadow-lg">
                 <DialogHeader>
                   <DialogTitle>Upload Students from CSV</DialogTitle>
                 </DialogHeader>
@@ -206,13 +200,15 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                   Add Student
                 </Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Student</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddStudent} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Name *</Label>
+              <DialogContent className="p-2 rounded-1xl shadow-lg border border-gray-200 bg-white flex justify-center items-center overflow-hidden">
+                <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl">
+                  <div className="px-8 pt-2 pb-0">
+                    <h2 className="text-2xl font-bold text-center mb-6">Add New Student</h2>
+                  </div>
+                  <div className="px-8 pb-8">
+                    <form onSubmit={handleAddStudent} className="flex flex-col gap-6">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="name" className="font-medium">Name *</Label>
                     <Input
                       id="name"
                       value={formData.name}
@@ -220,8 +216,8 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                       required
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="email" className="font-medium">Email</Label>
                     <Input
                       id="email"
                       type="email"
@@ -230,16 +226,39 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                       placeholder="student@example.com"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="gender">Gender</Label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="gender" className="font-medium">Gender</Label>
                     <Input
                       id="gender"
                       value={formData.gender}
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="dob">Date of Birth</Label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="grade" className="font-medium">Grade</Label>
+                    <select
+                      id="grade"
+                      className="w-full border rounded-md p-2"
+                      value={formData.grade}
+                      onChange={e => setFormData({ ...formData, grade: e.target.value })}
+                    >
+                      <option value="">Select grade</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                      <option value="9">9</option>
+                      <option value="10">10</option>
+                      <option value="11">11</option>
+                      <option value="12">12</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="dob" className="font-medium">Date of Birth</Label>
                     <Input
                       id="dob"
                       type="date"
@@ -247,35 +266,53 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                       onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="language">Primary Language</Label>
-                    <Input
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="language" className="font-medium">Primary Language</Label>
+                    <select
                       id="language"
+                      className="w-full border rounded-md p-2"
                       value={formData.primary_language}
                       onChange={(e) => setFormData({ ...formData, primary_language: e.target.value })}
-                    />
+                    >
+                      <option value="English">English</option>
+                      <option value="Hindi">Hindi</option>
+                      <option value="Spanish">Spanish</option>
+                      <option value="French">French</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
-                  <div>
-                    <Label htmlFor="skills">Skills (comma separated)</Label>
-                    <Input
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="skills" className="font-medium">Skills</Label>
+                    <select
                       id="skills"
+                      className="w-full border rounded-md p-2"
                       value={formData.skills}
-                      onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                      placeholder="Reading, Math, Science"
-                    />
+                      onChange={e => setFormData({ ...formData, skills: e.target.value })}
+                    >
+                      <option value="">Select a skill</option>
+                      <option value="Reading">Reading</option>
+                      <option value="Math">Math</option>
+                      <option value="Science">Science</option>
+                      <option value="Writing">Writing</option>
+                      <option value="Art">Art</option>
+                      <option value="Sports">Sports</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
-                  <div>
-                    <Label htmlFor="details">Additional Details</Label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="details" className="font-medium">Additional Details</Label>
                     <Input
                       id="details"
                       value={formData.additional_details}
                       onChange={(e) => setFormData({ ...formData, additional_details: e.target.value })}
                     />
                   </div>
-                  <Button type="submit" className="w-full">Add Student</Button>
-                </form>
+                      <Button type="submit" className="w-full">Add Student</Button>
+                    </form>
+                  </div>
+                </div>
               </DialogContent>
-            </Dialog>
+          </Dialog>
           </div>
         </div>
 
@@ -295,6 +332,7 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Gender</TableHead>
+                    <TableHead>Grade</TableHead>
                     <TableHead>Date of Birth</TableHead>
                     <TableHead>Language</TableHead>
                     <TableHead>Skills</TableHead>
@@ -307,6 +345,7 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                       <TableCell className="font-medium">{student.name}</TableCell>
                       <TableCell>{student.email || '-'}</TableCell>
                       <TableCell>{student.gender || '-'}</TableCell>
+                      <TableCell>{student.grade || '-'}</TableCell>
                       <TableCell>
                         {student.date_of_birth
                           ? new Date(student.date_of_birth).toLocaleDateString()

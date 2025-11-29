@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 const ProfilePage = () => {
-  const { user, auth0UserId, isLoading, refreshProfile } = useAuth();
+  const { user, auth0UserId, isLoading, refreshProfile, markProfileComplete } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isFirstTimeSetup, setIsFirstTimeSetup] = useState(false);
@@ -72,18 +72,21 @@ const ProfilePage = () => {
       console.log('📤 Updating profile with data:', { auth0UserId, updateData });
 
       await meAPI.update(auth0UserId, updateData);
-      
       // Refresh the profile context to get updated user data
       await refreshProfile();
-      
       if (isFirstTimeSetup) {
-        // For first-time setup, redirect to dashboard after completion
-        toast.success('Profile setup complete! Redirecting to dashboard...');
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 1500);
+        // Check if the profile is now complete
+        const isProfileComplete = !!formData.school_name &&
+          formData.grades_taught.split(',').filter((g) => g.trim()).length > 0 &&
+          formData.subjects.split(',').filter((s) => s.trim()).length > 0;
+        if (isProfileComplete) {
+          toast.success('Profile setup complete!');
+          markProfileComplete();
+        } else {
+          toast.warning('Please complete all required profile fields.');
+        }
+        // Do NOT redirect to dashboard here; let ProtectedRoute handle redirect after profile is complete
       } else {
-        // For subsequent edits, redirect to dashboard
         toast.success('Profile updated successfully');
         setTimeout(() => {
           navigate('/dashboard');
@@ -130,19 +133,6 @@ const ProfilePage = () => {
       <main className="container mx-auto px-6 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
-            {!isFirstTimeSetup && (
-              <div className="flex items-center gap-4 mb-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/dashboard')}
-                  className="hover:bg-gray-100"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Button>
-              </div>
-            )}
             <h1 className="text-4xl font-bold mb-2">
               {isFirstTimeSetup ? 'Welcome! Complete Your Profile' : 'Teacher Profile'}
             </h1>

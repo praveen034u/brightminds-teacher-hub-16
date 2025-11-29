@@ -119,15 +119,6 @@ export const RoomsPage = () => {
       <main className="container mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-              className="hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
             <div>
               <h1 className="text-4xl font-bold mb-2">Virtual Rooms</h1>
               <p className="text-muted-foreground">Organize students into learning groups</p>

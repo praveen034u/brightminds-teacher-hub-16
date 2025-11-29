@@ -15,7 +15,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
 
   return (
-    <div className="flex-1 flex">
+    <div className="flex-1 flex min-h-screen">
       {/* Sidebar: only show on desktop */}
       <div className="hidden sm:block">
         {/* Use location.pathname as key so the Sidebar remounts when the route changes/refreshes */}
@@ -23,7 +23,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </div>
       {/* Main content: add left margin for sidebar on desktop, and bottom padding for mobile footer */}
       <div
-        className="flex-1 pb-20 sm:pb-0"
+        className="flex-1 pb-20 sm:pb-0 overflow-x-hidden"
         style={{ paddingTop: 'var(--header-height, 76px)', marginLeft: undefined, ...(window.innerWidth >= 640 ? { marginLeft: sidebarWidth } : {}) }}
       >
         {children}

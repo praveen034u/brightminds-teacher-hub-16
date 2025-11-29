@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { testAuth0Configuration } from '@/utils/auth0Debug';
@@ -8,6 +9,7 @@ import { testAuth0Configuration } from '@/utils/auth0Debug';
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0();
+  const { isNewUser, isLoading: authLoading } = useAuth();
 
   // Debug Auth0 configuration only when needed (removed automatic debug to prevent spam)
 
@@ -30,11 +32,19 @@ export const LoginPage = () => {
       return;
     }
     
-    if (isAuthenticated && !window.location.pathname.includes('/dashboard')) {
-      console.log('✅ User is authenticated, attempting to navigate to dashboard');
-      navigate('/dashboard', { replace: true });
+    if (isAuthenticated && !authLoading && !window.location.pathname.includes('/dashboard') && !window.location.pathname.includes('/profile')) {
+      console.log('✅ User is authenticated, checking if profile is complete');
+      console.log('🔍 LoginPage redirect check:', { isNewUser, authLoading, isAuthenticated });
+      // Redirect new users to profile page first, existing users to dashboard
+      if (isNewUser) {
+        console.log('📝 New user detected, redirecting to profile page');
+        navigate('/profile', { replace: true });
+      } else {
+        console.log('✅ Existing user, redirecting to dashboard');
+        navigate('/dashboard', { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, authLoading, isNewUser, navigate]);
 
   const handleLogin = () => {
     console.log('🔑 Login button clicked, initiating Auth0 redirect...');
