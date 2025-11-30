@@ -141,7 +141,9 @@ Deno.serve(async (req) => {
           assignment_type: 'game',
           game_id: game.id,
           game_config: body.gameConfig || {},
-          room_id: body.room_id || null // Respect room assignment for game assignments
+          room_id: body.room_id || null, // Respect room assignment for game assignments
+          // Always set top-level game_type for frontend reliability
+          game_type: game.game_type || (body.gameConfig && body.gameConfig.game_type) || null
         };
         
         console.log('🎮 PRE-BUILT GAME ASSIGNMENT DATA:');

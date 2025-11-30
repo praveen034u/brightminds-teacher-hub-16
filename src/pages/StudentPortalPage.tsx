@@ -48,49 +48,75 @@ const fuzzyEqual = (a: string, b: string) => {
 };
 
 const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  // Support both config.questions and direct array config
+  const questions = Array.isArray(config?.questions)
+    ? config.questions
+    : Array.isArray(config)
+      ? config
+      : [];
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
-  
-  const scrambledWords = {
-    easy: { scrambled: 'TAC', correct: 'CAT' },
-    medium: { scrambled: 'OEUSH', correct: 'HOUSE' },
-    hard: { scrambled: 'EELNAPHT', correct: 'ELEPHANT' }
-  };
-  
-  const currentWord = scrambledWords[config?.difficulty || 'easy'];
-  
+  const [score, setScore] = useState(0);
+  const [answered, setAnswered] = useState(false);
+
+  const currentWord = questions[currentIndex];
+  if (!currentWord) {
+    return (
+      <div className="text-center p-8">
+        <h3 className="text-2xl font-bold mb-4">🔤 Word Scramble Challenge</h3>
+        <p className="text-lg text-red-600">No questions available for this assignment.</p>
+      </div>
+    );
+  }
+
   const checkAnswer = () => {
     const userAnswer = answer.trim();
-    const correctAnswer = currentWord.correct;
-    
+    const correctAnswer = currentWord.answer;
+    let earned = 0;
     if (fuzzyEqual(userAnswer, correctAnswer)) {
       setFeedback('🎉 Correct! Well done!');
       setIsCorrect(true);
+      earned = 100;
       toast.success('Correct answer!');
-      onComplete?.(100); // Perfect score for correct answer
     } else {
-      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
+      setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
-      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
+    setScore((prev) => prev + earned);
+    setAnswered(true);
   };
-  
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => prev + 1);
+    setAnswer('');
+    setFeedback('');
+    setIsCorrect(false);
+    setAnswered(false);
+  };
+
+  const handleSubmit = () => {
+    // Average score over 5 questions
+    onComplete?.(Math.round(score / questions.length));
+  };
+
   return (
     <div className="text-center p-8">
       <h3 className="text-2xl font-bold mb-4">🔤 Word Scramble Challenge</h3>
-      <p className="text-lg mb-6">Unscramble this word:</p>
+      <p className="text-lg mb-6">Unscramble this word ({currentIndex + 1} of {questions.length}):</p>
       <div className="text-3xl font-mono bg-blue-100 p-4 rounded-lg mb-6">
         {currentWord.scrambled}
       </div>
-      <input 
-        type="text" 
+      <input
+        type="text"
         value={answer}
         onChange={(e) => setAnswer(e.target.value)}
-        placeholder="Type your answer here..." 
+        placeholder="Type your answer here..."
         className={`border-2 p-3 rounded-lg text-lg w-64 text-center ${
           isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
         }`}
+        disabled={answered}
       />
       {feedback && (
         <div className={`mt-3 text-lg font-medium ${
@@ -99,65 +125,103 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
           {feedback}
         </div>
       )}
-      <div className="mt-4">
-        <Button 
-          onClick={checkAnswer}
-          className="bg-blue-600 hover:bg-blue-700"
-          disabled={!answer.trim()}
-        >
-          Check Answer
-        </Button>
+      <div className="mt-4 flex gap-4 justify-center">
+        {!answered && (
+          <Button
+            onClick={checkAnswer}
+            className="bg-blue-600 hover:bg-blue-700"
+            disabled={!answer.trim()}
+          >
+            Check Answer
+          </Button>
+        )}
+        {answered && currentIndex < questions.length - 1 && (
+          <Button onClick={handleNext} className="bg-gray-600 hover:bg-gray-700 text-white">
+            Next Question
+          </Button>
+        )}
+        {answered && currentIndex === questions.length - 1 && (
+          <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white">
+            Submit Assignment
+          </Button>
+        )}
       </div>
     </div>
   );
 };
 
 const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  // Use puzzles from config, fallback to empty array
+  // Support both config.puzzles and direct array config
+  const puzzles = Array.isArray(config?.puzzles)
+    ? config.puzzles
+    : Array.isArray(config)
+      ? config
+      : [];
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [guess, setGuess] = useState('');
   const [feedback, setFeedback] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
-  
-  const emojiPuzzles = {
-    easy: { emoji: '🐱🏠', answers: ['cat house', 'cathouse', 'pet home'] },
-    medium: { emoji: '🌧️🌈☀️', answers: ['rainbow', 'after rain', 'weather change'] },
-    hard: { emoji: '🏃‍♂️💨⏰📚', answers: ['running late', 'rush to school', 'hurrying to study'] }
-  };
-  
-  const currentPuzzle = emojiPuzzles[config?.difficulty || 'easy'];
-  
+  const [score, setScore] = useState(0);
+  const [answered, setAnswered] = useState(false);
+
+  const currentPuzzle = puzzles[currentIndex];
+  if (!currentPuzzle) {
+    return (
+      <div className="text-center p-8">
+        <h3 className="text-2xl font-bold mb-4">🎯 Emoji Guess Game</h3>
+        <p className="text-lg text-red-600">No emoji puzzles available for this assignment.</p>
+      </div>
+    );
+  }
+
   const checkAnswer = () => {
     const userGuess = guess.trim().toLowerCase();
-    const isMatch = currentPuzzle.answers.some(answer => 
+    const isMatch = currentPuzzle.answers.some(answer =>
       userGuess.includes(answer.toLowerCase()) || answer.toLowerCase().includes(userGuess)
     );
-    
+    let earned = 0;
     if (isMatch) {
       setFeedback('🎉 Excellent guess! You got it!');
       setIsCorrect(true);
+      earned = 95;
       toast.success('Great job!');
-      onComplete?.(95); // High score for emoji guess
     } else {
-      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
+      setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
-      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
+    setScore((prev) => prev + earned);
+    setAnswered(true);
   };
-  
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => prev + 1);
+    setGuess('');
+    setFeedback('');
+    setIsCorrect(false);
+    setAnswered(false);
+  };
+
+  const handleSubmit = () => {
+    onComplete?.(Math.round(score / puzzles.length));
+  };
+
   return (
     <div className="text-center p-8">
       <h3 className="text-2xl font-bold mb-4">🎯 Emoji Guess Game</h3>
-      <p className="text-lg mb-6">What does this emoji combination mean?</p>
+      <p className="text-lg mb-6">What does this emoji combination mean? ({currentIndex + 1} of {puzzles.length})</p>
       <div className="text-6xl mb-6">
-        {currentPuzzle.emoji}
+        {currentPuzzle.emojis}
       </div>
-      <input 
-        type="text" 
+      <input
+        type="text"
         value={guess}
         onChange={(e) => setGuess(e.target.value)}
-        placeholder="Type your guess..." 
+        placeholder="Type your guess..."
         className={`border-2 p-3 rounded-lg text-lg w-64 text-center ${
           isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
         }`}
+        disabled={answered}
       />
       {feedback && (
         <div className={`mt-3 text-lg font-medium ${
@@ -166,85 +230,123 @@ const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (sco
           {feedback}
         </div>
       )}
-      <div className="mt-4">
-        <Button 
-          onClick={checkAnswer}
-          className="bg-green-600 hover:bg-green-700"
-          disabled={!guess.trim()}
-        >
-          Check Answer
-        </Button>
+      <div className="mt-4 flex gap-4 justify-center">
+        {!answered && (
+          <Button
+            onClick={checkAnswer}
+            className="bg-green-600 hover:bg-green-700"
+            disabled={!guess.trim()}
+          >
+            Check Answer
+          </Button>
+        )}
+        {answered && currentIndex < puzzles.length - 1 && (
+          <Button onClick={handleNext} className="bg-gray-600 hover:bg-gray-700 text-white">
+            Next Question
+          </Button>
+        )}
+        {answered && currentIndex === puzzles.length - 1 && (
+          <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white">
+            Submit Assignment
+          </Button>
+        )}
       </div>
     </div>
   );
 };
 
 const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  // Support both flat array and nested (category/difficulty) structure
+  let riddles: any[] = [];
+  if (Array.isArray(config?.riddles)) {
+    riddles = config.riddles;
+  } else if (config?.riddles && typeof config.riddles === 'object') {
+    // Flatten all riddles from all categories/difficulties
+    riddles = Object.values(config.riddles)
+      .flatMap((cat: any) =>
+        typeof cat === 'object'
+          ? Object.values(cat).flatMap((arr: any) => Array.isArray(arr) ? arr : [])
+          : []
+      );
+  }
+
+  // State declarations (only once)
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
-  
-  const riddles = {
-    'Space': { 
-      question: "I'm hot and bright, I light up the day. What am I?", 
-      answers: ['sun', 'the sun'] 
-    },
-    'Zoo Animals': { 
-      question: "I'm big and gray with a long trunk. Who am I?", 
-      answers: ['elephant', 'an elephant'] 
-    },
-    'Ocean Friends': { 
-      question: "I have eight arms and live in the sea. What am I?", 
-      answers: ['octopus', 'an octopus'] 
-    },
-    'Nature': { 
-      question: "I fall from trees but I'm not a leaf. What am I?", 
-      answers: ['fruit', 'apple', 'nuts', 'acorn'] 
-    }
-  };
-  
-  const currentRiddle = riddles[config?.category] || riddles['Nature'];
-  
+  const [score, setScore] = useState(0);
+  const [answered, setAnswered] = useState(false);
+
+  const currentRiddle = riddles[currentIndex];
+  if (!currentRiddle) {
+    return (
+      <div className="text-center p-8">
+        <h3 className="text-2xl font-bold mb-4">🧩 Riddle Master</h3>
+        <p className="text-lg text-red-600">No riddles available for this assignment.</p>
+      </div>
+    );
+  }
+
   const checkAnswer = () => {
     const userAnswer = answer.trim();
-    const isMatch = currentRiddle.answers.some(correctAnswer => 
-      fuzzyEqual(userAnswer, correctAnswer) ||
-      userAnswer.toLowerCase().includes(correctAnswer.toLowerCase()) ||
-      correctAnswer.toLowerCase().includes(userAnswer.toLowerCase())
-    );
-    
+    // Support both answer array and correctAnswer index
+    let isMatch = false;
+    if (Array.isArray(currentRiddle.answers)) {
+      isMatch = currentRiddle.answers.some((correctAnswer: string) =>
+        fuzzyEqual(userAnswer, correctAnswer) ||
+        userAnswer.toLowerCase().includes(correctAnswer.toLowerCase()) ||
+        correctAnswer.toLowerCase().includes(userAnswer.toLowerCase())
+      );
+    } else if (typeof currentRiddle.correctAnswer === 'number' && Array.isArray(currentRiddle.options)) {
+      isMatch = fuzzyEqual(userAnswer, currentRiddle.options[currentRiddle.correctAnswer]);
+    }
+    let earned = 0;
     if (isMatch) {
       setFeedback('🎉 Brilliant! You solved the riddle!');
       setIsCorrect(true);
+      earned = 90;
       toast.success('Riddle solved!');
-      onComplete?.(90); // Good score for riddle solving
     } else {
-      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
+      setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
-      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
+    setScore((prev) => prev + earned);
+    setAnswered(true);
   };
-  
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => prev + 1);
+    setAnswer('');
+    setFeedback('');
+    setIsCorrect(false);
+    setAnswered(false);
+  };
+
+  const handleSubmit = () => {
+    onComplete?.(Math.round(score / riddles.length));
+  };
+
   return (
     <div className="text-center p-8">
       <h3 className="text-2xl font-bold mb-4">🧩 Riddle Master</h3>
       <div className="text-lg mb-2 flex items-center justify-center gap-2">
-        Category: 
-        <Badge variant="secondary">{config?.category || 'General'}</Badge>
+        Riddle {currentIndex + 1} of {riddles.length}
       </div>
       <div className="bg-purple-100 p-6 rounded-lg mb-6 max-w-md mx-auto">
         <p className="text-lg font-medium">
           {currentRiddle.question}
         </p>
       </div>
-      <input 
-        type="text" 
+      <input
+        type="text"
         value={answer}
         onChange={(e) => setAnswer(e.target.value)}
-        placeholder="Type your answer..." 
+        placeholder="Type your answer..."
         className={`border-2 p-3 rounded-lg text-lg w-64 text-center ${
           isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-300'
         }`}
+        disabled={answered}
       />
       {feedback && (
         <div className={`mt-3 text-lg font-medium ${
@@ -253,99 +355,130 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
           {feedback}
         </div>
       )}
-      <div className="mt-4">
-        <Button 
-          onClick={checkAnswer}
-          className="bg-purple-600 hover:bg-purple-700"
-          disabled={!answer.trim()}
-        >
-          Check Answer
-        </Button>
+      <div className="mt-4 flex gap-4 justify-center">
+        {!answered && (
+          <Button
+            onClick={checkAnswer}
+            className="bg-purple-600 hover:bg-purple-700"
+            disabled={!answer.trim()}
+          >
+            Check Answer
+          </Button>
+        )}
+        {answered && currentIndex < riddles.length - 1 && (
+          <Button onClick={handleNext} className="bg-gray-600 hover:bg-gray-700 text-white">
+            Next Question
+          </Button>
+        )}
+        {answered && currentIndex === riddles.length - 1 && (
+          <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white">
+            Submit Assignment
+          </Button>
+        )}
       </div>
     </div>
   );
 };
 
 const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+  // Use clues from config, fallback to empty array
+  const clues = config?.clues || [];
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [letters, setLetters] = useState<string[]>(['', '', '', '', '']);
   const [feedback, setFeedback] = useState('');
   const [isCorrect, setIsCorrect] = useState(false);
-  
-  const clues = {
-    'Christmas': { clue: "1 Across: Santa's helpers (5 letters)", answer: 'ELVES' },
-    'Animals': { clue: "1 Across: King of the jungle (4 letters)", answer: 'LION' },
-    'Space': { clue: "1 Across: Red planet (4 letters)", answer: 'MARS' },
-    'Ocean': { clue: "1 Across: Largest sea creature (5 letters)", answer: 'WHALE' },
-    'General': { clue: "1 Across: Opposite of night (3 letters)", answer: 'DAY' }
-  };
-  
-  const currentClue = clues[config?.category] || clues['General'];
+  const [score, setScore] = useState(0);
+  const [answered, setAnswered] = useState(false);
+
+  const currentClue = clues[currentIndex];
   const answerLength = currentClue.answer.length;
-  
+
   const handleLetterChange = (index: number, value: string) => {
     const newLetters = [...letters];
     newLetters[index] = value.toUpperCase();
     setLetters(newLetters);
   };
-  
+
   const checkAnswer = () => {
     const userAnswer = letters.slice(0, answerLength).join('');
-    
+    let earned = 0;
     if (fuzzyEqual(userAnswer, currentClue.answer)) {
       setFeedback('🎉 Perfect! You completed the crossword!');
       setIsCorrect(true);
+      earned = 100;
       toast.success('Crossword solved!');
-      onComplete?.(100); // Perfect score for crossword
     } else {
-      setFeedback('❌ Incorrect answer. You can still submit your attempt.');
+      setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
-      onComplete?.(0); // Allow submission with 0 score for wrong answer
     }
+    setScore((prev) => prev + earned);
+    setAnswered(true);
   };
-  
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => prev + 1);
+    setLetters(['', '', '', '', '']);
+    setFeedback('');
+    setIsCorrect(false);
+    setAnswered(false);
+  };
+
+  const handleSubmit = () => {
+    onComplete?.(Math.round(score / clues.length));
+  };
+
   return (
     <div className="text-center p-8">
-      <h3 className="text-2xl font-bold mb-4">📝 Crossword Puzzle</h3>
+      <h3 className="text-2xl font-bold mb-4">🧩 Crossword Puzzle</h3>
       <div className="text-lg mb-2 flex items-center justify-center gap-2">
-        Theme: 
-        <Badge variant="secondary">{config?.category || 'General'}</Badge>
+        Clue {currentIndex + 1} of {clues.length}
       </div>
-      <div className="bg-yellow-50 p-6 rounded-lg mb-6">
-        <p className="text-lg mb-4">Complete this crossword clue:</p>
-        <div className="font-medium mb-4">
+      <div className="bg-yellow-100 p-6 rounded-lg mb-6 max-w-md mx-auto">
+        <p className="text-lg font-medium">
           {currentClue.clue}
-        </div>
-        <div className="flex justify-center">
-          <div className={`grid gap-1`} style={{gridTemplateColumns: `repeat(${answerLength}, 1fr)`}}>
-            {Array.from({length: answerLength}).map((_, i) => (
-              <input 
-                key={i}
-                type="text" 
-                value={letters[i] || ''}
-                onChange={(e) => handleLetterChange(i, e.target.value)}
-                maxLength={1}
-                className={`w-8 h-8 border-2 text-center font-bold text-lg ${
-                  isCorrect ? 'border-green-500 bg-green-50' : 'border-gray-400'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
+        </p>
+      </div>
+      <div className="flex justify-center gap-2 mb-4">
+        {Array.from({ length: answerLength }).map((_, idx) => (
+          <input
+            key={idx}
+            type="text"
+            maxLength={1}
+            value={letters[idx] || ''}
+            onChange={(e) => handleLetterChange(idx, e.target.value)}
+            className="w-12 h-12 text-2xl text-center border-2 rounded-lg focus:outline-none focus:border-yellow-500"
+            disabled={answered}
+          />
+        ))}
       </div>
       {feedback && (
-        <div className={`mb-4 text-lg font-medium ${
+        <div className={`mt-3 text-lg font-medium ${
           isCorrect ? 'text-green-600' : 'text-red-600'
         }`}>
           {feedback}
         </div>
       )}
-      <Button 
-        onClick={checkAnswer}
-        className="bg-yellow-600 hover:bg-yellow-700"
-        disabled={letters.slice(0, answerLength).some(letter => !letter.trim())}
-      >
-        Check Answer
-      </Button>
+      <div className="mt-4 flex gap-4 justify-center">
+        {!answered && (
+          <Button
+            onClick={checkAnswer}
+            className="bg-yellow-600 hover:bg-yellow-700"
+            disabled={letters.slice(0, answerLength).some(letter => !letter.trim())}
+          >
+            Check Answer
+          </Button>
+        )}
+        {answered && currentIndex < clues.length - 1 && (
+          <Button onClick={handleNext} className="bg-gray-600 hover:bg-gray-700 text-white">
+            Next Question
+          </Button>
+        )}
+        {answered && currentIndex === clues.length - 1 && (
+          <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700 text-white">
+            Submit Assignment
+          </Button>
+        )}
+      </div>
     </div>
   );
 };
@@ -1190,6 +1323,10 @@ export const StudentPortalPage = () => {
           ...prev,
           [assignmentId]: attempt
         }));
+        // Force-refresh student data to get latest assignment object
+        if (token) {
+          await loadStudentData(token);
+        }
         toast.success('Assignment started! Good luck!');
         backendSuccess = true;
       } else {
@@ -1261,6 +1398,10 @@ export const StudentPortalPage = () => {
           ...prev,
           [assignmentId]: insertData
         }));
+        // Force-refresh student data to get latest assignment object
+        if (token) {
+          await loadStudentData(token);
+        }
         toast.success('Assignment started! Good luck! (Direct save)');
         backendSuccess = true;
         
@@ -1341,8 +1482,7 @@ export const StudentPortalPage = () => {
           body: JSON.stringify({
             score: typeof score === 'number' ? score : 0,
             submissionData,
-            feedback: 'Assignment submitted',
-            status: 'submitted'
+            feedback: 'Assignment submitted'
           }),
           signal: controller.signal
         }
@@ -1356,12 +1496,11 @@ export const StudentPortalPage = () => {
         setAssignmentAttempts(prev => {
           const updated = {
             ...prev,
-            [assignmentId]: { ...attempt, status: 'submitted' }
+            [assignmentId]: attempt
           };
           localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
           return updated;
         });
-        
         toast.success('Assignment submitted successfully! 🎉');
         backendSuccess = true;
       } else {
@@ -1390,7 +1529,7 @@ export const StudentPortalPage = () => {
           .upsert({
             assignment_id: assignmentId,
             student_id: studentData?.id,
-            status: 'submitted',
+            status: 'completed',
             score: typeof score === 'number' ? score : 0,
             max_score: typeof score === 'number' ? score : 0,
             attempts_count: completedAttempt.attempts_count,
@@ -1430,7 +1569,7 @@ export const StudentPortalPage = () => {
         setAssignmentAttempts(prev => {
           const updated = {
             ...prev,
-            [assignmentId]: completedAttempt
+            [assignmentId]: { ...completedAttempt, status: 'completed' as const }
           };
           localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
           return updated;
@@ -1439,66 +1578,33 @@ export const StudentPortalPage = () => {
       }
     } finally {
       setLoadingAttempts(prev => ({ ...prev, [assignmentId]: false }));
-      
-      // Show final status and force sync verification
+
+      // Always send a real-time broadcast to notify teachers to refresh progress
       if (backendSuccess) {
         console.log('🎉 Assignment submission saved to database successfully!');
-        
-        // Verify the completion was actually saved by re-fetching
-        setTimeout(async () => {
-          try {
-            const supabaseUrl = getSupabaseUrl();
-            const verifyResponse = await fetch(
-              `${supabaseUrl}/functions/v1/assignment-attempts?token=${token}&assignment_id=${assignmentId}`,
-              {
-                method: 'GET',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                }
-              }
-            );
-            
-            if (verifyResponse.ok) {
-              const verifyData = await verifyResponse.json();
-              if (verifyData && (verifyData.status === 'completed' || verifyData.status === 'submitted')) {
-                console.log('✅ Completion verified in database:', verifyData);
-                toast.success('🎯 Assignment submission confirmed - teacher will see your progress!', { duration: 4000 });
-                
-                // Trigger a manual real-time broadcast to ensure teachers see the update
-                try {
-                  const { createClient } = await import('@supabase/supabase-js');
-                  const supabaseClient = createClient(supabaseUrl, getSupabasePublishableKey());
-                  
-                  // Send a broadcast to notify teachers of the completion
-                  const channel = supabaseClient.channel('assignment-completion-alerts');
-                  await channel.send({
-                    type: 'broadcast',
-                    event: 'assignment-completed',
-                    payload: {
-                      assignmentId: assignmentId,
-                      studentId: studentData?.id,
-                      studentName: studentData?.name,
-                      completedAt: new Date().toISOString(),
-                      score: typeof score === 'number' ? score : 100
-                    }
-                  });
-                  
-                  console.log('📡 Broadcast sent to notify teachers');
-                } catch (broadcastError) {
-                  console.warn('⚠️ Failed to send completion broadcast:', broadcastError);
-                }
-              } else {
-                console.warn('⚠️ Completion not found in verification check');
-                toast.warning('⚠️ Please check with your teacher - completion may not be visible yet', { duration: 5000 });
-              }
-            }
-          } catch (verifyError) {
-            console.warn('⚠️ Failed to verify completion:', verifyError);
-          }
-        }, 2000); // Wait 2 seconds before verification
-        
         toast.info('✅ Progress has been saved and teacher will see the update', { duration: 3000 });
+
+        try {
+          const supabaseUrl = getSupabaseUrl();
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabaseClient = createClient(supabaseUrl, getSupabasePublishableKey());
+          // Send a broadcast to notify teachers of the completion
+          const channel = supabaseClient.channel('assignment-completion-alerts');
+          await channel.send({
+            type: 'broadcast',
+            event: 'assignment-completed',
+            payload: {
+              assignmentId: assignmentId,
+              studentId: studentData?.id,
+              studentName: studentData?.name,
+              completedAt: new Date().toISOString(),
+              score: typeof score === 'number' ? score : 100
+            }
+          });
+          console.log('📡 Broadcast sent to notify teachers');
+        } catch (broadcastError) {
+          console.warn('⚠️ Failed to send completion broadcast:', broadcastError);
+        }
       } else {
         console.log('⚠️ Assignment completion may not be synced to teacher dashboard');
         toast.error('❌ Assignment completion failed to save to database - please try again or contact your teacher', { duration: 8000 });
@@ -1512,8 +1618,9 @@ export const StudentPortalPage = () => {
     if (assignment.assignment_type === 'game') {
       // Handle both cases: with games object and without
       const gameName = assignment.games?.name || assignment.title || 'Game';
-      const gameType = assignment.games?.game_type || 'word-scramble'; // default game type
-      
+      // Fallback order: assignment.game_type, games.game_type, 'word-scramble'
+      const gameType = assignment.game_type || assignment.games?.game_type || 'word-scramble';
+
       setCurrentGame({
         id: assignment.game_id || assignment.id,
         name: gameName,

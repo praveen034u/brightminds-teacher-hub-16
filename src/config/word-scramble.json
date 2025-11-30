@@ -1,0 +1,108 @@
+[
+  {
+    "id": "ws_easy_1",
+    "difficulty": "easy",
+    "scrambled": "tca",
+    "answer": "cat",
+    "hint": "A common pet that says 'meow'"
+  },
+  {
+    "id": "ws_easy_2",
+    "difficulty": "easy",
+    "scrambled": "god",
+    "answer": "dog",
+    "hint": "A loyal animal that barks"
+  },
+  {
+    "id": "ws_medium_1",
+    "difficulty": "medium",
+    "scrambled": "rtewa",
+    "answer": "water",
+    "hint": "You drink it every day"
+  },
+  {
+    "id": "ws_hard_1",
+    "difficulty": "hard",
+    "scrambled": "rteocmup",
+    "answer": "computer",
+    "hint": "A device you use to code"
+  }
+  ,
+  {
+    "id": "ws_easy_3",
+    "difficulty": "easy",
+    "scrambled": "esrouh",
+    "answer": "horse",
+    "hint": "A farm animal you can ride"
+  },
+  {
+    "id": "ws_easy_4",
+    "difficulty": "easy",
+    "scrambled": "esum",
+    "answer": "mouse",
+    "hint": "A small animal that likes cheese"
+  },
+  {
+    "id": "ws_easy_5",
+    "difficulty": "easy",
+    "scrambled": "esifh",
+    "answer": "fish",
+    "hint": "Lives in water and swims"
+  },
+  {
+    "id": "ws_medium_2",
+    "difficulty": "medium",
+    "scrambled": "elppa",
+    "answer": "apple",
+    "hint": "A fruit that keeps the doctor away"
+  },
+  {
+    "id": "ws_medium_3",
+    "difficulty": "medium",
+    "scrambled": "rac",
+    "answer": "car",
+    "hint": "You drive it on the road"
+  },
+  {
+    "id": "ws_medium_4",
+    "difficulty": "medium",
+    "scrambled": "koob",
+    "answer": "book",
+    "hint": "You read it to learn or for fun"
+  },
+  {
+    "id": "ws_medium_5",
+    "difficulty": "medium",
+    "scrambled": "elttob",
+    "answer": "bottle",
+    "hint": "You can fill it with water"
+  },
+  {
+    "id": "ws_hard_2",
+    "difficulty": "hard",
+    "scrambled": "noitacude",
+    "answer": "education",
+    "hint": "The process of learning at school"
+  },
+  {
+    "id": "ws_hard_3",
+    "difficulty": "hard",
+    "scrambled": "noituloser",
+    "answer": "resolution",
+    "hint": "A firm decision to do or not do something"
+  },
+  {
+    "id": "ws_hard_4",
+    "difficulty": "hard",
+    "scrambled": "noitacifissalc",
+    "answer": "classification",
+    "hint": "The act of grouping things by type"
+  },
+  {
+    "id": "ws_hard_5",
+    "difficulty": "hard",
+    "scrambled": "noitaziganretni",
+    "answer": "integration",
+    "hint": "Combining parts to make a whole"
+  }
+]
