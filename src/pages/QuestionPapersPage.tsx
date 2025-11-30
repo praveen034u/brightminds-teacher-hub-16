@@ -234,29 +234,60 @@ export const QuestionPapersPage = () => {
       <Header />
       
       <main className="container mx-auto px-6 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/dashboard')}
-              className="hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
+        {/* Enhanced Header Section */}
+        <div className="mb-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/dashboard')}
+            className="mb-4 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+          
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Question Papers</h1>
-              <p className="text-muted-foreground">Create and manage reusable question papers</p>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    Question Papers
+                  </h1>
+                  <p className="text-gray-600 mt-1">Create and manage reusable question papers</p>
+                </div>
+              </div>
+              
+              {/* Stats Summary */}
+              {questionPapers.length > 0 && (
+                <div className="flex gap-4 mt-4">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-700">
+                      {questionPapers.length} {questionPapers.length === 1 ? 'Paper' : 'Papers'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-lg border border-purple-100">
+                    <span className="text-sm font-semibold text-purple-700">
+                      {questionPapers.reduce((sum, p) => sum + (p.question_count || 0), 0)} Total Questions
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Question Paper
-              </Button>
-            </DialogTrigger>
+            
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button 
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  Create Question Paper
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>Create New Question Paper</DialogTitle>
@@ -269,6 +300,7 @@ export const QuestionPapersPage = () => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {loading ? (
@@ -279,86 +311,107 @@ export const QuestionPapersPage = () => {
         ) : questionPapers.length > 0 ? (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
             {questionPapers.map((paper) => (
-              <Card key={paper.id} className="group hover:shadow-xl hover:shadow-blue-100 transition-all duration-300 hover:-translate-y-1 border-0 shadow-md bg-gradient-to-br from-white to-gray-50/50">
-                <CardHeader className="pb-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg">
-                          <FileText className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <CardTitle className="text-lg font-bold text-gray-800 group-hover:text-blue-700 transition-colors">
-                            {paper.title}
-                          </CardTitle>
-                          <div className="flex gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              {paper.question_count || paper.questions?.length || 0} Questions
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {paper.total_marks || 0} Marks
-                            </Badge>
-                          </div>
-                        </div>
+              <Card key={paper.id} className="group relative overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-gray-200/50 bg-white rounded-2xl">
+                {/* Decorative gradient background - larger area */}
+                <div className="absolute top-0 left-0 right-0 h-[140px] bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-t-2xl"></div>
+                
+                {/* Action buttons - always visible on mobile, hover on desktop */}
+                <div className="absolute top-3 right-3 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handlePreviewPaper(paper)}
+                    title="Preview"
+                    className="h-8 w-8 p-0 bg-white/95 hover:bg-white shadow-lg backdrop-blur-sm"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-blue-600" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleEditPaper(paper)}
+                    title="Edit"
+                    className="h-8 w-8 p-0 bg-white/95 hover:bg-white shadow-lg backdrop-blur-sm"
+                  >
+                    <Edit className="h-3.5 w-3.5 text-green-600" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleDeletePaper(paper.id)}
+                    title="Delete"
+                    className="h-8 w-8 p-0 bg-white/95 hover:bg-white shadow-lg backdrop-blur-sm"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                  </Button>
+                </div>
+
+                <CardHeader className="relative pb-4 pt-8">
+                  {/* Document icon with modern design - positioned in gradient area */}
+                  <div className="flex justify-center mb-6">
+                    <div className="relative w-20 h-24 bg-white rounded-2xl shadow-2xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+                      <FileText className="h-12 w-12 text-blue-600" strokeWidth={1.5} />
+                      <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
+                        <span className="text-white text-sm font-bold">{paper.question_count || paper.questions?.length || 0}</span>
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handlePreviewPaper(paper)}
-                        title="Preview"
-                        className="hover:bg-blue-50 hover:text-blue-700"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditPaper(paper)}
-                        title="Edit"
-                        className="hover:bg-green-50 hover:text-green-700"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeletePaper(paper.id)}
-                        title="Delete"
-                        className="hover:bg-red-50 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  </div>
+
+                  {/* Title */}
+                  <CardTitle className="text-center text-[22px] font-bold text-gray-900 mb-4 line-clamp-2 min-h-[3.5rem] px-4 leading-tight">
+                    {paper.title}
+                  </CardTitle>
+
+                  {/* Stats badges */}
+                  <div className="flex gap-2 justify-center items-center flex-wrap px-2">
+                    <div className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 rounded-full border border-blue-100">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      <span className="text-sm font-semibold text-blue-700">
+                        {paper.question_count || paper.questions?.length || 0} Questions
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 rounded-full border border-purple-100">
+                      <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                      <span className="text-sm font-semibold text-purple-700">
+                        {paper.total_marks || 0} Marks
+                      </span>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
+
+                <CardContent className="pt-0 px-6 pb-6">
+                  {/* Description */}
                   {paper.description && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border-l-4 border-purple-400">
-                      <p className="text-sm text-gray-700 leading-relaxed line-clamp-2">{paper.description}</p>
+                    <div className="mb-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50/30 rounded-xl border-l-4 border-blue-400">
+                      <p className="text-sm text-gray-700 leading-relaxed line-clamp-3 italic">
+                        {paper.description}
+                      </p>
                     </div>
                   )}
                   
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Calendar className="h-3 w-3 text-blue-600" />
+                  {/* Footer with date and print button */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
+                        <Calendar className="h-4 w-4 text-blue-600" />
                       </div>
-                      <span className="font-medium">
-                        {new Date(paper.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric', 
-                          year: 'numeric' 
-                        })}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-500 font-medium">Created</span>
+                        <span className="text-sm font-bold text-gray-800">
+                          {new Date(paper.created_at).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </span>
+                      </div>
                     </div>
                     <Button
                       size="sm"
-                      variant="outline"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
                       onClick={() => handlePrintPaper(paper)}
                     >
-                      <FileText className="h-3 w-3 mr-1" />
+                      <FileText className="h-3 w-3 mr-2" />
                       Print
                     </Button>
                   </div>
@@ -367,16 +420,30 @@ export const QuestionPapersPage = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-lg text-muted-foreground">No question papers yet</p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Create your first question paper to get started
-            </p>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Question Paper
-            </Button>
+          <div className="flex items-center justify-center min-h-[500px]">
+            <div className="text-center max-w-md">
+              <div className="relative inline-block mb-6">
+                <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-purple-100 rounded-3xl flex items-center justify-center transform rotate-6">
+                  <FileText className="h-16 w-16 text-blue-500 transform -rotate-6" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                  <Plus className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Question Papers Yet</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                Create your first question paper to get started. Use OCR to scan images, 
+                manually enter questions, or generate them with AI.
+              </p>
+              <Button 
+                onClick={() => setShowCreateDialog(true)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
+                size="lg"
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Create Your First Question Paper
+              </Button>
+            </div>
           </div>
         )}
       </main>
