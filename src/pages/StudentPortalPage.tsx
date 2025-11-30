@@ -2074,61 +2074,94 @@ export const StudentPortalPage = () => {
 
               {/* Game Interface */}
               <div className="bg-white border-2 border-gray-200 rounded-lg min-h-[400px] flex items-center justify-center">
-                {currentGame.game_type === 'word-scramble' && (
-                  <WordScrambleGame 
-                    config={currentGame.config} 
-                    onComplete={(score) => {
-                      setGameCompleted(true);
-                      setGameScore(score);
-                    }}
-                  />
-                )}
-                {currentGame.game_type === 'emoji-guess' && (
-                  <EmojiGuessGame 
-                    config={currentGame.config}
-                    onComplete={(score) => {
-                      setGameCompleted(true);
-                      setGameScore(score);
-                    }}
-                  />
-                )}
-                {currentGame.game_type === 'riddle' && (
-                  <RiddleGame 
-                    config={currentGame.config}
-                    onComplete={(score) => {
-                      setGameCompleted(true);
-                      setGameScore(score);
-                    }}
-                  />
-                )}
-                {currentGame.game_type === 'crossword' && (
-                  <CrosswordGame 
-                    config={currentGame.config}
-                    onComplete={(score) => {
-                      setGameCompleted(true);
-                      setGameScore(score);
-                    }}
-                  />
-                )}
-                
-                {/* Default fallback */}
-                {!['word-scramble', 'emoji-guess', 'riddle', 'crossword'].includes(currentGame.game_type) && (
-                  <div className="text-center p-8">
-                    <Gamepad2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                      {currentGame.name}
-                    </h3>
-                    <p className="text-gray-500 mb-4">
-                      Game interface coming soon!
-                    </p>
-                    <Button 
-                      onClick={() => setShowGameModal(false)}
-                      variant="outline"
-                    >
-                      Close Game
-                    </Button>
-                  </div>
-                )}
+                {/* Robust config fallback for each game type */}
+                {(() => {
+                  const config = currentGame.config || {};
+                  // Fallbacks for each game type
+                  if (currentGame.game_type === 'word-scramble') {
+                    let questions = [];
+                    if (Array.isArray(config.questions)) questions = config.questions;
+                    else if (Array.isArray(config)) questions = config;
+                    // fallback: try config.defaultQuestions or provide demo
+                    if (!questions.length && config.defaultQuestions) questions = config.defaultQuestions;
+                    if (!questions.length) {
+                      questions = [
+                        { scrambled: 'PPAEL', answer: 'APPLE' },
+                        { scrambled: 'NABANA', answer: 'BANANA' },
+                        { scrambled: 'GRENARO', answer: 'ORANGE' },
+                        { scrambled: 'EAPCH', answer: 'PEACH' },
+                        { scrambled: 'YRRBESRTWA', answer: 'STRAWBERRY' },
+                      ];
+                    }
+                    return <WordScrambleGame config={{ questions: questions.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                  }
+                  if (currentGame.game_type === 'emoji-guess') {
+                    let puzzles = [];
+                    if (Array.isArray(config.puzzles)) puzzles = config.puzzles;
+                    else if (Array.isArray(config)) puzzles = config;
+                    if (!puzzles.length && config.defaultPuzzles) puzzles = config.defaultPuzzles;
+                    if (!puzzles.length) {
+                      puzzles = [
+                        { emojis: '🍏📱', answers: ['Apple'] },
+                        { emojis: '🍌🐒', answers: ['Banana'] },
+                        { emojis: '🍕🏠', answers: ['Pizza Hut'] },
+                        { emojis: '🌧️☔', answers: ['Rain', 'Rainy'] },
+                        { emojis: '🐝🍯', answers: ['Honeybee', 'Bee'] },
+                      ];
+                    }
+                    return <EmojiGuessGame config={{ puzzles: puzzles.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                  }
+                  if (currentGame.game_type === 'riddle') {
+                    let riddles = [];
+                    if (Array.isArray(config.riddles)) riddles = config.riddles;
+                    else if (Array.isArray(config)) riddles = config;
+                    if (!riddles.length && config.defaultRiddles) riddles = config.defaultRiddles;
+                    if (!riddles.length) {
+                      riddles = [
+                        { question: 'What has keys but can’t open locks?', answers: ['Piano', 'Keyboard'] },
+                        { question: 'What has a face and two hands but no arms or legs?', answers: ['Clock'] },
+                        { question: 'What gets wetter as it dries?', answers: ['Towel'] },
+                        { question: 'What has a neck but no head?', answers: ['Bottle'] },
+                        { question: 'What has to be broken before you can use it?', answers: ['Egg'] },
+                      ];
+                    }
+                    return <RiddleGame config={{ riddles: riddles.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                  }
+                  if (currentGame.game_type === 'crossword') {
+                    let clues = [];
+                    if (Array.isArray(config.clues)) clues = config.clues;
+                    else if (Array.isArray(config)) clues = config;
+                    if (!clues.length && config.defaultClues) clues = config.defaultClues;
+                    if (!clues.length) {
+                      clues = [
+                        { clue: 'A yellow fruit, monkeys love it', answer: 'BANANA' },
+                        { clue: 'Red fruit, keeps the doctor away', answer: 'APPLE' },
+                        { clue: 'Orange citrus fruit', answer: 'ORANGE' },
+                        { clue: 'Small, red, heart-shaped fruit', answer: 'CHERRY' },
+                        { clue: 'King of the jungle', answer: 'LION' },
+                      ];
+                    }
+                    return <CrosswordGame config={{ clues: clues.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                  }
+                  // Default fallback
+                  return (
+                    <div className="text-center p-8">
+                      <Gamepad2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                        {currentGame.name}
+                      </h3>
+                      <p className="text-gray-500 mb-4">
+                        Game interface coming soon!
+                      </p>
+                      <Button 
+                        onClick={() => setShowGameModal(false)}
+                        variant="outline"
+                      >
+                        Close Game
+                      </Button>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="mt-4 flex justify-between">
