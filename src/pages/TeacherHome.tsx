@@ -161,7 +161,7 @@ const TeacherHome = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mb-10">
           <QuickActionCard
             title="Add Students"
             icon={UserPlus}
@@ -197,54 +197,54 @@ const TeacherHome = () => {
         {/* Row 1 - Recommended Activities & Classroom Stats */}
         <div className="grid md:grid-cols-2 gap-6 mb-6">
           <DashboardCard title="Recommended Activities">
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                <h3 className="font-semibold text-primary mb-1">Vocabulary Builder</h3>
-                <p className="text-sm text-muted-foreground">Grades 3-5</p>
+            <div className="space-y-3">
+              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 hover:shadow-md transition-all duration-300 cursor-pointer">
+                <h3 className="font-semibold text-purple-700 mb-1">Vocabulary Builder</h3>
+                <p className="text-sm text-purple-600/70">Grades 3-5</p>
               </div>
-              <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
-                <h3 className="font-semibold text-secondary mb-1">Story Prompt: Magic Forest Mystery</h3>
-                <p className="text-sm text-muted-foreground">Creative writing activity</p>
+              <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-200 hover:shadow-md transition-all duration-300 cursor-pointer">
+                <h3 className="font-semibold text-orange-700 mb-1">Story Prompt: Magic Forest Mystery</h3>
+                <p className="text-sm text-orange-600/70">Creative writing activity</p>
               </div>
-              <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-                <h3 className="font-semibold text-accent mb-1">Logic Puzzle Pack</h3>
-                <p className="text-sm text-muted-foreground">For Room B</p>
+              <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-teal-200 hover:shadow-md transition-all duration-300 cursor-pointer">
+                <h3 className="font-semibold text-teal-700 mb-1">Logic Puzzle Pack</h3>
+                <p className="text-sm text-teal-600/70">For Room B</p>
               </div>
-              <Button className="w-full mt-2">Try This Activity</Button>
+              <Button className="w-full mt-3 rounded-xl shadow-md hover:shadow-lg transition-all">Try This Activity</Button>
             </div>
           </DashboardCard>
 
           <DashboardCard title="Your Classroom at a Glance">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <Users className="h-8 w-8 text-primary" />
-                  <div>
-                    <p className="text-2xl font-bold">{stats.totalStudents}</p>
-                    <p className="text-sm text-muted-foreground">Total Students</p>
-                  </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 hover:shadow-md transition-all duration-300">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg">
+                  <Users className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-3xl font-bold text-purple-700">{stats.totalStudents}</p>
+                  <p className="text-sm text-purple-600/70 font-medium">Total Students</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <DoorOpen className="h-8 w-8 text-secondary" />
-                  <div>
-                    <p className="text-2xl font-bold">{stats.totalRooms}</p>
-                    <p className="text-sm text-muted-foreground">Virtual Rooms</p>
-                  </div>
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-200 hover:shadow-md transition-all duration-300">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-orange-500 to-yellow-600 shadow-lg">
+                  <DoorOpen className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-3xl font-bold text-orange-700">{stats.totalRooms}</p>
+                  <p className="text-sm text-orange-600/70 font-medium">Virtual Rooms</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-8 w-8 text-accent" />
-                  <div>
-                    <p className="text-2xl font-bold">{stats.activeAssignments}</p>
-                    <p className="text-sm text-muted-foreground">Active Assignments</p>
-                  </div>
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-teal-200 hover:shadow-md transition-all duration-300">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-lg">
+                  <FileText className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-3xl font-bold text-teal-700">{stats.activeAssignments}</p>
+                  <p className="text-sm text-teal-600/70 font-medium">Active Assignments</p>
                 </div>
               </div>
               <Link to="/assignments">
-                <Button className="w-full mt-2" variant="secondary">
+                <Button className="w-full mt-3 rounded-xl shadow-md hover:shadow-lg transition-all" variant="default">
                   Create Assignment
                 </Button>
               </Link>
@@ -259,31 +259,37 @@ const TeacherHome = () => {
           >
             <div className="mb-4 text-right">
               <Link to="/rooms">
-                <Button variant="outline" size="sm">Manage Rooms</Button>
+                <Button variant="outline" size="sm" className="rounded-xl border-2 hover:shadow-md transition-all">
+                  Manage Rooms
+                </Button>
               </Link>
             </div>
             {rooms.length > 0 ? (
               <div className="space-y-3">
                 {rooms.map((room) => (
                   <Link key={room.id} to="/rooms">
-                    <div className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
+                    <div className="p-4 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-200 hover:shadow-lg hover:border-orange-200 transition-all duration-300 cursor-pointer">
                       <div className="flex justify-between items-center">
                         <div>
-                          <h3 className="font-semibold">{room.name}</h3>
-                          <p className="text-sm text-muted-foreground">
+                          <h3 className="font-semibold text-gray-800">{room.name}</h3>
+                          <p className="text-sm text-gray-600 mt-1">
                             {room.student_count} students
                           </p>
                         </div>
-                        <Badge variant="secondary">{room.grade_level || 'All Grades'}</Badge>
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 px-3 py-1 rounded-lg">
+                          {room.grade_level || 'All Grades'}
+                        </Badge>
                       </div>
                     </div>
                   </Link>
                 ))}
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-8">
-                No rooms yet. Create your first room to get started!
-              </p>
+              <div className="text-center py-12 px-4">
+                <DoorOpen className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500 font-medium">No rooms yet</p>
+                <p className="text-sm text-gray-400 mt-1">Create your first room to get started!</p>
+              </div>
             )}
           </DashboardCard>
 
@@ -292,32 +298,47 @@ const TeacherHome = () => {
           >
             <div className="mb-4 text-right">
               <Link to="/assignments">
-                <Button variant="outline" size="sm">Create Assignment</Button>
+                <Button variant="outline" size="sm" className="rounded-xl border-2 hover:shadow-md transition-all">
+                  Create Assignment
+                </Button>
               </Link>
             </div>
             {assignments.length > 0 ? (
               <div className="space-y-3">
                 {assignments.map((assignment) => (
-                  <div key={assignment.id} className="p-4 rounded-lg bg-muted/50">
+                  <div key={assignment.id} className="p-4 rounded-xl bg-gradient-to-r from-gray-50 to-white border border-gray-200 hover:shadow-lg hover:border-purple-200 transition-all duration-300">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold">{assignment.title}</h3>
-                      <Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>
+                      <h3 className="font-semibold text-gray-800">{assignment.title}</h3>
+                      <Badge 
+                        variant={assignment.status === 'active' ? 'default' : 'secondary'}
+                        className={`px-3 py-1 rounded-lg ${
+                          assignment.status === 'active' 
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                            : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
                         {assignment.status}
                       </Badge>
                     </div>
                     {assignment.due_date && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        Due {new Date(assignment.due_date).toLocaleDateString()}
+                      <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+                        <div className="p-1.5 rounded-lg bg-blue-50">
+                          <Clock className="h-3.5 w-3.5 text-blue-600" />
+                        </div>
+                        <span className="font-medium">
+                          Due {new Date(assignment.due_date).toLocaleDateString()}
+                        </span>
                       </div>
                     )}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-8">
-                No assignments yet. Create one to engage your students!
-              </p>
+              <div className="text-center py-12 px-4">
+                <FileText className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500 font-medium">No assignments yet</p>
+                <p className="text-sm text-gray-400 mt-1">Create one to engage your students!</p>
+              </div>
             )}
           </DashboardCard>
         </div>
@@ -329,16 +350,20 @@ const TeacherHome = () => {
               {helpRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex justify-between items-center"
+                  className="p-5 rounded-xl bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 hover:shadow-lg transition-all duration-300 flex justify-between items-center"
                 >
-                  <div>
-                    <p className="font-semibold">{request.students?.name}</p>
-                    <p className="text-sm text-muted-foreground">{request.rooms?.name}</p>
+                  <div className="flex-1">
+                    <p className="font-bold text-red-800">{request.students?.name}</p>
+                    <p className="text-sm text-red-600 font-medium mt-1">{request.rooms?.name}</p>
                     {request.message && (
-                      <p className="text-sm text-muted-foreground mt-1">{request.message}</p>
+                      <p className="text-sm text-red-700/80 mt-2 italic">{request.message}</p>
                     )}
                   </div>
-                  <Button size="sm" onClick={() => handleResolveRequest(request.id)}>
+                  <Button 
+                    size="sm" 
+                    onClick={() => handleResolveRequest(request.id)}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl shadow-md hover:shadow-lg transition-all ml-4"
+                  >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     Resolve
                   </Button>
