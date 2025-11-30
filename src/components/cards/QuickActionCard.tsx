@@ -11,22 +11,44 @@ interface QuickActionCardProps {
 }
 
 export const QuickActionCard = ({ title, icon: Icon, to, onClick, color = 'primary' }: QuickActionCardProps) => {
-  const colorClasses = {
-    primary: 'from-primary/20 to-primary/10 hover:from-primary/30 hover:to-primary/20 text-primary',
-    secondary: 'from-secondary/20 to-secondary/10 hover:from-secondary/30 hover:to-secondary/20 text-secondary',
-    accent: 'from-accent/20 to-accent/10 hover:from-accent/30 hover:to-accent/20 text-accent',
+  const colorConfig = {
+    primary: {
+      gradient: 'from-purple-50 via-indigo-50 to-blue-50',
+      iconBg: 'bg-gradient-to-br from-purple-500 to-indigo-600',
+      iconColor: 'text-white',
+      textColor: 'text-purple-700',
+      hoverGlow: 'hover:shadow-purple-200',
+    },
+    secondary: {
+      gradient: 'from-amber-50 via-orange-50 to-yellow-50',
+      iconBg: 'bg-gradient-to-br from-orange-500 to-yellow-600',
+      iconColor: 'text-white',
+      textColor: 'text-orange-700',
+      hoverGlow: 'hover:shadow-orange-200',
+    },
+    accent: {
+      gradient: 'from-emerald-50 via-teal-50 to-cyan-50',
+      iconBg: 'bg-gradient-to-br from-teal-500 to-cyan-600',
+      iconColor: 'text-white',
+      textColor: 'text-teal-700',
+      hoverGlow: 'hover:shadow-teal-200',
+    },
   };
 
+  const config = colorConfig[color as keyof typeof colorConfig] || colorConfig.primary;
+
   const content = (
-    <div className="p-6 flex flex-col items-center justify-center gap-3">
-      <div className="p-4 rounded-full bg-card/80 shadow-sm">
-        <Icon className="h-8 w-8" />
+    <div className="p-6 flex flex-col items-center justify-center gap-4 min-h-[140px]">
+      <div className={`p-4 rounded-2xl ${config.iconBg} shadow-lg transform transition-transform group-hover:scale-110 duration-300`}>
+        <Icon className={`h-8 w-8 ${config.iconColor}`} strokeWidth={2} />
       </div>
-      <h3 className="text-sm font-semibold text-center">{title}</h3>
+      <h3 className={`text-sm font-semibold text-center ${config.textColor} leading-tight`}>
+        {title}
+      </h3>
     </div>
   );
 
-  const className = `cursor-pointer transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br ${colorClasses[color as keyof typeof colorClasses] || colorClasses.primary} border-0`;
+  const className = `group cursor-pointer transition-all duration-300 hover:shadow-xl ${config.hoverGlow} hover:-translate-y-2 bg-gradient-to-br ${config.gradient} border border-gray-100 rounded-2xl overflow-hidden`;
 
   if (to) {
     return (

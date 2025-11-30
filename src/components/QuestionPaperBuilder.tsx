@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,11 +12,55 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Upload, FileText, Sparkles, Plus, Trash2, Eye, Save, Image as ImageIcon, FileUp } from 'lucide-react';
+import { Upload, FileText, Sparkles, Plus, Trash2, Eye, Save, Image as ImageIcon, FileUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateQuestions } from '@/api/llmQuestionBank';
 import { supabase } from '@/config/supabase';
 import Tesseract from 'tesseract.js';
+
+// Comprehensive topic database by subject
+const TOPIC_DATABASE: Record<string, string[]> = {
+  mathematics: [
+    'Algebra', 'Linear Equations', 'Quadratic Equations', 'Polynomials', 'Factorization',
+    'Geometry', 'Triangles', 'Circles', 'Coordinate Geometry', 'Trigonometry',
+    'Calculus', 'Differentiation', 'Integration', 'Limits', 'Continuity',
+    'Statistics', 'Probability', 'Mean Median Mode', 'Data Interpretation',
+    'Arithmetic', 'Percentages', 'Ratio and Proportion', 'Simple Interest', 'Compound Interest',
+    'Mensuration', 'Area and Perimeter', 'Surface Area', 'Volume',
+    'Sets', 'Relations', 'Functions', 'Matrices', 'Determinants'
+  ],
+  science: [
+    'Physics', 'Motion', 'Force', 'Energy', 'Work and Power', 'Gravitation',
+    'Light', 'Reflection', 'Refraction', 'Optics', 'Sound', 'Waves',
+    'Electricity', 'Current', 'Resistance', 'Magnetism', 'Electromagnetic Induction',
+    'Chemistry', 'Atoms and Molecules', 'Periodic Table', 'Chemical Reactions', 'Acids and Bases',
+    'Metals and Non-metals', 'Carbon Compounds', 'Organic Chemistry', 'Chemical Bonding',
+    'Biology', 'Cell Structure', 'Genetics', 'Evolution', 'Photosynthesis', 'Respiration',
+    'Human Body', 'Digestive System', 'Circulatory System', 'Nervous System',
+    'Ecology', 'Environment', 'Biodiversity', 'Natural Resources'
+  ],
+  english: [
+    'Grammar', 'Parts of Speech', 'Tenses', 'Active and Passive Voice', 'Direct and Indirect Speech',
+    'Literature', 'Poetry', 'Prose', 'Drama', 'Novel', 'Short Story',
+    'Comprehension', 'Reading Skills', 'Writing Skills', 'Essay Writing', 'Letter Writing',
+    'Vocabulary', 'Synonyms', 'Antonyms', 'Idioms', 'Phrases',
+    'Punctuation', 'Sentence Structure', 'Paragraph Writing', 'Creative Writing'
+  ],
+  'social studies': [
+    'History', 'Ancient Civilizations', 'Medieval Period', 'Modern History', 'World Wars',
+    'Geography', 'Maps', 'Climate', 'Natural Vegetation', 'Water Resources',
+    'Civics', 'Constitution', 'Democracy', 'Government', 'Rights and Duties',
+    'Economics', 'Money and Banking', 'Trade', 'Agriculture', 'Industry'
+  ],
+  computer: [
+    'Programming', 'Python', 'Java', 'C++', 'JavaScript',
+    'Data Structures', 'Arrays', 'Linked Lists', 'Trees', 'Graphs', 'Stacks', 'Queues',
+    'Algorithms', 'Sorting', 'Searching', 'Recursion', 'Dynamic Programming',
+    'Database', 'SQL', 'Normalization', 'DBMS',
+    'Web Development', 'HTML', 'CSS', 'React', 'APIs',
+    'Networking', 'Operating Systems', 'Computer Architecture'
+  ]
+};
 
 interface Question {
   id: number;
@@ -76,6 +120,10 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
   // AI Generation State
   const [llmSubject, setLlmSubject] = useState('');
   const [llmGrade, setLlmGrade] = useState('');
+  const [llmTopics, setLlmTopics] = useState<string[]>([]);
+  const [currentTopic, setCurrentTopic] = useState('');
+  const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [llmComplexity, setLlmComplexity] = useState('medium');
   const [llmCount, setLlmCount] = useState(5);
   const [llmType, setLlmType] = useState('multiple-choice');
@@ -441,6 +489,55 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
     return options.slice(0, 4); // Limit to 4 options
   };
 
+  // Topic suggestion handler
+  const handleTopicInput = (value: string) => {
+    setCurrentTopic(value);
+    
+    if (value.trim().length > 0) {
+      // Get suggestions based on subject and input
+      const subjectKey = llmSubject.toLowerCase();
+      const subjectTopics = TOPIC_DATABASE[subjectKey] || [];
+      
+      // Also search all topics if subject-specific topics are limited
+      const allTopics = Object.values(TOPIC_DATABASE).flat();
+      const searchPool = [...new Set([...subjectTopics, ...allTopics])];
+      
+      const filtered = searchPool.filter(topic =>
+        topic.toLowerCase().includes(value.toLowerCase()) &&
+        !llmTopics.includes(topic)
+      ).slice(0, 10);
+      
+      setTopicSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setShowSuggestions(false);
+      setTopicSuggestions([]);
+    }
+  };
+
+  // Add topic to the list
+  const handleAddTopic = (topic: string) => {
+    if (topic.trim() && !llmTopics.includes(topic.trim())) {
+      setLlmTopics([...llmTopics, topic.trim()]);
+      setCurrentTopic('');
+      setShowSuggestions(false);
+      setTopicSuggestions([]);
+    }
+  };
+
+  // Remove topic from the list
+  const handleRemoveTopic = (index: number) => {
+    setLlmTopics(llmTopics.filter((_, i) => i !== index));
+  };
+
+  // Add topic on Enter key
+  const handleTopicKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && currentTopic.trim()) {
+      e.preventDefault();
+      handleAddTopic(currentTopic);
+    }
+  };
+
   // AI Question Generation
   const handleGenerateAIQuestions = async () => {
     if (!llmApiKey || !llmSubject || !llmGrade) {
@@ -453,9 +550,14 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
     setLlmLoading(true);
 
     try {
+      // Include topics in the generation context if provided
+      const topicsContext = llmTopics.length > 0 
+        ? ` focusing on topics: ${llmTopics.join(', ')}`
+        : '';
+      
       const { questions: generatedQuestions } = await generateQuestions({
         apiKey: llmApiKey,
-        subject: llmSubject,
+        subject: llmSubject + topicsContext,
         grade: llmGrade,
         complexity: llmComplexity,
         count: llmCount,
@@ -1155,6 +1257,95 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
                       readOnly={false}
                     />
                   </div>
+                </div>
+
+                {/* Topic Selection with Suggestions */}
+                <div className="space-y-3">
+                  <Label htmlFor="llmTopics">Topics (Optional)</Label>
+                  <div className="relative">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="llmTopics"
+                          value={currentTopic}
+                          onChange={(e) => handleTopicInput(e.target.value)}
+                          onKeyDown={handleTopicKeyDown}
+                          placeholder="Type to search topics... (e.g., Algebra, Photosynthesis)"
+                          disabled={false}
+                          readOnly={false}
+                          className="pr-10"
+                        />
+                        {currentTopic && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                            onClick={() => {
+                              setCurrentTopic('');
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={() => handleAddTopic(currentTopic)}
+                        disabled={!currentTopic.trim()}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add
+                      </Button>
+                    </div>
+
+                    {/* Suggestions Dropdown */}
+                    {showSuggestions && topicSuggestions.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {topicSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors flex items-center gap-2 border-b border-gray-100 last:border-b-0"
+                            onClick={() => {
+                              handleAddTopic(suggestion);
+                            }}
+                          >
+                            <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+                            <span className="text-sm font-medium text-gray-700">{suggestion}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selected Topics */}
+                  {llmTopics.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                      {llmTopics.map((topic, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="px-3 py-1.5 bg-white shadow-sm hover:shadow-md transition-shadow flex items-center gap-2 text-sm"
+                        >
+                          <span className="font-medium">{topic}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTopic(index)}
+                            className="hover:bg-gray-200 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" />
+                    Add specific topics to generate more focused questions. Press Enter or click Add to add topics.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">

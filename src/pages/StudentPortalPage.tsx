@@ -369,6 +369,8 @@ interface StudentData {
     status: string;
     room_id: string;
     assignment_type?: string;
+    question_paper_id?: string;
+    grade?: string;
     game_config?: any;
     games?: {
       id: string;
@@ -448,7 +450,185 @@ export const StudentPortalPage = () => {
   const [customAnswers, setCustomAnswers] = useState<any[]>([]);
   const [customScore, setCustomScore] = useState<number | null>(null);
   const [customCompleted, setCustomCompleted] = useState(false);
-  // Start a custom assignment (question paper)
+  
+  // Question paper state
+  const [showQuestionPaperModal, setShowQuestionPaperModal] = useState(false);
+  const [currentQuestionPaper, setCurrentQuestionPaper] = useState<any>(null);
+  const [questionPaperAnswers, setQuestionPaperAnswers] = useState<Record<number, string | number>>({});
+  const [loadingQuestionPaper, setLoadingQuestionPaper] = useState(false);
+  // Load question paper for an assignment
+  const loadQuestionPaper = async (questionPaperId: string) => {
+    setLoadingQuestionPaper(true);
+    try {
+      // First try localStorage
+      const cachedPapers = localStorage.getItem('question_papers');
+      if (cachedPapers) {
+        const papers = JSON.parse(cachedPapers);
+        const paper = papers.find((p: any) => p.id === questionPaperId);
+        if (paper) {
+          console.log('✅ Found question paper in localStorage:', paper);
+          return paper;
+        }
+      }
+
+      // Try fetching from Supabase
+      const supabaseUrl = getSupabaseUrl();
+      const supabaseKey = getSupabasePublishableKey();
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+      const { data, error } = await supabaseClient
+        .from('question_papers')
+        .select('*')
+        .eq('id', questionPaperId)
+        .single();
+
+      if (error) {
+        console.error('Failed to load question paper:', error);
+        throw error;
+      }
+
+      console.log('✅ Loaded question paper from Supabase:', data);
+      return data;
+    } catch (error) {
+      console.error('Error loading question paper:', error);
+      toast.error('Failed to load question paper');
+      return null;
+    } finally {
+      setLoadingQuestionPaper(false);
+    }
+  };
+
+  // Start an assignment with question paper
+  const startAssignmentWithQuestionPaper = async (assignment: any) => {
+    console.log('🎯 Starting assignment with question paper:', {
+      assignmentId: assignment.id,
+      title: assignment.title,
+      questionPaperId: assignment.question_paper_id,
+      assignmentType: assignment.assignment_type
+    });
+
+    if (!assignment.question_paper_id) {
+      console.error('❌ Assignment missing question_paper_id');
+      toast.error('This assignment does not have a question paper assigned');
+      return;
+    }
+
+    try {
+      // STEP 1: Load the question paper FIRST
+      console.log('📄 STEP 1: Loading question paper...');
+      setLoadingQuestionPaper(true);
+      toast.info('Loading question paper...', { duration: 2000 });
+      
+      const paper = await loadQuestionPaper(assignment.question_paper_id);
+      
+      if (!paper) {
+        console.error('❌ Failed to load question paper');
+        toast.error('Could not load question paper. Please try again.');
+        setLoadingQuestionPaper(false);
+        return;
+      }
+
+      if (!paper.questions || paper.questions.length === 0) {
+        console.error('❌ Question paper has no questions');
+        toast.error('This question paper has no questions');
+        setLoadingQuestionPaper(false);
+        return;
+      }
+
+      console.log('✅ Question paper loaded successfully:', {
+        paperId: paper.id,
+        title: paper.title,
+        questionsCount: paper.questions.length,
+        totalMarks: paper.questions.reduce((sum: number, q: any) => sum + (q.marks || 1), 0)
+      });
+
+      // STEP 2: Show the modal IMMEDIATELY with the loaded question paper
+      console.log('🎨 STEP 2: Opening question paper modal...');
+      setCurrentQuestionPaper({ ...paper, assignment });
+      setQuestionPaperAnswers({});
+      setLoadingQuestionPaper(false);
+      setShowQuestionPaperModal(true);
+      
+      console.log('✅ Modal opened with', paper.questions.length, 'questions');
+      toast.success(`Question paper ready: ${paper.questions.length} questions`, { duration: 3000 });
+
+      // STEP 3: Start the assignment attempt in the background (don't block modal)
+      console.log('💾 STEP 3: Starting assignment attempt in background...');
+      startAssignment(assignment.id).then(() => {
+        console.log('✅ Assignment attempt recorded in database');
+      }).catch((error) => {
+        console.error('⚠️ Failed to record assignment attempt:', error);
+        // Don't block the user - they can still see and answer questions
+      });
+      
+    } catch (error) {
+      console.error('❌ Error starting assignment with question paper:', error);
+      toast.error('Failed to start assignment. Please try again.');
+      setLoadingQuestionPaper(false);
+      setShowQuestionPaperModal(false);
+    }
+  };
+
+  // Handle answer change for question paper
+  const handleQuestionPaperAnswerChange = (questionIndex: number, answer: string | number) => {
+    setQuestionPaperAnswers(prev => ({
+      ...prev,
+      [questionIndex]: answer
+    }));
+  };
+
+  // Submit question paper answers
+  const submitQuestionPaper = async () => {
+    if (!currentQuestionPaper) return;
+
+    const questions = currentQuestionPaper.questions || [];
+    const assignment = currentQuestionPaper.assignment;
+    
+    let score = 0;
+    let totalMarks = 0;
+
+    // Calculate score based on question types
+    questions.forEach((q: any, idx: number) => {
+      const questionMarks = q.marks || 1;
+      totalMarks += questionMarks;
+
+      const studentAnswer = questionPaperAnswers[idx];
+
+      if (q.type === 'multiple-choice' && q.answer !== undefined) {
+        // MCQ: Check if selected option matches correct answer
+        if (Number(studentAnswer) === Number(q.answer)) {
+          score += questionMarks;
+        }
+      } else if (q.type === 'subjective') {
+        // Subjective: Award partial marks (teacher will grade later)
+        // For now, give full marks if student provided an answer
+        if (studentAnswer && String(studentAnswer).trim().length > 0) {
+          score += questionMarks * 0.5; // 50% for attempt
+        }
+      }
+    });
+
+    const percentageScore = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
+
+    // Submit the assignment with answers
+    await completeAssignment(assignment.id, percentageScore, {
+      question_paper_id: currentQuestionPaper.id,
+      answers: questionPaperAnswers,
+      questions_attempted: Object.keys(questionPaperAnswers).length,
+      total_questions: questions.length,
+      raw_score: score,
+      total_marks: totalMarks,
+      submitted_at: new Date().toISOString()
+    });
+
+    toast.success(`Assignment submitted! Score: ${percentageScore}% (${score}/${totalMarks} marks)`);
+    setShowQuestionPaperModal(false);
+    setCurrentQuestionPaper(null);
+    setQuestionPaperAnswers({});
+  };
+
+  // Start a custom assignment (question paper) - keep for backward compatibility
   const startCustomAssignment = (assignment: any) => {
     setCurrentCustomAssignment(assignment);
     setCustomAnswers(Array.isArray(assignment.questions) ? Array(assignment.questions.length).fill('') : []);
@@ -688,13 +868,58 @@ export const StudentPortalPage = () => {
       console.log('📊 Assignments received:', data.assignments?.length || 0);
       data.assignments?.forEach((assignment: any, index: number) => {
         console.log(`  Assignment ${index + 1}:`, {
+          id: assignment.id,
           title: assignment.title,
           type: assignment.assignment_type,
+          question_paper_id: assignment.question_paper_id,
+          hasQuestionPaperId: !!assignment.question_paper_id,
           game_id: assignment.games?.id,
           has_games_object: !!assignment.games,
           games_name: assignment.games?.name
         });
       });
+
+      // Enrich assignments with missing question_paper_id from DB (fallback)
+      if (Array.isArray(data.assignments)) {
+        const needsEnrichment = data.assignments.filter((a: any) => !a.question_paper_id);
+        if (needsEnrichment.length > 0) {
+          try {
+            console.log('🩹 Enrichment: fetching question_paper_id for', needsEnrichment.length, 'assignments');
+            const supabaseUrl = getSupabaseUrl();
+            const supabaseKey = getSupabasePublishableKey();
+            const { createClient } = await import('@supabase/supabase-js');
+            const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+            const ids = needsEnrichment.map((a: any) => a.id);
+            const { data: assignRows, error: assignErr } = await supabaseClient
+              .from('assignments')
+              .select('id, question_paper_id, assignment_type, grade')
+              .in('id', ids);
+
+            if (assignErr) {
+              console.warn('⚠️ Enrichment fetch error:', assignErr);
+            } else if (Array.isArray(assignRows)) {
+              const rowMap = Object.fromEntries(assignRows.map(r => [r.id, r]));
+              data.assignments = data.assignments.map((a: any) => {
+                const row = rowMap[a.id];
+                if (row) {
+                  return {
+                    ...a,
+                    question_paper_id: a.question_paper_id ?? row.question_paper_id ?? undefined,
+                    assignment_type: a.assignment_type ?? row.assignment_type ?? undefined,
+                    grade: a.grade ?? row.grade ?? undefined,
+                  };
+                }
+                return a;
+              });
+              console.log('✅ Enrichment complete. Updated assignments:', data.assignments.map((a: any) => ({ id: a.id, question_paper_id: a.question_paper_id })));
+            }
+          } catch (enrichError) {
+            console.warn('⚠️ Enrichment process failed:', enrichError);
+          }
+        }
+      }
+
       setStudentData(data);
       setError(null);
     } catch (err) {
@@ -1762,6 +1987,29 @@ export const StudentPortalPage = () => {
                       <p className="text-sm text-gray-700 mb-3">
                         {assignment.description || 'No description provided'}
                       </p>
+
+                      {/* Assignment Type and Question Paper Badge */}
+                      {(assignment.assignment_type || assignment.question_paper_id || assignment.grade) && (
+                        <div className="mb-2 flex flex-wrap gap-2">
+                          {assignment.assignment_type && (
+                            <Badge variant="outline" className="text-xs">
+                              {assignment.assignment_type === 'custom' && '📝 Custom Assignment'}
+                              {assignment.assignment_type === 'game' && '🎮 Game Assignment'}
+                              {assignment.assignment_type !== 'custom' && assignment.assignment_type !== 'game' && assignment.assignment_type}
+                            </Badge>
+                          )}
+                          {assignment.question_paper_id && (
+                            <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-300">
+                              📄 Question Paper
+                            </Badge>
+                          )}
+                          {assignment.grade && (
+                            <Badge variant="outline" className="text-xs">
+                              Grade {assignment.grade}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                       
                       {/* Game Information */}
                       {assignment.assignment_type === 'game' && (
@@ -1838,6 +2086,7 @@ export const StudentPortalPage = () => {
                                 id: assignment.id,
                                 title: assignment.title,
                                 assignment_type: assignment.assignment_type,
+                                question_paper_id: assignment.question_paper_id,
                                 games: assignment.games,
                                 game_id: assignment.games?.id
                               });
@@ -1846,7 +2095,10 @@ export const StudentPortalPage = () => {
                                 <>
                                   {assignment.assignment_type === 'game' && (
                                     <Button 
-                                      onClick={() => playGame(assignment)}
+                                      onClick={() => {
+                                        console.log('🎮 Continue Game clicked:', assignment.id);
+                                        playGame(assignment);
+                                      }}
                                       className="bg-green-600 hover:bg-green-700 text-white"
                                       size="sm"
                                     >
@@ -1854,22 +2106,38 @@ export const StudentPortalPage = () => {
                                       Continue Game
                                     </Button>
                                   )}
-                                  <Button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      completeAssignment(assignment.id);
-                                    }}
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={isLoading}
-                                  >
-                                    {isLoading ? (
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-1"></div>
-                                    ) : (
-                                      <CheckCircle className="h-4 w-4 mr-1" />
-                                    )}
-                                    Submit
-                                  </Button>
+                                  {assignment.question_paper_id && (
+                                    <Button 
+                                      onClick={() => {
+                                        console.log('📄 Continue Question Paper clicked:', assignment.id);
+                                        // For in-progress assignments, also load and show the question paper
+                                        startAssignmentWithQuestionPaper(assignment);
+                                      }}
+                                      className="bg-orange-600 hover:bg-orange-700 text-white"
+                                      size="sm"
+                                    >
+                                      <FileText className="h-4 w-4 mr-1" />
+                                      Continue Question Paper
+                                    </Button>
+                                  )}
+                                  {(!assignment.assignment_type || (assignment.assignment_type === 'custom' && !assignment.question_paper_id)) && (
+                                    <Button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        completeAssignment(assignment.id);
+                                      }}
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={isLoading}
+                                    >
+                                      {isLoading ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-1"></div>
+                                      ) : (
+                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                      )}
+                                      Submit
+                                    </Button>
+                                  )}
                                 </>
                               );
                             }
@@ -1879,7 +2147,43 @@ export const StudentPortalPage = () => {
                               <Button 
                                 onClick={(e) => {
                                   e.preventDefault();
-                                  startAssignment(assignment.id);
+                                  
+                                  // ULTRA DEBUG - Log everything about this assignment
+                                  console.log('╔══════════════════════════════════════════════╗');
+                                  console.log('║  🔘 START ASSIGNMENT BUTTON CLICKED          ║');
+                                  console.log('╚══════════════════════════════════════════════╝');
+                                  console.log('Assignment Object:', assignment);
+                                  console.log('Assignment ID:', assignment.id);
+                                  console.log('Assignment Title:', assignment.title);
+                                  console.log('Assignment Type:', assignment.assignment_type);
+                                  console.log('Question Paper ID:', assignment.question_paper_id);
+                                  console.log('Has Question Paper?:', !!assignment.question_paper_id);
+                                  console.log('Type of question_paper_id:', typeof assignment.question_paper_id);
+                                  console.log('question_paper_id === null?:', assignment.question_paper_id === null);
+                                  console.log('question_paper_id === undefined?:', assignment.question_paper_id === undefined);
+                                  console.log('question_paper_id truthy?:', !!assignment.question_paper_id);
+                                  
+                                  // DECISION TREE - Explicit logging
+                                  console.log('\n🔍 DECISION MAKING:');
+                                  if (assignment.question_paper_id) {
+                                    console.log('✅ CONDITION MET: assignment.question_paper_id EXISTS');
+                                    console.log('➡️  CALLING: startAssignmentWithQuestionPaper()');
+                                    console.log('➡️  THIS SHOULD OPEN THE MODAL!');
+                                    startAssignmentWithQuestionPaper(assignment);
+                                  } else if (assignment.assignment_type === 'game') {
+                                    console.log('❌ CONDITION NOT MET: question_paper_id is NULL/undefined');
+                                    console.log('✅ CONDITION MET: assignment_type === "game"');
+                                    console.log('➡️  CALLING: startAssignment() - GAME MODE');
+                                    startAssignment(assignment.id);
+                                  } else {
+                                    console.log('❌ CONDITION NOT MET: question_paper_id is NULL/undefined');
+                                    console.log('❌ CONDITION NOT MET: not a game assignment');
+                                    console.log('➡️  CALLING: startAssignment() - STANDARD MODE');
+                                    console.log('➡️  THIS WILL ONLY SHOW TOAST, NO MODAL!');
+                                    console.log('🚨 IF YOU EXPECTED A MODAL: question_paper_id is MISSING in database!');
+                                    startAssignment(assignment.id);
+                                  }
+                                  console.log('╚══════════════════════════════════════════════╝\n');
                                 }}
                                 className="bg-blue-600 hover:bg-blue-700 text-white"
                                 size="sm"
@@ -2119,6 +2423,157 @@ export const StudentPortalPage = () => {
                   {gameCompleted ? `Submit Assignment (${gameScore}%)` : 'Submit Anyway (Score: 0%)'}
                 </Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Question Paper Modal */}
+      <Dialog open={showQuestionPaperModal} onOpenChange={setShowQuestionPaperModal}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              {currentQuestionPaper?.title || 'Question Paper'}
+            </DialogTitle>
+            {currentQuestionPaper?.description && (
+              <div className="text-sm text-gray-600 mt-2">
+                {currentQuestionPaper.description}
+              </div>
+            )}
+            <div className="flex items-center gap-4 mt-2 text-sm">
+              <Badge variant="secondary">
+                {currentQuestionPaper?.questions?.length || 0} Questions
+              </Badge>
+              <Badge variant="secondary">
+                Total Marks: {currentQuestionPaper?.questions?.reduce((sum: number, q: any) => sum + (q.marks || 1), 0) || 0}
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          {loadingQuestionPaper ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading question paper...</span>
+            </div>
+          ) : currentQuestionPaper && currentQuestionPaper.questions ? (
+            <div className="space-y-6 py-4">
+              {currentQuestionPaper.questions.map((question: any, idx: number) => (
+                <Card key={idx} className="border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge className="bg-blue-600 text-white">Q{idx + 1}</Badge>
+                          <Badge variant="outline">{question.type === 'multiple-choice' ? 'MCQ' : 'Subjective'}</Badge>
+                          <Badge variant="secondary">{question.marks || 1} {question.marks === 1 ? 'mark' : 'marks'}</Badge>
+                        </div>
+                        <p className="text-base font-semibold text-gray-800 leading-relaxed">
+                          {question.text}
+                        </p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    {question.type === 'multiple-choice' && question.options ? (
+                      <div className="space-y-2">
+                        {question.options.map((option: string, optionIdx: number) => (
+                          <label
+                            key={optionIdx}
+                            className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              questionPaperAnswers[idx] === optionIdx
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`question-${idx}`}
+                              value={optionIdx}
+                              checked={questionPaperAnswers[idx] === optionIdx}
+                              onChange={() => handleQuestionPaperAnswerChange(idx, optionIdx)}
+                              className="h-5 w-5 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="font-medium text-gray-700">
+                              {String.fromCharCode(65 + optionIdx)}.
+                            </span>
+                            <span className="text-gray-800">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          Your Answer:
+                        </label>
+                        <textarea
+                          value={questionPaperAnswers[idx] || ''}
+                          onChange={(e) => handleQuestionPaperAnswerChange(idx, e.target.value)}
+                          placeholder="Type your answer here..."
+                          className="w-full min-h-[120px] p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-y"
+                          rows={4}
+                        />
+                        <p className="text-xs text-gray-500">
+                          * Subjective answers will be reviewed by your teacher
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* Progress indicator */}
+              <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 p-4 -mx-6 -mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-semibold text-blue-600">
+                      {Object.keys(questionPaperAnswers).length}
+                    </span>
+                    {' / '}
+                    {currentQuestionPaper.questions.length} questions answered
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => {
+                        setShowQuestionPaperModal(false);
+                        setCurrentQuestionPaper(null);
+                        setQuestionPaperAnswers({});
+                      }}
+                      variant="outline"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={submitQuestionPaper}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      disabled={Object.keys(questionPaperAnswers).length === 0}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Submit Assignment
+                    </Button>
+                  </div>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(Object.keys(questionPaperAnswers).length / currentQuestionPaper.questions.length) * 100}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No questions available in this paper</p>
+              <Button
+                onClick={() => setShowQuestionPaperModal(false)}
+                variant="outline"
+                className="mt-4"
+              >
+                Close
+              </Button>
             </div>
           )}
         </DialogContent>
