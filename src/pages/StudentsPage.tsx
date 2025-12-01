@@ -281,24 +281,7 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <Label htmlFor="skills" className="font-medium">Skills</Label>
-                    <select
-                      id="skills"
-                      className="w-full border rounded-md p-2"
-                      value={formData.skills}
-                      onChange={e => setFormData({ ...formData, skills: e.target.value })}
-                    >
-                      <option value="">Select a skill</option>
-                      <option value="Reading">Reading</option>
-                      <option value="Math">Math</option>
-                      <option value="Science">Science</option>
-                      <option value="Writing">Writing</option>
-                      <option value="Art">Art</option>
-                      <option value="Sports">Sports</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
+                  
                   <div className="flex flex-col gap-2">
                     <Label htmlFor="details" className="font-medium">Additional Details</Label>
                     <Input

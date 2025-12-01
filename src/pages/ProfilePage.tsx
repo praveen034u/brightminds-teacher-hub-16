@@ -32,12 +32,22 @@ const ProfilePage = () => {
                         (!user.subjects || user.subjects.length === 0);
       setIsFirstTimeSetup(isNewUser);
       
+      // Remove empty/whitespace-only subjects and ignore 'math' if it's the only value (regardless of user state)
+      let cleanSubjects = '';
+      if (Array.isArray(user.subjects)) {
+        let filtered = user.subjects.map(s => (s || '').trim()).filter(Boolean);
+        // If only 'math' is present, treat as empty
+        if (filtered.length === 1 && filtered[0].toLowerCase() === 'math') {
+          filtered = [];
+        }
+        cleanSubjects = filtered.length > 0 ? filtered.join(', ') : '';
+      }
       setFormData({
         full_name: user.full_name || '',
         email: user.email || '',
         school_name: user.school_name || '',
         grades_taught: Array.isArray(user.grades_taught) ? user.grades_taught.join(', ') : '',
-        subjects: Array.isArray(user.subjects) ? user.subjects.join(', ') : '',
+        subjects: cleanSubjects,
         preferred_language: user.preferred_language || 'English',
       });
     }
@@ -183,23 +193,107 @@ const ProfilePage = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="grades_taught">Grades Taught (comma separated)</Label>
-                  <Input
+                  <Label htmlFor="grades_taught">Grades Taught</Label>
+                  <select
                     id="grades_taught"
+                    className="w-full border rounded-md p-2"
                     value={formData.grades_taught}
-                    onChange={(e) => setFormData({ ...formData, grades_taught: e.target.value })}
-                    placeholder="3, 4, 5"
-                  />
+                    onChange={e => setFormData({ ...formData, grades_taught: e.target.value })}
+                  >
+                    <option value="">Select grade</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                  </select>
                 </div>
 
                 <div>
-                  <Label htmlFor="subjects">Subjects (comma separated)</Label>
-                  <Input
-                    id="subjects"
-                    value={formData.subjects}
-                    onChange={(e) => setFormData({ ...formData, subjects: e.target.value })}
-                    placeholder="English, Math, Science"
-                  />
+                  <Label htmlFor="subjects">Subjects</Label>
+                  <div className="w-full border rounded-md p-2 min-h-[48px] flex flex-wrap gap-2 bg-white mb-2">
+                    {(!formData.subjects || formData.subjects.split(',').filter(s => s.trim()).length === 0) ? (
+                      <span className="text-muted-foreground text-sm">Add subjects</span>
+                    ) : (
+                      formData.subjects.split(',').map((subject, idx, arr) => {
+                        const s = subject.trim();
+                        if (!s) return null;
+                        return (
+                          <span key={s} className="flex items-center bg-gray-100 rounded px-2 py-1 text-sm mr-1 mb-1">
+                            {s}
+                            <button type="button" className="ml-1 text-gray-500 hover:text-red-500" onClick={() => {
+                              const filtered = arr.filter(sub => sub.trim() !== s);
+                              setFormData({ ...formData, subjects: filtered.join(', ') });
+                            }}>×</button>
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div className="flex gap-2 mb-2">
+                    <Input
+                      id="add_subject"
+                      placeholder="Add new subject"
+                      className="flex-1"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                          e.preventDefault();
+                          const current = formData.subjects ? formData.subjects.split(',').map(s => s.trim()) : [];
+                          const newSubject = e.currentTarget.value.trim();
+                          if (newSubject && !current.includes(newSubject)) {
+                            setFormData({ ...formData, subjects: [...current, newSubject].join(', ') });
+                          }
+                          e.currentTarget.value = '';
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="px-3 py-2 bg-primary text-white rounded flex items-center justify-center"
+                      title="Add subject"
+                      onClick={e => {
+                        const input = (e.currentTarget.parentElement?.querySelector('#add_subject') as HTMLInputElement);
+                        if (input && input.value.trim()) {
+                          const current = formData.subjects ? formData.subjects.split(',').map(s => s.trim()) : [];
+                          const newSubject = input.value.trim();
+                          if (newSubject && !current.includes(newSubject)) {
+                            setFormData({ ...formData, subjects: [...current, newSubject].join(', ') });
+                          }
+                          input.value = '';
+                        }
+                      }}
+                    >+
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {['English','Math','Science','Social Studies','Hindi'].map(option => {
+                      const selected = formData.subjects && formData.subjects.split(',').map(s => s.trim()).includes(option);
+                      return (
+                        <label key={option} className="flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={e => {
+                              const current = formData.subjects ? formData.subjects.split(',').map(s => s.trim()) : [];
+                              if (e.target.checked) {
+                                if (!current.includes(option)) setFormData({ ...formData, subjects: [...current, option].join(', ') });
+                              } else {
+                                setFormData({ ...formData, subjects: current.filter(s => s !== option).join(', ') });
+                              }
+                            }}
+                          />
+                          <span className="text-sm">{option}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>

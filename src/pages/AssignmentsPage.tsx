@@ -72,7 +72,8 @@ function AssignmentsPage() {
   const [templateName, setTemplateName] = useState('');
   const [templatesFeatureAvailable, setTemplatesFeatureAvailable] = useState(false);
 
-  // Auto-enable template saving for custom assignments
+
+  // Auto-enable template saving for custom assignments and set template name
   useEffect(() => {
     if (roomType === 'custom') {
       setSaveAsTemplate(true);
@@ -84,6 +85,13 @@ function AssignmentsPage() {
       setTemplateName('');
     }
   }, [roomType]);
+
+  // Refresh assignment progress when modal is opened
+  useEffect(() => {
+    if (showAssignmentDetails && selectedAssignment) {
+      handleViewAssignmentDetails(selectedAssignment);
+    }
+  }, [showAssignmentDetails, selectedAssignment]);
   
   // Game configuration state
   const [selectedGameConfig, setSelectedGameConfig] = useState({
@@ -465,9 +473,10 @@ function AssignmentsPage() {
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     
+
     console.log('🚀 Starting assignment creation...');
     console.log('📋 Form state:', { title, description, dueDate, roomType, selectedPrebuiltRoom, selectedRoom });
-    
+
     if (!validateForm()) {
       console.log('❌ Form validation failed');
       return;
@@ -486,12 +495,74 @@ function AssignmentsPage() {
       console.log(`   - selectedRoom type: ${typeof selectedRoom}`);
       console.log(`   - selectedRoom !== 'none': ${selectedRoom !== 'none'}`);
       console.log(`   - selectedRoom && selectedRoom !== 'none': ${selectedRoom && selectedRoom !== 'none'}`);
-      
+
       const finalRoomId = selectedRoom && selectedRoom !== 'none' ? selectedRoom : null;
       console.log(`   - Final room_id will be: ${finalRoomId}`);
 
+      // Inject the correct data array and force correct game_type for prebuilt assignments
+      let injectedGameConfig: any = { ...selectedGameConfig };
+      let forcedGameType = undefined;
+      if (roomType === 'prebuilt') {
+        const selectedGame = games.find(g => g.id === selectedPrebuiltRoom);
+        if (selectedGame) {
+          // Normalize all game_type values to match frontend expectations
+          let gameType = selectedGame.game_type;
+          if (gameType === 'word_scramble' || gameType === 'Word Scramble') gameType = 'word-scramble';
+          if (gameType === 'emoji_guess' || gameType === 'Emoji Guess') gameType = 'emoji-guess';
+          if (gameType === 'riddle' || gameType === 'Riddle') gameType = 'riddle';
+          if (gameType === 'crossword' || gameType === 'Crossword') gameType = 'crossword';
+          forcedGameType = gameType;
+          injectedGameConfig = { ...selectedGameConfig } as any;
+          if (gameType === 'word-scramble') {
+            let filtered = wordScrambleData;
+            if (selectedGameConfig.difficulty) {
+              filtered = filtered.filter((q: any) => q.difficulty === selectedGameConfig.difficulty);
+            }
+            (injectedGameConfig as any).questions = filtered.slice(0, 5);
+          } else if (gameType === 'emoji-guess') {
+            let filtered = emojiGuessData;
+            if (selectedGameConfig.difficulty) {
+              filtered = filtered.filter((q: any) => q.difficulty === selectedGameConfig.difficulty);
+            }
+            (injectedGameConfig as any).puzzles = filtered.slice(0, 5);
+          } else if (gameType === 'riddle') {
+            let arr = [];
+            if (selectedGameConfig.category && selectedGameConfig.difficulty) {
+              arr = riddlesData[selectedGameConfig.category]?.[selectedGameConfig.difficulty] || [];
+            } else if (selectedGameConfig.category) {
+              arr = Object.values(riddlesData[selectedGameConfig.category] || {}).flat();
+            } else {
+              arr = Object.values(riddlesData)
+                .map((cat: any) => Object.values(cat).flat())
+                .flat();
+            }
+            (injectedGameConfig as any).riddles = arr.slice(0, 5);
+          } else if (gameType === 'crossword') {
+            let clues = [];
+            if (selectedGameConfig.category && selectedGameConfig.difficulty) {
+              clues = crosswordsData[selectedGameConfig.category]?.[selectedGameConfig.difficulty]?.words || [];
+            } else if (selectedGameConfig.category) {
+              clues = Object.values(crosswordsData[selectedGameConfig.category] || {})
+                .map((d: any) => d.words || [])
+                .flat();
+            } else {
+              clues = Object.values(crosswordsData)
+                .map((cat: any) =>
+                  Object.values(cat)
+                    .map((d: any) => d.words || [])
+                    .flat()
+                )
+                .flat();
+            }
+            (injectedGameConfig as any).clues = clues.slice(0, 5);
+          }
+        }
+      }
+
       const assignmentData = {
         roomType: roomType,
+        roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : '',
+        gameConfig: roomType === 'prebuilt' ? injectedGameConfig : null,
         roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : selectedQuestionPaper,
         gameConfig: roomType === 'prebuilt' ? selectedGameConfig : null,
         title,
@@ -500,14 +571,16 @@ function AssignmentsPage() {
         dueDate,
         status: 'active',
         room_id: finalRoomId, // Add room assignment
+        // Always set correct game_type for prebuilt
+        ...(roomType === 'prebuilt' && forcedGameType ? { game_type: forcedGameType } : {}),
         question_paper_id: roomType === 'custom' ? selectedQuestionPaper : null, // Link to question paper
       };
 
       console.log('📤 Creating assignment with data:', JSON.stringify(assignmentData, null, 2));
       console.log('🔑 Auth0 User ID:', auth0UserId);
-      console.log('🎮 Selected game config:', selectedGameConfig);
+      console.log('🎮 Selected game config:', injectedGameConfig);
       console.log('🏠 Selected room:', selectedRoom);
-      
+
       // Debug: Show exactly what room data is being sent
       if (roomType === 'prebuilt' && selectedRoom && selectedRoom !== 'none') {
         const selectedRoomData = rooms.find(r => r.id === selectedRoom);
@@ -765,9 +838,9 @@ function AssignmentsPage() {
             id: student.student_id,
             student_name: student.student_name,
             student_email: student.student_email || 'No email',
-            status: student.status,
+            status: typeof student.status === 'string' ? student.status.toLowerCase() : student.status,
             // Use attempts_count provided by the teacher-progress function when available
-            attempts: (typeof student.attempts_count !== 'undefined') ? student.attempts_count : (student.status === 'not_started' ? 0 : 1),
+            attempts: (typeof student.attempts_count !== 'undefined') ? student.attempts_count : (student.status && student.status.toLowerCase() === 'not_started' ? 0 : 1),
             score: student.score,
             started_at: student.started_at,
             completed_at: student.completed_at,
@@ -843,7 +916,7 @@ function AssignmentsPage() {
             id: student.id,
             student_name: student.name,
             student_email: student.email || 'No email',
-            status: attempt?.status || 'not_started',
+            status: typeof attempt?.status === 'string' ? attempt.status.toLowerCase() : (attempt?.status || 'not_started'),
             attempts: attempt?.attempts_count || 0,
             score: attempt?.score || null,
             started_at: attempt?.started_at || null,

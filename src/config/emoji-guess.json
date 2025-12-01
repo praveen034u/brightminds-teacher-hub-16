@@ -1,0 +1,123 @@
+[
+  {
+    "id": "eg_easy_1",
+    "difficulty": "easy",
+    "emojis": "🍎",
+    "answer": "apple",
+    "answers": ["apple"],
+    "hint": "A red fruit often found in lunchboxes"
+  },
+  {
+    "id": "eg_easy_2",
+    "difficulty": "easy",
+    "emojis": "🐘",
+    "answer": "elephant",
+    "answers": ["elephant"],
+    "hint": "The largest land animal"
+  },
+  {
+    "id": "eg_medium_1",
+    "difficulty": "medium",
+    "emojis": "🌧️☔",
+    "answer": "rainy day",
+    "answers": ["rainy day", "rain", "rainy"],
+    "hint": "Weather with water falling from the sky"
+  },
+  {
+    "id": "eg_hard_1",
+    "difficulty": "hard",
+    "emojis": "🚀🌕",
+    "answer": "moon landing",
+    "answers": ["moon landing", "landing on the moon"],
+    "hint": "Historic event involving space travel"
+  }
+  ,
+  {
+    "id": "eg_easy_3",
+    "difficulty": "easy",
+    "emojis": "🐶",
+    "answer": "dog",
+    "answers": ["dog"],
+    "hint": "A loyal pet that barks"
+  },
+  {
+    "id": "eg_easy_4",
+    "difficulty": "easy",
+    "emojis": "🐱",
+    "answer": "cat",
+    "answers": ["cat"],
+    "hint": "A pet that says 'meow'"
+  },
+  {
+    "id": "eg_easy_5",
+    "difficulty": "easy",
+    "emojis": "🍌🐒",
+    "answer": "monkey",
+    "answers": ["monkey"],
+    "hint": "Loves bananas and swings in trees"
+  },
+  {
+    "id": "eg_medium_2",
+    "difficulty": "medium",
+    "emojis": "🦁👑",
+    "answer": "lion king",
+    "answers": ["lion king", "the lion king"],
+    "hint": "The king of the jungle"
+  },
+  {
+    "id": "eg_medium_3",
+    "difficulty": "medium",
+    "emojis": "🎩🐰",
+    "answer": "magic trick",
+    "answers": ["magic trick", "trick", "magic"],
+    "hint": "A rabbit comes out of this"
+  },
+  {
+    "id": "eg_medium_4",
+    "difficulty": "medium",
+    "emojis": "🍕🍔🍟",
+    "answer": "fast food",
+    "answers": ["fast food"],
+    "hint": "Popular quick meals"
+  },
+  {
+    "id": "eg_medium_5",
+    "difficulty": "medium",
+    "emojis": "🏫📚",
+    "answer": "school",
+    "answers": ["school"],
+    "hint": "A place to learn"
+  },
+  {
+    "id": "eg_hard_2",
+    "difficulty": "hard",
+    "emojis": "🦄🌈",
+    "answer": "unicorn rainbow",
+    "answers": ["unicorn rainbow", "rainbow unicorn"],
+    "hint": "A mythical creature and colorful sky arc"
+  },
+  {
+    "id": "eg_hard_3",
+    "difficulty": "hard",
+    "emojis": "🕵️‍♂️🔍",
+    "answer": "detective",
+    "answers": ["detective", "sleuth"],
+    "hint": "Solves mysteries with a magnifying glass"
+  },
+  {
+    "id": "eg_hard_4",
+    "difficulty": "hard",
+    "emojis": "🌋🌊",
+    "answer": "tsunami",
+    "answers": ["tsunami"],
+    "hint": "A giant wave caused by an eruption"
+  },
+  {
+    "id": "eg_hard_5",
+    "difficulty": "hard",
+    "emojis": "🧊🐧",
+    "answer": "penguin",
+    "answers": ["penguin"],
+    "hint": "A bird that lives on ice"
+  }
+]

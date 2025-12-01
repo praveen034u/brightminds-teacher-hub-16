@@ -149,9 +149,15 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'POST' && action === 'complete' && assignmentId) {
-      // Complete/submit an assignment attempt
+
+      // Debug: log incoming completion request
       const body = await req.json();
       const { score, submissionData, feedback } = body;
+      console.log('🟢 [DEBUG] Assignment completion request:', {
+        assignmentId,
+        studentId: student.id,
+        body
+      });
 
       const { data: existingAttempt, error: checkError } = await supabase
         .from('assignment_attempts')
@@ -162,11 +168,13 @@ Deno.serve(async (req) => {
 
       if (checkError) {
         if (checkError.code === 'PGRST116') {
+          console.warn('🟡 [DEBUG] No attempt found for completion:', { assignmentId, studentId: student.id });
           return new Response(JSON.stringify({ error: 'No attempt found. Please start the assignment first.' }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+        console.error('🔴 [DEBUG] Error looking up attempt for completion:', checkError);
         throw checkError;
       }
 
@@ -208,18 +216,19 @@ Deno.serve(async (req) => {
         .single();
 
       if (updateError) {
-        console.error('Update error details:', updateError);
+        console.error('🔴 [DEBUG] Update error details:', updateError);
         throw updateError;
       }
 
       // Log successful completion for debugging
-      console.log('✅ Assignment completed successfully:', {
+      console.log('✅ [DEBUG] Assignment completed successfully:', {
         id: updatedAttempt.id,
         assignment_id: updatedAttempt.assignment_id,
         student_id: updatedAttempt.student_id,
         student_name: updatedAttempt.students?.name,
         score: updatedAttempt.score,
-        completed_at: updatedAttempt.completed_at
+        completed_at: updatedAttempt.completed_at,
+        status: updatedAttempt.status
       });
 
       // Send a broadcast notification to teachers for immediate updates
