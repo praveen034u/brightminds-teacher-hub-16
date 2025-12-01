@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useGradeFilter } from '@/contexts/GradeFilterContext';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const RoomsPage = () => {
   const { auth0UserId } = useAuth();
+  const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -112,16 +114,34 @@ export const RoomsPage = () => {
     );
   };
 
+  // Filter rooms by selected grades from context
+  const filteredRooms = useMemo(() => {
+    if (selectedGrades.length === 0) {
+      return rooms;
+    }
+    return rooms.filter((room) => selectedGrades.includes(room.grade_level));
+  }, [rooms, selectedGrades]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <Header />
       
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-8 pt-32">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/dashboard')}
+          className="mb-4 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
+
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Virtual Rooms</h1>
-              <p className="text-muted-foreground">Organize students into learning groups</p>
+              <h1 className="text-2xl font-bold mb-2">Virtual Rooms</h1>
+              <p className="text-sm text-muted-foreground">Organize students into learning groups</p>
             </div>
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -172,9 +192,9 @@ export const RoomsPage = () => {
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           </div>
-        ) : rooms.length > 0 ? (
+        ) : filteredRooms.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {rooms.map((room) => (
+            {filteredRooms.map((room) => (
               <Card key={room.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex justify-between items-start">

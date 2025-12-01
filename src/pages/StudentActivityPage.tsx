@@ -60,7 +60,7 @@ export const StudentActivityPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
         <Header />
-        <div className="container mx-auto px-6 py-8">
+        <div className="container mx-auto px-6 py-8 pt-32">
           <p className="text-center text-muted-foreground">Student or room information not found</p>
           <div className="flex justify-center mt-4">
             <Button onClick={() => navigate('/rooms')}>Back to Rooms</Button>
@@ -74,7 +74,7 @@ export const StudentActivityPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-[hsl(280,40%,98%)] via-[hsl(280,30%,95%)] to-[hsl(35,95%,95%)]">
       <Header />
       
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-8 pt-32">
         <Button
           variant="ghost"
           className="mb-6"
@@ -92,7 +92,7 @@ export const StudentActivityPage = () => {
                 <AvatarFallback>{getInitials(student.name)}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h1 className="text-3xl font-bold mb-2">{student.name}</h1>
+                <h1 className="text-2xl font-bold mb-2">{student.name}</h1>
                 <div className="flex gap-2 flex-wrap">
                   <Badge variant="secondary">{room.name}</Badge>
                   {student.primary_language && (

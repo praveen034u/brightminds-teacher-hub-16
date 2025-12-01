@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useGradeFilter } from '@/contexts/GradeFilterContext';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import { meAPI } from '@/api/edgeClient';
 
 export const QuestionPapersPage = () => {
   const { auth0UserId } = useAuth();
+  const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [questionPapers, setQuestionPapers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,11 +243,19 @@ export const QuestionPapersPage = () => {
     loadTeacherAndQuestionPapers();
   };
 
+  // Filter question papers by selected grades from context
+  const filteredQuestionPapers = useMemo(() => {
+    if (selectedGrades.length === 0) {
+      return questionPapers;
+    }
+    return questionPapers.filter((paper) => selectedGrades.includes(paper.grade));
+  }, [questionPapers, selectedGrades]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <Header />
       
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-8 pt-32">
         {/* Enhanced Header Section */}
         <div className="mb-10">
           <Button
@@ -265,25 +275,25 @@ export const QuestionPapersPage = () => {
                   <FileText className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                     Question Papers
                   </h1>
-                  <p className="text-gray-600 mt-1">Create and manage reusable question papers</p>
+                  <p className="text-sm text-gray-600 mt-1">Create and manage reusable question papers</p>
                 </div>
               </div>
               
-              {/* Stats Summary */}
-              {questionPapers.length > 0 && (
+              {/* Stats Summary - Shows filtered count */}
+              {filteredQuestionPapers.length > 0 && (
                 <div className="flex gap-4 mt-4">
                   <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-100">
                     <FileText className="h-4 w-4 text-blue-600" />
                     <span className="text-sm font-semibold text-blue-700">
-                      {questionPapers.length} {questionPapers.length === 1 ? 'Paper' : 'Papers'}
+                      {filteredQuestionPapers.length} {filteredQuestionPapers.length === 1 ? 'Paper' : 'Papers'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 rounded-lg border border-purple-100">
                     <span className="text-sm font-semibold text-purple-700">
-                      {questionPapers.reduce((sum, p) => sum + (p.question_count || 0), 0)} Total Questions
+                      {filteredQuestionPapers.reduce((sum, p) => sum + (p.question_count || 0), 0)} Total Questions
                     </span>
                   </div>
                 </div>
@@ -327,95 +337,103 @@ export const QuestionPapersPage = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-muted-foreground">Loading question papers...</p>
           </div>
-        ) : questionPapers.length > 0 ? (
+        ) : filteredQuestionPapers.length > 0 ? (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {questionPapers.map((paper) => (
-              <Card key={paper.id} className="group relative overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-gray-200/50 bg-white rounded-2xl flex flex-col" style={{ minHeight: '520px' }}>
-                {/* Decorative gradient background - larger area */}
-                <div className="absolute top-0 left-0 right-0 h-[140px] bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-600 rounded-t-2xl"></div>
+            {filteredQuestionPapers.map((paper) => (
+              <Card key={paper.id} className="group relative overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 border border-gray-200 bg-white rounded-2xl">
+                {/* Subtle gradient background - reduced size */}
+                <div className="absolute top-0 left-0 right-0 h-[100px] bg-gradient-to-br from-blue-100/80 via-purple-100/60 to-indigo-100/80 rounded-t-2xl"></div>
                 
-                {/* Action buttons - always visible on mobile, hover on desktop */}
-                <div className="absolute top-3 right-3 flex gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300 z-10">
+                {/* Action buttons - Hover to show (desktop), always visible (mobile) */}
+                <div className="absolute top-3 right-3 flex gap-2 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300">
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => handlePreviewPaper(paper)}
                     title="Preview"
-                    className="h-9 w-9 p-0 bg-white/98 hover:bg-blue-50 shadow-lg hover:shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 rounded-xl border border-blue-200/50"
+                    className="h-10 w-10 p-0 bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 rounded-lg"
                   >
-                    <Eye className="h-4 w-4 text-blue-600" />
+                    <Eye className="h-4 w-4 text-white" />
                   </Button>
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => handleEditPaper(paper)}
                     title="Edit"
-                    className="h-9 w-9 p-0 bg-white/98 hover:bg-green-50 shadow-lg hover:shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 rounded-xl border border-green-200/50"
+                    className="h-10 w-10 p-0 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 rounded-lg"
                   >
-                    <Edit className="h-4 w-4 text-green-600" />
+                    <Edit className="h-4 w-4 text-white" />
                   </Button>
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={() => handleDeletePaper(paper.id)}
                     title="Delete"
-                    className="h-9 w-9 p-0 bg-white/98 hover:bg-red-50 shadow-lg hover:shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 rounded-xl border border-red-200/50"
+                    className="h-10 w-10 p-0 bg-red-600 hover:bg-red-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 rounded-lg"
                   >
-                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <Trash2 className="h-4 w-4 text-white" />
                   </Button>
                 </div>
 
-                <CardHeader className="relative pb-4 pt-8">
-                  {/* Document icon with modern design - positioned in gradient area */}
-                  <div className="flex justify-center mb-6">
-                    <div className="relative w-20 h-24 bg-white rounded-2xl shadow-2xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
-                      <FileText className="h-12 w-12 text-blue-600" strokeWidth={1.5} />
-                      <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white">
-                        <span className="text-white text-sm font-bold">{paper.question_count || paper.questions?.length || 0}</span>
+                <CardHeader className="relative pb-3 pt-6">
+                  {/* Document icon with modern design - smaller and subtle */}
+                  <div className="flex justify-center mb-4">
+                    <div className="relative w-16 h-20 bg-white rounded-xl shadow-md flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+                      <FileText className="h-8 w-8 text-blue-500" strokeWidth={1.5} />
+                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md ring-2 ring-white">
+                        <span className="text-white text-xs font-bold">{paper.question_count || paper.questions?.length || 0}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Title */}
-                  <CardTitle className="text-center text-[22px] font-bold text-gray-900 mb-4 line-clamp-2 min-h-[3.5rem] px-4 leading-tight">
+                  {/* Title - More Prominent */}
+                  <CardTitle className="text-center text-2xl font-extrabold text-gray-900 mb-4 line-clamp-2 min-h-[3.5rem] px-4 leading-tight tracking-tight">
                     {paper.title}
                   </CardTitle>
 
-                  {/* Stats badges */}
+                  {/* Stats badges - Smaller and more subtle */}
                   <div className="flex gap-2 justify-center items-center flex-wrap px-2">
-                    <div className="flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 rounded-full border border-blue-100">
-                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                      <span className="text-sm font-semibold text-blue-700">
+                    {paper.grade && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50/50 rounded-full border border-green-100/50">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                        <span className="text-xs font-medium text-green-600">
+                          Grade {paper.grade}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50/50 rounded-full border border-blue-100/50">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                      <span className="text-xs font-medium text-blue-600">
                         {paper.question_count || paper.questions?.length || 0} Questions
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-50 rounded-full border border-purple-100">
-                      <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                      <span className="text-sm font-semibold text-purple-700">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50/50 rounded-full border border-purple-100/50">
+                      <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                      <span className="text-xs font-medium text-purple-600">
                         {paper.total_marks || 0} Marks
                       </span>
                     </div>
                   </div>
                 </CardHeader>
 
-                <CardContent className="pt-0 px-6 pb-6 flex flex-col justify-between" style={{ minHeight: '180px' }}>
-                  {/* Description - Always shows placeholder if empty */}
-                  <div className="mb-4">
+                <CardContent className="pt-0 px-6 pb-5">
+                  {/* Description - Content more prominent */}
+                  <div className="mb-3">
                     {paper.description ? (
-                      <div className="p-4 bg-gradient-to-br from-blue-50 via-purple-50/30 to-indigo-50/20 rounded-xl border-l-4 border-blue-400 shadow-sm">
+                      <div className="p-4 bg-white rounded-lg border-2 border-gray-200 shadow-sm">
                         <div className="flex items-start gap-2">
-                          <div className="mt-0.5 text-blue-500">
+                          <div className="mt-0.5 text-gray-400">
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                             </svg>
                           </div>
-                          <p className="text-sm text-gray-700 leading-relaxed line-clamp-3 flex-1">
+                          <p className="text-base text-gray-800 leading-relaxed line-clamp-3 flex-1 font-medium">
                             {paper.description}
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                      <div className="p-4 bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
                         <p className="text-xs text-gray-400 italic text-center">
                           No description provided
                         </p>
@@ -424,14 +442,14 @@ export const QuestionPapersPage = () => {
                   </div>
                   
                   {/* Footer with date and print button */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-200/70">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center shadow-sm">
-                        <Calendar className="h-4 w-4 text-blue-600" />
+                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <Calendar className="h-4 w-4 text-gray-500" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">Created</span>
-                        <span className="text-sm font-bold text-gray-800 mt-0.5">
+                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Created</span>
+                        <span className="text-sm font-semibold text-gray-700 mt-0.5">
                           {new Date(paper.created_at).toLocaleDateString('en-US', { 
                             month: 'short', 
                             day: 'numeric', 
@@ -442,10 +460,10 @@ export const QuestionPapersPage = () => {
                     </div>
                     <Button
                       size="sm"
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-5 py-2.5 h-auto rounded-xl font-semibold hover:scale-105"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-300 px-4 py-2 h-auto rounded-lg font-semibold hover:scale-105"
                       onClick={() => handlePrintPaper(paper)}
                     >
-                      <FileText className="h-4 w-4 mr-2" />
+                      <FileText className="h-4 w-4 mr-1.5" />
                       Print
                     </Button>
                   </div>
@@ -504,7 +522,15 @@ export const QuestionPapersPage = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-blue-900 mb-2">Statistics</h3>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedPaper.grade && (
+                        <div className="text-center p-2 bg-green-100 rounded">
+                          <div className="text-lg font-bold text-green-800">
+                            {selectedPaper.grade}
+                          </div>
+                          <div className="text-xs text-green-700">Grade</div>
+                        </div>
+                      )}
                       <div className="text-center p-2 bg-blue-100 rounded">
                         <div className="text-lg font-bold text-blue-800">
                           {selectedPaper.question_count || selectedPaper.questions?.length || 0}

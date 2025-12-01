@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useGradeFilter } from '@/contexts/GradeFilterContext';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const StudentsPage = () => {
   const { auth0UserId } = useAuth();
+  const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,16 @@ export const StudentsPage = () => {
     additional_details: '',
   });
   const [csvText, setCsvText] = useState('');
+
+  // Filter students by selected grades
+  const filteredStudents = useMemo(() => {
+    if (selectedGrades.length === 0) {
+      return students;
+    }
+    return students.filter((student) => 
+      student.grade && selectedGrades.includes(student.grade)
+    );
+  }, [students, selectedGrades]);
 
   useEffect(() => {
     loadStudents();
@@ -153,12 +165,22 @@ export const StudentsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <Header />
       {/* Add bottom padding for mobile footer */}
-      <main className="container mx-auto px-6 py-8 pb-20 sm:pb-8">
+      <main className="container mx-auto px-6 py-8 pt-32 pb-20 sm:pb-8">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/dashboard')}
+          className="mb-4 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
+
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Students</h1>
-              <p className="text-muted-foreground">Manage your students</p>
+              <h1 className="text-2xl font-bold mb-2">Students</h1>
+              <p className="text-sm text-muted-foreground">Manage your students</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -301,14 +323,17 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
 
         <Card>
           <CardHeader>
-            <CardTitle>All Students ({students.length})</CardTitle>
+            <CardTitle>
+              All Students ({filteredStudents.length}
+              {selectedGrades.length > 0 && ` of ${students.length}`})
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
               </div>
-            ) : students.length > 0 ? (
+            ) : filteredStudents.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -323,7 +348,7 @@ Raj Patel,Male,2014-08-22,Hindi,Science;Art"
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student) => (
+                  {filteredStudents.map((student) => (
                     <TableRow key={student.id}>
                       <TableCell className="font-medium">{student.name}</TableCell>
                       <TableCell>{student.email || '-'}</TableCell>

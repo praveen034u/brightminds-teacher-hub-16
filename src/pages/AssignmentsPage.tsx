@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useGradeFilter } from '@/contexts/GradeFilterContext';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ import {
 import { assignmentsAPI, roomsAPI, meAPI, teacherProgressAPI } from '@/api/edgeClient';
 import { supabase } from '@/config/supabase';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
-import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Archive, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
@@ -37,6 +38,7 @@ function AssignmentsPage() {
   const [description, setDescription] = useState('');
   
   const { auth0UserId } = useAuth();
+  const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -47,6 +49,8 @@ function AssignmentsPage() {
   const [showAssignmentDetails, setShowAssignmentDetails] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const [assignmentProgress, setAssignmentProgress] = useState<any[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   
   // Real-time subscription state
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -622,9 +626,35 @@ function AssignmentsPage() {
         console.log(`   Assignment should ONLY go to students in this room!`);
       }
 
-      const result = await assignmentsAPI.create(auth0UserId, assignmentData);
-      console.log('✅ Assignment created successfully:', result);
-      toast.success('Assignment created successfully');
+      // For update, only send database-valid fields (no roomType, roomValue, gameConfig at top level)
+      const updateData = isEditMode ? {
+        title,
+        description,
+        grade,
+        due_date: dueDate,
+        status: 'active',
+        room_id: finalRoomId,
+        assignment_type: roomType === 'prebuilt' ? 'game' : 'custom',
+        ...(roomType === 'prebuilt' && forcedGameType ? { game_type: forcedGameType } : {}),
+        ...(roomType === 'prebuilt' && selectedPrebuiltRoom ? { game_id: selectedPrebuiltRoom } : {}),
+        ...(roomType === 'prebuilt' ? { game_config: injectedGameConfig } : {}),
+        question_paper_id: roomType === 'custom' && selectedQuestionPaper && !selectedQuestionPaper.startsWith('local_') 
+          ? selectedQuestionPaper 
+          : null,
+      } : assignmentData;
+
+      console.log(isEditMode ? '🔄 Updating assignment with data:' : '📤 Creating assignment with data:', JSON.stringify(updateData, null, 2));
+      
+      if (isEditMode) {
+        console.log('📋 Update payload fields:', Object.keys(updateData));
+        console.log('🔑 Assignment ID to update:', editingAssignmentId);
+      }
+
+      const result = isEditMode 
+        ? await assignmentsAPI.update(auth0UserId, editingAssignmentId!, updateData)
+        : await assignmentsAPI.create(auth0UserId, assignmentData);
+      console.log(`✅ Assignment ${isEditMode ? 'updated' : 'created'} successfully:`, result);
+      toast.success(`Assignment ${isEditMode ? 'updated' : 'created'} successfully`);
       
       setShowCreateDialog(false);
       
@@ -639,6 +669,8 @@ function AssignmentsPage() {
       setSelectedRoom('none');
       setSelectedGameConfig({ difficulty: 'easy', category: '' });
       setAvailableCategories([]);
+      setIsEditMode(false);
+      setEditingAssignmentId(null);
       
       loadData();
     } catch (error: any) {
@@ -732,6 +764,29 @@ function AssignmentsPage() {
     } catch (error) {
       toast.error('Failed to archive assignment');
     }
+  };
+
+  const handleEditAssignment = (assignment: any) => {
+    // Populate form with existing assignment data
+    setTitle(assignment.title);
+    setDescription(assignment.description || '');
+    setGrade(assignment.grade || '');
+    setDueDate(assignment.due_date ? new Date(assignment.due_date).toISOString().split('T')[0] : '');
+    setSelectedRoom(assignment.room_id || 'none');
+    setSelectedQuestionPaper(assignment.question_paper_id || '');
+    
+    // Determine room type based on assignment data
+    if (assignment.game_id) {
+      setRoomType('prebuilt');
+      setSelectedPrebuiltRoom(assignment.game_id);
+    } else {
+      setRoomType('custom');
+    }
+    
+    // Set edit mode
+    setIsEditMode(true);
+    setEditingAssignmentId(assignment.id);
+    setShowCreateDialog(true);
   };
 
 
@@ -854,20 +909,43 @@ function AssignmentsPage() {
     }
   };
 
-  const filteredAssignments = selectedRoomFilter === 'all'
-    ? assignments
-    : assignments.filter((a) => a.room_id === selectedRoomFilter);
+  // Filter assignments by both room and grade
+  const filteredAssignments = useMemo(() => {
+    let filtered = assignments;
+    
+    // Filter by room
+    if (selectedRoomFilter !== 'all') {
+      filtered = filtered.filter((a) => a.room_id === selectedRoomFilter);
+    }
+    
+    // Filter by selected grades (from context)
+    if (selectedGrades.length > 0) {
+      filtered = filtered.filter((a) => selectedGrades.includes(a.grade));
+    }
+    
+    return filtered;
+  }, [assignments, selectedRoomFilter, selectedGrades]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <Header />
       
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-8 pt-32">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/dashboard')}
+          className="mb-4 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </Button>
+
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Assignments</h1>
-              <p className="text-muted-foreground">Create and manage student assignments</p>
+              <h1 className="text-2xl font-bold mb-2">Assignments</h1>
+              <p className="text-sm text-muted-foreground">Create and manage student assignments</p>
               {/* Debug info for authentication troubleshooting */}
               {auth0UserId && (
                 <p className="text-xs text-blue-600 mt-1">
@@ -898,7 +976,24 @@ function AssignmentsPage() {
                 Refresh
               </Button>
             </div>
-            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <Dialog open={showCreateDialog} onOpenChange={(open) => {
+              setShowCreateDialog(open);
+              if (!open) {
+                // Reset form and edit mode when dialog closes
+                setIsEditMode(false);
+                setEditingAssignmentId(null);
+                setTitle('');
+                setGrade('');
+                setDescription('');
+                setDueDate('');
+                setRoomType('prebuilt');
+                setSelectedPrebuiltRoom('');
+                setSelectedQuestionPaper('');
+                setSelectedRoom('none');
+                setSelectedGameConfig({ difficulty: 'easy', category: '' });
+                setAvailableCategories([]);
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button>
                   <FileText className="mr-2 h-4 w-4" />
@@ -907,7 +1002,7 @@ function AssignmentsPage() {
               </DialogTrigger>
               <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto px-6">
               <DialogHeader>
-                <DialogTitle>Create New Assignment</DialogTitle>
+                <DialogTitle>{isEditMode ? 'Edit Assignment' : 'Create New Assignment'}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleCreateAssignment} className="space-y-4">
                 {/* Room Type Selector */}
@@ -1302,7 +1397,7 @@ function AssignmentsPage() {
                 </div>
 
                 <Button type="submit" className="w-full">
-                  Create Assignment
+                  {isEditMode ? 'Update Assignment' : 'Create Assignment'}
                 </Button>
               </form>
             </DialogContent>
@@ -1384,10 +1479,10 @@ function AssignmentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleArchiveAssignment(assignment.id)}
-                          className="hover:bg-yellow-50 hover:text-yellow-700"
+                          onClick={() => handleEditAssignment(assignment)}
+                          className="hover:bg-blue-50 hover:text-blue-700"
                         >
-                          <Archive className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
                       )}
                       <Button

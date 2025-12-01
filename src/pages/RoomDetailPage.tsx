@@ -78,7 +78,7 @@ export const RoomDetailPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
         <Header />
-        <div className="container mx-auto px-6 py-8">
+        <div className="container mx-auto px-6 py-8 pt-32">
           <p className="text-center text-muted-foreground">Loading room...</p>
         </div>
       </div>
@@ -89,7 +89,7 @@ export const RoomDetailPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-[hsl(280,40%,98%)] via-[hsl(280,30%,95%)] to-[hsl(35,95%,95%)]">
       <Header />
       
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-8 pt-32">
         <Button
           variant="ghost"
           className="mb-6"
@@ -102,8 +102,8 @@ export const RoomDetailPage = () => {
         {room && (
           <>
             <div className="mb-8">
-              <h1 className="text-4xl font-bold mb-2">{room.name}</h1>
-              <p className="text-xl text-muted-foreground">{room.description}</p>
+              <h1 className="text-2xl font-bold mb-2">{room.name}</h1>
+              <p className="text-sm text-muted-foreground">{room.description}</p>
               <Badge variant="secondary" className="mt-2">{room.grade_level}</Badge>
             </div>
 

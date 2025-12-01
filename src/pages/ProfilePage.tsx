@@ -140,13 +140,13 @@ const ProfilePage = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
       <Header />
       
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-8 pt-32">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">
+            <h1 className="text-2xl font-bold mb-2">
               {isFirstTimeSetup ? 'Welcome! Complete Your Profile' : 'Teacher Profile'}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {isFirstTimeSetup 
                 ? 'Please fill in your information to get started' 
                 : 'Manage your account information'}

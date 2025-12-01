@@ -19,8 +19,8 @@ import StudentPortalRedirect from "./pages/StudentPortalRedirect";
 import StudentPortalPage from "./pages/StudentPortalPage";
 import QuestionPapersPage from "./pages/QuestionPapersPage";
 import { Footer } from "@/components/layout/Footer";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +36,7 @@ const App = () => (
         }}
       >
         <AuthProvider>
+        <GradeFilterProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -48,75 +49,58 @@ const App = () => (
                 <Route path="/student-portal" element={<StudentPortalPage />} />
                 <Route path="*" element={<NotFound />} />
                 
-                {/* Routes with sidebar - wrapped in DashboardLayout */}
+                {/* Protected routes - full width, no sidebar */}
                 <Route path="/dashboard" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <TeacherHome />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <TeacherHome />
+                  </ProtectedRoute>
                 } />
                 <Route path="/students" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <StudentsPage />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <StudentsPage />
+                  </ProtectedRoute>
                 } />
                 <Route path="/rooms" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <RoomsPage />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <RoomsPage />
+                  </ProtectedRoute>
                 } />
                 <Route path="/rooms/:roomId" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <RoomDetailPage />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <RoomDetailPage />
+                  </ProtectedRoute>
                 } />
                 <Route path="/rooms/:roomId/student/:studentId" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <StudentActivityPage />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <StudentActivityPage />
+                  </ProtectedRoute>
                 } />
                 <Route path="/assignments" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <AssignmentsPage />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <AssignmentsPage />
+                  </ProtectedRoute>
                 } />
                 <Route path="/question-papers" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <QuestionPapersPage />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <QuestionPapersPage />
+                  </ProtectedRoute>
                 } />
                 <Route path="/profile" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
                 } />
                 <Route path="/student-portal-redirect" element={
-                  <DashboardLayout>
-                    <ProtectedRoute>
-                      <StudentPortalRedirect />
-                    </ProtectedRoute>
-                  </DashboardLayout>
+                  <ProtectedRoute>
+                    <StudentPortalRedirect />
+                  </ProtectedRoute>
                 } />
               </Routes>
               <Footer />
             </div>
           </BrowserRouter>
         </TooltipProvider>
+        </GradeFilterProvider>
         </AuthProvider>
       </Auth0Provider>
     </QueryClientProvider>

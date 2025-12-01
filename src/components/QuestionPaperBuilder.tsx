@@ -98,6 +98,9 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
   const [paperDescription, setPaperDescription] = useState(
     existingPaper?.description || initialData?.description || ''
   );
+  const [paperGrade, setPaperGrade] = useState(
+    existingPaper?.grade || ''
+  );
   const [questionType, setQuestionType] = useState<'multiple-choice' | 'subjective'>('multiple-choice');
   const [complexity, setComplexity] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [questions, setQuestions] = useState<Question[]>(
@@ -671,6 +674,11 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
       return;
     }
 
+    if (!paperGrade) {
+      toast.error('Please select a grade level');
+      return;
+    }
+
     if (questions.length === 0) {
       toast.error('Please add at least one question');
       return;
@@ -681,6 +689,7 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
         teacher_id: teacherId,  // ✅ Now using teacherId (UUID) instead of auth0UserId
         title: paperTitle,
         description: paperDescription,
+        grade: paperGrade,
         questions: questions,
         question_count: questions.length,
         total_marks: questions.reduce((sum, q) => sum + (q.marks || 1), 0),
@@ -896,6 +905,29 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
                 onChange={(e) => setPaperDescription(e.target.value)}
                 placeholder="e.g., Answer all questions. Show your work."
               />
+            </div>
+
+            <div>
+              <Label htmlFor="paperGrade">Grade / Class *</Label>
+              <Select value={paperGrade} onValueChange={(value) => setPaperGrade(value)}>
+                <SelectTrigger id="paperGrade">
+                  <SelectValue placeholder="Select grade level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Grade 1</SelectItem>
+                  <SelectItem value="2">Grade 2</SelectItem>
+                  <SelectItem value="3">Grade 3</SelectItem>
+                  <SelectItem value="4">Grade 4</SelectItem>
+                  <SelectItem value="5">Grade 5</SelectItem>
+                  <SelectItem value="6">Grade 6</SelectItem>
+                  <SelectItem value="7">Grade 7</SelectItem>
+                  <SelectItem value="8">Grade 8</SelectItem>
+                  <SelectItem value="9">Grade 9</SelectItem>
+                  <SelectItem value="10">Grade 10</SelectItem>
+                  <SelectItem value="11">Grade 11</SelectItem>
+                  <SelectItem value="12">Grade 12</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
