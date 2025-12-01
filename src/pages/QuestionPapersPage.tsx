@@ -16,6 +16,7 @@ import { FileText, Plus, Trash2, Eye, Edit, ArrowLeft, Calendar } from 'lucide-r
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
+import { meAPI } from '@/api/edgeClient';
 
 export const QuestionPapersPage = () => {
   const { auth0UserId } = useAuth();
@@ -26,38 +27,54 @@ export const QuestionPapersPage = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedPaper, setSelectedPaper] = useState<any>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [teacherId, setTeacherId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadQuestionPapers();
+    loadTeacherAndQuestionPapers();
   }, [auth0UserId]);
 
-  const loadQuestionPapers = async () => {
+  const loadTeacherAndQuestionPapers = async () => {
     try {
       setLoading(true);
 
-      // Try to load from Supabase
+      // First, get the teacher's UUID using Edge Function (has service role access)
+      console.log('📋 Getting teacher profile for auth0_user_id:', auth0UserId);
+      const teacherProfile = await meAPI.get(auth0UserId);
+
+      if (!teacherProfile || !teacherProfile.id) {
+        console.error('❌ No teacher profile found for auth0_user_id:', auth0UserId);
+        console.log('💡 TIP: Teacher record may not exist in database');
+        console.log('💡 Run this SQL: SELECT id, email, auth0_user_id FROM teachers WHERE auth0_user_id = \'' + auth0UserId + '\';');
+        toast.error('Teacher profile not found. Please contact support.');
+        setLoading(false);
+        return;
+      }
+
+      const teacherUUID = teacherProfile.id;
+      console.log('✅ Teacher UUID:', teacherUUID);
+      console.log('✅ Teacher profile:', teacherProfile);
+      setTeacherId(teacherUUID);
+
+      // Now load question papers using teacher UUID (not auth0 ID!)
+      console.log('📄 Loading question papers for teacher UUID:', teacherUUID);
       const { data, error } = await supabase
         .from('question_papers')
         .select('*')
-        .eq('teacher_id', auth0UserId)
+        .eq('teacher_id', teacherUUID)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.warn('Error loading from Supabase, using localStorage:', error);
-        // Fallback to localStorage
-        const localPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-        setQuestionPapers(localPapers);
+        console.error('❌ Error loading question papers from database:', error);
+        toast.error('Failed to load question papers');
+        setQuestionPapers([]);
       } else {
+        console.log('✅ Loaded question papers from database:', data?.length || 0);
         setQuestionPapers(data || []);
-        
-        // Sync localStorage with Supabase
-        localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify(data || []));
       }
     } catch (error) {
-      console.error('Error loading question papers:', error);
-      // Fallback to localStorage
-      const localPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-      setQuestionPapers(localPapers);
+      console.error('⚠️ Error in loadTeacherAndQuestionPapers:', error);
+      toast.error('Failed to load question papers');
+      setQuestionPapers([]);
     } finally {
       setLoading(false);
     }
@@ -66,31 +83,26 @@ export const QuestionPapersPage = () => {
   const handleDeletePaper = async (paperId: string) => {
     if (!confirm('Are you sure you want to delete this question paper?')) return;
 
+    if (!teacherId) {
+      toast.error('Teacher ID not loaded');
+      return;
+    }
+
     try {
-      // Try to delete from Supabase
+      // Delete from Supabase
       const { error } = await supabase
         .from('question_papers')
         .delete()
         .eq('id', paperId)
-        .eq('teacher_id', auth0UserId);
+        .eq('teacher_id', teacherId);
 
       if (error) throw error;
 
       toast.success('Question paper deleted');
-      
-      // Update localStorage
-      const updatedPapers = questionPapers.filter(p => p.id !== paperId);
-      localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify(updatedPapers));
-      
-      loadQuestionPapers();
+      loadTeacherAndQuestionPapers();
     } catch (error) {
       console.error('Error deleting question paper:', error);
-      
-      // Fallback: delete from localStorage
-      const updatedPapers = questionPapers.filter(p => p.id !== paperId);
-      localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify(updatedPapers));
-      setQuestionPapers(updatedPapers);
-      toast.success('Question paper deleted locally');
+      toast.error('Failed to delete question paper');
     }
   };
 
@@ -107,7 +119,7 @@ export const QuestionPapersPage = () => {
   const handleUpdatePaper = () => {
     setShowEditDialog(false);
     setSelectedPaper(null);
-    loadQuestionPapers();
+    loadTeacherAndQuestionPapers();
     toast.success('Question paper updated successfully');
   };
 
@@ -226,7 +238,7 @@ export const QuestionPapersPage = () => {
 
   const handleSavePaper = () => {
     setShowCreateDialog(false);
-    loadQuestionPapers();
+    loadTeacherAndQuestionPapers();
   };
 
   return (
@@ -293,10 +305,17 @@ export const QuestionPapersPage = () => {
                 <DialogTitle>Create New Question Paper</DialogTitle>
               </DialogHeader>
               <div className="max-h-[calc(90vh-120px)] overflow-y-auto pr-2">
-                <QuestionPaperBuilder
-                  auth0UserId={auth0UserId}
-                  onSave={handleSavePaper}
-                />
+                {teacherId ? (
+                  <QuestionPaperBuilder
+                    teacherId={teacherId}
+                    onSave={handleSavePaper}
+                  />
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-muted-foreground">Loading teacher profile...</p>
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>
@@ -562,13 +581,18 @@ export const QuestionPapersPage = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="max-h-[calc(90vh-120px)] overflow-y-auto pr-2">
-            {selectedPaper && (
+            {selectedPaper && teacherId ? (
               <QuestionPaperBuilder
-                auth0UserId={auth0UserId}
+                teacherId={teacherId}
                 onSave={handleUpdatePaper}
                 existingPaper={selectedPaper}
                 isEditMode={true}
               />
+            ) : (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-muted-foreground">Loading teacher profile...</p>
+              </div>
             )}
           </div>
         </DialogContent>

@@ -73,7 +73,7 @@ interface Question {
 }
 
 interface QuestionPaperBuilderProps {
-  auth0UserId: string;
+  teacherId: string;  // Changed from auth0UserId - now expects teacher UUID
   onSave?: (paperData: any) => void;
   existingPaper?: any;
   isEditMode?: boolean;
@@ -85,7 +85,7 @@ interface QuestionPaperBuilderProps {
 }
 
 export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
-  auth0UserId,
+  teacherId,  // Now receiving teacherId (UUID) instead of auth0UserId
   onSave,
   existingPaper,
   isEditMode = false,
@@ -678,7 +678,7 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
 
     try {
       const paperData = {
-        teacher_id: auth0UserId,
+        teacher_id: teacherId,  // ✅ Now using teacherId (UUID) instead of auth0UserId
         title: paperTitle,
         description: paperDescription,
         questions: questions,
@@ -687,26 +687,25 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
         updated_at: new Date().toISOString()
       };
 
+      console.log('💾 Saving question paper with teacher_id:', teacherId);
+
       if (isEditMode && existingPaper?.id) {
         // Update existing paper
         const { data, error } = await supabase
           .from('question_papers')
           .update(paperData)
           .eq('id', existingPaper.id)
-          .eq('teacher_id', auth0UserId)
+          .eq('teacher_id', teacherId)  // ✅ Using teacherId (UUID)
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Database error updating question paper:', error);
+          throw error;
+        }
 
+        console.log('✅ Question paper updated successfully in database!');
         toast.success('Question paper updated successfully!');
-        
-        // Update localStorage
-        const existingPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-        const updatedPapers = existingPapers.map((p: any) => 
-          p.id === existingPaper.id ? { ...paperData, id: existingPaper.id, created_at: p.created_at } : p
-        );
-        localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify(updatedPapers));
       } else {
         // Create new paper
         const newPaperData = {
@@ -720,16 +719,14 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Database error creating question paper:', error);
+          throw error;
+        }
 
+        console.log('✅ Question paper created successfully in database!');
+        console.log('✅ Question paper ID:', data.id);
         toast.success('Question paper saved successfully!');
-        
-        // Also save to localStorage as backup
-        const existingPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-        localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify([
-          { ...newPaperData, id: data?.id || `local_${Date.now()}` },
-          ...existingPapers
-        ]));
       }
 
       if (onSave) {
@@ -743,56 +740,10 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
         setQuestions([]);
       }
       
-    } catch (error: any) {
-      console.error('Error saving question paper:', error);
-      
-      // Fallback to localStorage if Supabase fails
-      try {
-        if (isEditMode && existingPaper?.id) {
-          // Update in localStorage
-          const existingPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-          const updatedPapers = existingPapers.map((p: any) => 
-            p.id === existingPaper.id ? {
-              ...p,
-              title: paperTitle,
-              description: paperDescription,
-              questions: questions,
-              question_count: questions.length,
-              total_marks: questions.reduce((sum, q) => sum + (q.marks || 1), 0),
-              updated_at: new Date().toISOString()
-            } : p
-          );
-          localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify(updatedPapers));
-          toast.success('Question paper updated locally!');
-        } else {
-          // Create in localStorage
-          const paperData = {
-            id: `local_${Date.now()}`,
-            teacher_id: auth0UserId,
-            title: paperTitle,
-            description: paperDescription,
-            questions: questions,
-            question_count: questions.length,
-            total_marks: questions.reduce((sum, q) => sum + (q.marks || 1), 0),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-
-          const existingPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-          localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify([
-            paperData,
-            ...existingPapers
-          ]));
-
-          toast.success('Question paper saved locally!');
-        }
-        
-        if (onSave) {
-          onSave({ title: paperTitle, description: paperDescription, questions });
-        }
-      } catch (localError) {
-        toast.error('Failed to save question paper');
-      }
+    } catch (error: unknown) {
+      console.error('❌ Failed to save question paper to database:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Failed to save question paper: ${errorMessage}`);
     }
   };
 

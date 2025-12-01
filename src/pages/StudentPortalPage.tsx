@@ -999,18 +999,24 @@ export const StudentPortalPage = () => {
       const data = await response.json();
       console.log('Successfully loaded student data:', data);
       console.log('📊 Assignments received:', data.assignments?.length || 0);
+      
+      // DETAILED LOGGING - BEFORE ENRICHMENT
+      console.log('\n╔════════════════════════════════════════════════════════════╗');
+      console.log('║  📋 ASSIGNMENTS DATA - BEFORE ENRICHMENT                   ║');
+      console.log('╚════════════════════════════════════════════════════════════╝');
       data.assignments?.forEach((assignment: any, index: number) => {
-        console.log(`  Assignment ${index + 1}:`, {
-          id: assignment.id,
-          title: assignment.title,
-          type: assignment.assignment_type,
-          question_paper_id: assignment.question_paper_id,
-          hasQuestionPaperId: !!assignment.question_paper_id,
-          game_id: assignment.games?.id,
-          has_games_object: !!assignment.games,
-          games_name: assignment.games?.name
-        });
+        console.log(`\n📌 Assignment ${index + 1}: ${assignment.title}`);
+        console.log(`   ID: ${assignment.id}`);
+        console.log(`   Type: ${assignment.assignment_type || 'NOT SET'}`);
+        console.log(`   Question Paper ID: ${assignment.question_paper_id || 'NULL/UNDEFINED'}`);
+        console.log(`   Has Question Paper?: ${!!assignment.question_paper_id ? '✅ YES' : '❌ NO'}`);
+        console.log(`   Grade: ${assignment.grade || 'NOT SET'}`);
+        console.log(`   Game ID: ${assignment.games?.id || 'N/A'}`);
+        console.log(`   Game Name: ${assignment.games?.name || 'N/A'}`);
+        console.log(`   Status: ${assignment.status}`);
+        console.log(`   ${'─'.repeat(60)}`);
       });
+      console.log('╚════════════════════════════════════════════════════════════╝\n');
 
       // Enrich assignments with missing question_paper_id from DB (fallback)
       if (Array.isArray(data.assignments)) {
@@ -1045,13 +1051,42 @@ export const StudentPortalPage = () => {
                 }
                 return a;
               });
-              console.log('✅ Enrichment complete. Updated assignments:', data.assignments.map((a: any) => ({ id: a.id, question_paper_id: a.question_paper_id })));
+              console.log('✅ Enrichment complete.');
+              
+              // DETAILED LOGGING - AFTER ENRICHMENT
+              console.log('\n╔════════════════════════════════════════════════════════════╗');
+              console.log('║  📋 ASSIGNMENTS DATA - AFTER ENRICHMENT                    ║');
+              console.log('╚════════════════════════════════════════════════════════════╝');
+              data.assignments?.forEach((assignment: any, index: number) => {
+                console.log(`\n📌 Assignment ${index + 1}: ${assignment.title}`);
+                console.log(`   ID: ${assignment.id}`);
+                console.log(`   Type: ${assignment.assignment_type || 'NOT SET'}`);
+                console.log(`   Question Paper ID: ${assignment.question_paper_id || 'NULL/UNDEFINED'}`);
+                console.log(`   Has Question Paper?: ${!!assignment.question_paper_id ? '✅ YES' : '❌ NO - WILL ONLY SHOW TOAST!'}`);
+                console.log(`   Grade: ${assignment.grade || 'NOT SET'}`);
+                console.log(`   ${'─'.repeat(60)}`);
+              });
+              console.log('╚════════════════════════════════════════════════════════════╝\n');
             }
           } catch (enrichError) {
             console.warn('⚠️ Enrichment process failed:', enrichError);
+            console.error('⚠️ This means question_paper_id will be null!');
+            console.error('⚠️ Check if columns exist in database!');
           }
         }
       }
+
+      // FINAL DATA LOGGING - What will be used by UI
+      console.log('\n╔════════════════════════════════════════════════════════════╗');
+      console.log('║  🎯 FINAL DATA - What UI Will Receive                     ║');
+      console.log('╚════════════════════════════════════════════════════════════╝');
+      data.assignments?.forEach((assignment: any, index: number) => {
+        const willOpenModal = !!assignment.question_paper_id;
+        console.log(`\n${willOpenModal ? '✅' : '❌'} Assignment ${index + 1}: ${assignment.title}`);
+        console.log(`   question_paper_id: ${assignment.question_paper_id || 'NULL'}`);
+        console.log(`   Will open modal?: ${willOpenModal ? '✅ YES' : '❌ NO - Only toast'}`);
+      });
+      console.log('╚════════════════════════════════════════════════════════════╝\n');
 
       setStudentData(data);
       setError(null);

@@ -59,32 +59,11 @@ function AssignmentsPage() {
   // Form state
   const [dueDate, setDueDate] = useState('');
   const [grade, setGrade] = useState('');
-  const [roomType, setRoomType] = useState<'prebuilt' | 'custom'>('prebuilt');
+  const [roomType, setRoomType] = useState<'prebuilt' | 'custom'>('custom'); // Default to Academic (custom)
   const [selectedPrebuiltRoom, setSelectedPrebuiltRoom] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('none');
   const [selectedQuestionPaper, setSelectedQuestionPaper] = useState('');
   const [questionPapers, setQuestionPapers] = useState<any[]>([]);
-  
-  // Custom assignment templates
-  const [savedAssignmentTemplates, setSavedAssignmentTemplates] = useState<any[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
-  const [templateName, setTemplateName] = useState('');
-  const [templatesFeatureAvailable, setTemplatesFeatureAvailable] = useState(false);
-
-
-  // Auto-enable template saving for custom assignments and set template name
-  useEffect(() => {
-    if (roomType === 'custom') {
-      setSaveAsTemplate(true);
-      if (!templateName.trim()) {
-        setTemplateName(`Custom Assignment ${new Date().toLocaleDateString()}`);
-      }
-    } else {
-      setSaveAsTemplate(false);
-      setTemplateName('');
-    }
-  }, [roomType]);
 
   // Refresh assignment progress when modal is opened
   useEffect(() => {
@@ -359,12 +338,22 @@ function AssignmentsPage() {
       
       // First, ensure teacher is registered in database
       console.log('👨‍🏫 Initializing teacher profile...');
+      let teacherId: string | null = null;
       try {
         const teacherProfile = await meAPI.get(auth0UserId);
         console.log('👨‍🏫 Teacher profile:', teacherProfile);
+        teacherId = teacherProfile?.id || null;
+        console.log('✅ Teacher UUID extracted:', teacherId);
       } catch (error) {
         console.error('❌ Failed to initialize teacher profile:', error);
         toast.error('Failed to initialize your profile. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
+      if (!teacherId) {
+        console.error('❌ No teacher UUID found in profile');
+        toast.error('Teacher profile incomplete. Please contact support.');
         setLoading(false);
         return;
       }
@@ -407,46 +396,40 @@ function AssignmentsPage() {
       setAssignments(assignmentsWithProgress);
       setRooms(roomsData);
       
-      // Load saved assignment templates for custom assignments
+      // Load question papers from Supabase (ONLY database papers, no localStorage)
       try {
-        console.log('📝 Loading assignment templates from local storage...');
+        console.log('📄 Loading question papers from database...');
+        console.log('📋 Using teacher UUID:', teacherId);
         
-        // Load from localStorage as fallback while server function is being fixed
-        const localTemplates = JSON.parse(localStorage.getItem(`templates_${auth0UserId}`) || '[]');
-        console.log('📋 Loaded local templates:', localTemplates?.length || 0);
-        setSavedAssignmentTemplates(localTemplates || []);
-        setTemplatesFeatureAvailable(true);
-      } catch (error) {
-        console.warn('⚠️ Error loading assignment templates:', error);
-        // Don't let template loading errors break the main app
-        setSavedAssignmentTemplates([]);
-      }
-      
-      // Load question papers from Supabase (with localStorage fallback)
-      try {
-        console.log('📄 Loading question papers...');
         const { data: questionPapersData, error: qpError } = await supabase
           .from('question_papers')
           .select('*')
-          .eq('teacher_id', auth0UserId)
+          .eq('teacher_id', teacherId) // ✅ Use teacher UUID, not auth0_user_id
           .order('created_at', { ascending: false });
         
         if (qpError) {
-          console.warn('Error loading question papers from Supabase, using localStorage:', qpError);
-          // Fallback to localStorage
-          const localPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-          setQuestionPapers(localPapers || []);
+          console.error('❌ Error loading question papers from Supabase:', qpError);
+          toast.error('Failed to load question papers from database');
+          setQuestionPapers([]);
         } else {
-          console.log('📄 Loaded question papers:', questionPapersData?.length || 0);
-          setQuestionPapers(questionPapersData || []);
-          // Sync localStorage with Supabase
-          localStorage.setItem(`question_papers_${auth0UserId}`, JSON.stringify(questionPapersData || []));
+          console.log('✅ Loaded question papers from database:', questionPapersData?.length || 0);
+          
+          // Filter out any papers with invalid IDs (should not happen, but safety check)
+          const validPapers = (questionPapersData || []).filter(paper => {
+            const isValid = paper.id && !paper.id.startsWith('local_');
+            if (!isValid) {
+              console.warn('⚠️ Filtered out invalid question paper:', paper.id);
+            }
+            return isValid;
+          });
+          
+          console.log('✅ Valid question papers:', validPapers.length);
+          setQuestionPapers(validPapers);
         }
       } catch (error) {
-        console.warn('⚠️ Error loading question papers:', error);
-        // Fallback to localStorage
-        const localPapers = JSON.parse(localStorage.getItem(`question_papers_${auth0UserId}`) || '[]');
-        setQuestionPapers(localPapers || []);
+        console.error('⚠️ Error loading question papers:', error);
+        toast.error('Failed to load question papers');
+        setQuestionPapers([]);
       }
       
       // Fetch games from Supabase with enhanced data
@@ -559,27 +542,75 @@ function AssignmentsPage() {
         }
       }
 
+      // CRITICAL VALIDATION: Check for invalid question_paper_id
+      if (roomType === 'custom' && selectedQuestionPaper && selectedQuestionPaper.startsWith('local_')) {
+        console.error('🚨 BLOCKED: Cannot create assignment with localStorage question paper ID!');
+        console.error('🚨 Question paper ID:', selectedQuestionPaper);
+        toast.error('Invalid question paper selected. Please select a question paper that has been saved to the database.');
+        return;
+      }
+
       const assignmentData = {
         roomType: roomType,
-        roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : '',
-        gameConfig: roomType === 'prebuilt' ? injectedGameConfig : null,
         roomValue: roomType === 'prebuilt' ? selectedPrebuiltRoom : selectedQuestionPaper,
-        gameConfig: roomType === 'prebuilt' ? selectedGameConfig : null,
+        gameConfig: roomType === 'prebuilt' ? injectedGameConfig : null,
         title,
         description,
         grade,
         dueDate,
         status: 'active',
         room_id: finalRoomId, // Add room assignment
+        // Set assignment_type based on roomType
+        assignment_type: roomType === 'prebuilt' ? 'game' : 'custom',
         // Always set correct game_type for prebuilt
         ...(roomType === 'prebuilt' && forcedGameType ? { game_type: forcedGameType } : {}),
-        question_paper_id: roomType === 'custom' ? selectedQuestionPaper : null, // Link to question paper
+        // Link to question paper for custom assignments (only if valid UUID)
+        question_paper_id: roomType === 'custom' && selectedQuestionPaper && !selectedQuestionPaper.startsWith('local_') 
+          ? selectedQuestionPaper 
+          : null,
       };
 
       console.log('📤 Creating assignment with data:', JSON.stringify(assignmentData, null, 2));
       console.log('🔑 Auth0 User ID:', auth0UserId);
       console.log('🎮 Selected game config:', injectedGameConfig);
       console.log('🏠 Selected room:', selectedRoom);
+      
+      // CRITICAL DEBUG: Check assignment_type and question_paper_id
+      console.log('\n╔════════════════════════════════════════════════════════════╗');
+      console.log('║  🔍 ASSIGNMENT CREATION - CRITICAL FIELDS                  ║');
+      console.log('╚════════════════════════════════════════════════════════════╝');
+      console.log('roomType (from form tab):', roomType);
+      console.log('assignment_type (will be saved):', assignmentData.assignment_type);
+      console.log('question_paper_id (will be saved):', assignmentData.question_paper_id);
+      console.log('selectedQuestionPaper:', selectedQuestionPaper);
+      console.log('\n💡 Expected:');
+      console.log('  - If "Custom Assignment" tab → assignment_type="custom", question_paper_id=UUID');
+      console.log('  - If "Pre-built" tab → assignment_type="game", question_paper_id=null');
+      console.log('\n✅ Current values:');
+      console.log(`  - roomType="${roomType}" → assignment_type="${assignmentData.assignment_type}"`);
+      console.log(`  - question_paper_id="${assignmentData.question_paper_id || 'NULL'}"`);
+      
+      // Validate question_paper_id format
+      if (assignmentData.question_paper_id) {
+        const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assignmentData.question_paper_id);
+        if (!isValidUUID) {
+          console.error('\n🚨 ERROR: Invalid UUID format for question_paper_id!');
+          console.error('🚨 Value:', assignmentData.question_paper_id);
+          toast.error('Invalid question paper ID format. Please select a valid question paper.');
+          return;
+        }
+      }
+      
+      if (roomType === 'custom' && !assignmentData.question_paper_id) {
+        console.error('\n🚨 ERROR: Custom assignment without question_paper_id!');
+        console.error('🚨 You must select a question paper from the dropdown!');
+        console.error('🚨 If dropdown is empty, create a question paper first!');
+      }
+      if (roomType === 'custom' && assignmentData.question_paper_id) {
+        console.log('\n✅ SUCCESS: Custom assignment with valid question_paper_id UUID!');
+        console.log('✅ This will save correctly and students will see the modal!');
+      }
+      console.log('╚════════════════════════════════════════════════════════════╝\n');
 
       // Debug: Show exactly what room data is being sent
       if (roomType === 'prebuilt' && selectedRoom && selectedRoom !== 'none') {
@@ -591,112 +622,9 @@ function AssignmentsPage() {
         console.log(`   Assignment should ONLY go to students in this room!`);
       }
 
-      // For custom assignments, save as template if requested
-      if (roomType === 'custom' && saveAsTemplate && templateName.trim()) {
-        try {
-          // Get the actual teacher ID from the teacher profile API
-          const teacherProfile = await meAPI.get(auth0UserId);
-          const actualTeacherId = teacherProfile?.id;
-          
-          if (!actualTeacherId) {
-            throw new Error('Could not get teacher ID');
-          }
-          
-          const templateData = {
-            teacher_id: actualTeacherId,
-            template_type: 'custom_room',
-            name: templateName.trim(),
-            title,
-            description,
-            template_data: {
-              roomType,
-              roomValue: '',
-              gameConfig: null
-            }
-          };
-          
-          console.log('📝 Attempting to save template:', {
-            templateName: templateName.trim(),
-            actualTeacherId,
-            auth0UserId,
-            templateData
-          });
-          
-          // Save template - use local storage until server function is fixed
-        console.log('📝 Saving assignment template locally...');
-        
-        let templateError = null;
-        
-        try {
-          // Create template object with unique ID
-          const templateObj = {
-            id: `template_${Date.now()}`,
-            ...templateData,
-            teacher_id: actualTeacherId,
-            created_at: new Date().toISOString()
-          };
-          
-          // Get existing templates from localStorage
-          const existingTemplates = JSON.parse(localStorage.getItem(`templates_${auth0UserId}`) || '[]');
-          
-          // Add new template
-          const updatedTemplates = [templateObj, ...existingTemplates];
-          
-          // Save to localStorage
-          localStorage.setItem(`templates_${auth0UserId}`, JSON.stringify(updatedTemplates));
-          
-          console.log('✅ Template saved locally:', templateObj);
-          toast.success(`Template "${templateName}" saved locally for future use!`);
-          
-          // Update the templates list in state
-          setSavedAssignmentTemplates(updatedTemplates);
-        } catch (localError) {
-          console.error('❌ Failed to save template locally:', localError);
-          templateError = {
-            code: '500',
-            message: 'Failed to save template locally',
-            details: localError.message,
-            hint: undefined
-          };
-        }
-            
-          if (templateError) {
-            console.error('❌ Template save error details:', {
-              code: templateError.code,
-              message: templateError.message,
-              details: templateError.details,
-              hint: templateError.hint,
-              fullError: templateError
-            });
-            
-            if (templateError.code === 'PGRST106' || templateError.message.includes('does not exist')) {
-              console.warn('📝 Assignment templates table does not exist. Please run the SQL migration first.');
-              toast.warning('Assignment created! To save templates, please contact your administrator to set up the templates table.');
-            } else if (templateError.code === '42501') {
-              console.warn('🔒 RLS policy error - please run the RLS fix SQL script');
-              toast.warning('Assignment created! Template saving needs database permissions to be fixed.');
-            } else {
-              console.error('❌ Failed to save template:', templateError.message || 'Unknown error');
-              toast.warning(`Assignment created but template save failed: ${templateError.message || 'Unknown error'}`);
-            }
-          } else {
-            console.log('✅ Assignment template saved successfully');
-            toast.success('Assignment created and saved as template!');
-            // Reload templates
-            loadData();
-          }
-        } catch (templateError) {
-          console.error('❌ Error saving template:', templateError);
-          toast.warning('Assignment created but template save failed');
-        }
-      }
-
       const result = await assignmentsAPI.create(auth0UserId, assignmentData);
       console.log('✅ Assignment created successfully:', result);
-      
-      if (roomType === 'prebuilt' || !saveAsTemplate) {
-        toast.success('Assignment created successfully');
-      }
+      toast.success('Assignment created successfully');
       
       setShowCreateDialog(false);
       
@@ -711,9 +639,6 @@ function AssignmentsPage() {
       setSelectedRoom('none');
       setSelectedGameConfig({ difficulty: 'easy', category: '' });
       setAvailableCategories([]);
-      setSelectedTemplate('');
-      setSaveAsTemplate(false);
-      setTemplateName('');
       
       loadData();
     } catch (error: any) {
@@ -780,13 +705,6 @@ function AssignmentsPage() {
     if (roomType === 'custom' && !selectedQuestionPaper) {
       console.log('❌ Validation failed: No question paper selected for custom assignment');
       toast.error('Please select a question paper');
-      return false;
-    }
-    
-    // Validate custom room template saving
-    if (roomType === 'custom' && saveAsTemplate && !templateName.trim()) {
-      console.log('❌ Validation failed: No template name provided');
-      toast.error('Please enter a template name to save');
       return false;
     }
     
@@ -997,16 +915,108 @@ function AssignmentsPage() {
                   <Label className="text-sm font-medium">Assignment Type *</Label>
                   <Tabs value={roomType} onValueChange={(value: 'prebuilt' | 'custom') => setRoomType(value)}>
                     <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="prebuilt" className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Pre-built 
-                      </TabsTrigger>
                       <TabsTrigger value="custom" className="flex items-center gap-2">
-                        <Upload className="h-4 w-4" />
-                        Custom Assignment
+                        <FileText className="h-4 w-4" />
+                        Academic
+                      </TabsTrigger>
+                      <TabsTrigger value="prebuilt" className="flex items-center gap-2">
+                        <Gamepad2 className="h-4 w-4" />
+                        Fun Activities
                       </TabsTrigger>
                     </TabsList>
                     
+                    {/* Academic Tab (Custom - Question Papers) - FIRST TAB */}
+                    <TabsContent value="custom" className="mt-4">
+                      <div className="space-y-4">
+                          {/* Question Paper Selection */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Select Question Paper *</Label>
+                            <Select value={selectedQuestionPaper} onValueChange={setSelectedQuestionPaper}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Choose a saved question paper..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {questionPapers.length === 0 ? (
+                                  <SelectItem value="no-papers" disabled>
+                                    No question papers available
+                                  </SelectItem>
+                                ) : (
+                                  questionPapers.map((paper) => (
+                                    <SelectItem key={paper.id} value={paper.id}>
+                                      <div className="flex items-center justify-between w-full">
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="h-3 w-3" />
+                                          <span>{paper.title}</span>
+                                        </div>
+                                        <span className="text-xs text-gray-500 ml-2">
+                                          ({paper.question_count || 0} questions)
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            
+                            {/* Show selected question paper details */}
+                            {selectedQuestionPaper && questionPapers.find(p => p.id === selectedQuestionPaper) && (
+                              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                  <div className="h-8 w-8 rounded bg-green-600 flex items-center justify-center flex-shrink-0">
+                                    <CheckCircle className="h-5 w-5 text-white" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium text-green-900 mb-1">
+                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.title}
+                                    </div>
+                                    <p className="text-xs text-green-700">
+                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.description || 'No description'}
+                                    </p>
+                                    <div className="flex gap-2 mt-2">
+                                      <Badge variant="outline" className="text-xs bg-white">
+                                        📝 {questionPapers.find(p => p.id === selectedQuestionPaper)?.question_count || 0} Questions
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs bg-white">
+                                        🏆 {questionPapers.find(p => p.id === selectedQuestionPaper)?.total_marks || 0} Marks
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Help section */}
+                          {questionPapers.length === 0 && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <div className="flex items-start gap-2">
+                                <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-white text-sm">💡</span>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="text-sm font-medium text-blue-900 mb-1">No Question Papers Yet</div>
+                                  <p className="text-xs text-blue-700 mb-3">
+                                    Create question papers from the <strong>Question Papers</strong> page. 
+                                    You can create questions using OCR (scan images), manual entry, or AI generation.
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate('/question-papers')}
+                                    className="text-xs"
+                                  >
+                                    <FileText className="h-3 w-3 mr-1" />
+                                    Go to Question Papers
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    </TabsContent>
+                    
+                    {/* Fun Activities Tab (Prebuilt Games) - SECOND TAB */}
                     <TabsContent value="prebuilt" className="mt-3">
                       <div className="space-y-4">
                         <div className="space-y-2">
@@ -1184,184 +1194,6 @@ function AssignmentsPage() {
                         )}
                       </div>
                     </TabsContent>
-                    
-                    <TabsContent value="custom" className="mt-4">
-                      <div className="space-y-4">
-                        {/* Saved Templates Selection - only show if we have templates or if the feature is available */}
-                        {savedAssignmentTemplates.length > 0 && (
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Use Saved Template (Optional)</Label>
-                            <Select value={selectedTemplate} onValueChange={(value) => {
-                              setSelectedTemplate(value);
-                              if (value && value !== 'new') {
-                                const template = savedAssignmentTemplates.find(t => t.id === value);
-                                if (template) {
-                                  setTitle(template.title);
-                                  setDescription(template.description);
-                                }
-                              }
-                            }}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a saved template or create new..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="new">
-                                  <div className="flex items-center gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    <span>Create New Assignment</span>
-                                  </div>
-                                </SelectItem>
-                                {savedAssignmentTemplates.map((template) => (
-                                  <SelectItem key={template.id} value={template.id}>
-                                    <div className="flex items-center justify-between w-full">
-                                      <span>{template.name}</span>
-                                      <span className="text-xs text-gray-500 ml-2">
-                                        {new Date(template.created_at).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                        
-                        {/* Save as Template Option - only show if feature is available */}
-                        {templatesFeatureAvailable && (
-                          <div className="space-y-3">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                id="saveAsTemplate"
-                                checked={saveAsTemplate}
-                                onChange={(e) => setSaveAsTemplate(e.target.checked)}
-                                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                              />
-                              <Label htmlFor="saveAsTemplate" className="text-sm font-medium">
-                                Save as Template for Future Use
-                              </Label>
-                            </div>
-                          
-                          {saveAsTemplate && (
-                            <div className="space-y-1">
-                              <Label htmlFor="templateName" className="text-sm">Template Name *</Label>
-                              <Input
-                                id="templateName"
-                                value={templateName}
-                                onChange={(e) => setTemplateName(e.target.value)}
-                                placeholder="Enter a name for this template..."
-                                className="w-full"
-                              />
-                              <p className="text-xs text-gray-500">
-                                This will save the assignment details as a reusable template.
-                              </p>
-                            </div>
-                          )}
-                          </div>
-                        )}
-                        
-                        {/* Show message if templates feature is not available */}
-                        {!templatesFeatureAvailable && (
-                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                            <div className="flex items-center gap-2 text-amber-800">
-                              <span className="text-sm">💡</span>
-                              <span className="text-sm font-medium">Templates Feature</span>
-                            </div>
-                            <p className="text-xs text-amber-700 mt-1">
-                              To save and reuse assignment templates, the database needs to be set up. Contact your administrator to enable this feature.
-                            </p>
-                          </div>
-                        )}
-                        
-                        <div className="space-y-4">
-                          {/* Question Paper Selection */}
-                          <div className="space-y-2">
-                            <Label className="text-sm font-medium">Select Question Paper *</Label>
-                            <Select value={selectedQuestionPaper} onValueChange={setSelectedQuestionPaper}>
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Choose a saved question paper..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {questionPapers.length === 0 ? (
-                                  <SelectItem value="no-papers" disabled>
-                                    No question papers available
-                                  </SelectItem>
-                                ) : (
-                                  questionPapers.map((paper) => (
-                                    <SelectItem key={paper.id} value={paper.id}>
-                                      <div className="flex items-center justify-between w-full">
-                                        <div className="flex items-center gap-2">
-                                          <FileText className="h-3 w-3" />
-                                          <span>{paper.title}</span>
-                                        </div>
-                                        <span className="text-xs text-gray-500 ml-2">
-                                          ({paper.question_count || 0} questions)
-                                        </span>
-                                      </div>
-                                    </SelectItem>
-                                  ))
-                                )}
-                              </SelectContent>
-                            </Select>
-                            
-                            {/* Show selected question paper details */}
-                            {selectedQuestionPaper && questionPapers.find(p => p.id === selectedQuestionPaper) && (
-                              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <div className="flex items-start gap-2">
-                                  <div className="h-8 w-8 rounded bg-green-600 flex items-center justify-center flex-shrink-0">
-                                    <CheckCircle className="h-5 w-5 text-white" />
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="text-sm font-medium text-green-900 mb-1">
-                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.title}
-                                    </div>
-                                    <p className="text-xs text-green-700">
-                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.description || 'No description'}
-                                    </p>
-                                    <div className="flex gap-2 mt-2">
-                                      <Badge variant="outline" className="text-xs bg-white">
-                                        📝 {questionPapers.find(p => p.id === selectedQuestionPaper)?.question_count || 0} Questions
-                                      </Badge>
-                                      <Badge variant="outline" className="text-xs bg-white">
-                                        🏆 {questionPapers.find(p => p.id === selectedQuestionPaper)?.total_marks || 0} Marks
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Help section */}
-                          {questionPapers.length === 0 && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                              <div className="flex items-start gap-2">
-                                <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-white text-sm">💡</span>
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-sm font-medium text-blue-900 mb-1">No Question Papers Yet</div>
-                                  <p className="text-xs text-blue-700 mb-3">
-                                    Create question papers from the <strong>Question Papers</strong> page. 
-                                    You can create questions using OCR (scan images), manual entry, or AI generation.
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => navigate('/question-papers')}
-                                    className="text-xs"
-                                  >
-                                    <FileText className="h-3 w-3 mr-1" />
-                                    Go to Question Papers
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </TabsContent>
                   </Tabs>
                 </div>
 
@@ -1470,7 +1302,7 @@ function AssignmentsPage() {
                 </div>
 
                 <Button type="submit" className="w-full">
-                  {roomType === 'custom' && saveAsTemplate ? 'Create and Save Assignment' : 'Create Assignment'}
+                  Create Assignment
                 </Button>
               </form>
             </DialogContent>

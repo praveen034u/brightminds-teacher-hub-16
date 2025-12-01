@@ -1,3 +1,37 @@
+# 🚀 Deploy Edge Function - Complete Guide
+
+## Your Fixed Edge Function Code
+
+Copy the ENTIRE code below and deploy it to Supabase Dashboard.
+
+---
+
+## 📋 STEP-BY-STEP DEPLOYMENT INSTRUCTIONS
+
+### Step 1: Go to Edge Functions Page
+1. Open your browser and go to: **https://supabase.com/dashboard**
+2. Select your **BrightMinds** project
+3. Click on **"Edge Functions"** in the left sidebar
+4. You should see a list of existing functions (or empty if none)
+
+### Step 2: Find or Create "assignments" Function
+- **If you see "assignments" function:**
+  - Click on it to open
+  - Click **"Edit function"** button
+  
+- **If you DON'T see "assignments" function:**
+  - Click **"Create a new function"** button
+  - Name it: `assignments`
+  - Click **"Create function"**
+
+### Step 3: Copy the Fixed Code
+1. Open the file: `supabase/functions/assignments/index.ts` in VS Code (already open in your workspace)
+2. Select ALL the code (Ctrl+A)
+3. Copy it (Ctrl+C)
+
+**OR** use the code below (same content):
+
+```typescript
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
@@ -293,12 +327,161 @@ Deno.serve(async (req) => {
       status: 405,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (error) {
-    console.error('Error in assignments function:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: message }), {
+    console.error('Edge function error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+```
+
+### Step 4: Paste and Deploy
+1. In the Supabase Dashboard function editor, **DELETE all existing code**
+2. **PASTE** the code you just copied (entire code above)
+3. Click **"Save"** or **"Deploy"** button (should be green button at top-right)
+4. Wait for deployment to complete (usually 10-30 seconds)
+5. You should see a success message: "Function deployed successfully"
+
+### Step 5: Verify Deployment
+1. In Supabase Dashboard, go to **Edge Functions** page
+2. You should see `assignments` function listed
+3. Status should show **"Active"** or **"Deployed"**
+4. You'll see the deployment timestamp
+
+---
+
+## ✅ WHAT THIS FIX DOES
+
+### The Problem (Before):
+```typescript
+// OLD CODE - HARDCODED VALUES ❌
+assignmentData = {
+  teacher_id: teacherId,
+  room_id: body.room_id,
+  title: body.title,
+  description: body.description,
+  due_date: body.dueDate || null,
+  status: body.status || 'active',
+  assignment_type: 'room' // ❌ ALWAYS 'room'!
+  // ❌ question_paper_id NOT SAVED AT ALL!
+  // ❌ grade NOT SAVED AT ALL!
+};
+```
+
+### The Fix (After):
+```typescript
+// NEW CODE - DYNAMIC VALUES ✅
+assignmentData = {
+  teacher_id: teacherId,
+  room_id: body.room_id || null,
+  title: body.title,
+  description: body.description,
+  due_date: body.dueDate || null,
+  status: body.status || 'active',
+  assignment_type: body.assignment_type || 'custom', // ✅ FROM FRONTEND!
+  question_paper_id: body.question_paper_id || null, // ✅ NOW SAVED!
+  grade: body.grade || null // ✅ NOW SAVED!
+};
+```
+
+**Key Changes:**
+- Line 172: `assignment_type` now comes from frontend (not hardcoded as 'room')
+- Line 174: `question_paper_id` now properly saved to database
+- Line 176: `grade` now properly saved to database
+- Lines 179-185: Added logging and warnings for debugging
+
+---
+
+## 🧪 TEST AFTER DEPLOYMENT
+
+### Step 1: Create a New Assignment
+1. Open your application: http://localhost:5173
+2. Go to **Assignments** page
+3. Click **"Create Assignment"**
+4. Select **"Custom Assignment"** tab
+5. Choose a question paper from dropdown
+6. Fill in:
+   - Title: "Test Assignment After Fix"
+   - Description: "Testing Edge Function fix"
+   - Grade: "Grade 10"
+   - Due Date: Any future date
+7. Open browser console (F12) BEFORE clicking create
+8. Click **"Create Assignment"**
+
+### Step 2: Check Console Logs
+You should see in the browser console:
+
+```
+Frontend Debug:
+assignment_type: "custom"
+question_paper_id: "abc-123-def-..."
+grade: "Grade 10"
+
+Backend Response:
+✅ Assignment created successfully
+assignment_type: custom
+question_paper_id: abc-123-def-...
+```
+
+### Step 3: Verify in Database
+Run this query in Supabase SQL Editor:
+
+```sql
+SELECT id, title, assignment_type, question_paper_id, grade
+FROM assignments
+ORDER BY created_at DESC
+LIMIT 1;
+```
+
+**Expected Result:**
+- `assignment_type` = 'custom' (NOT 'room'!)
+- `question_paper_id` = UUID (NOT NULL!)
+- `grade` = 'Grade 10'
+
+### Step 4: Test Student Portal
+1. Go to **Student Portal** page
+2. Refresh page (F5)
+3. Open browser console
+4. Look for your new assignment
+5. You should see: `Will open modal?: ✅ YES`
+6. Click **"Start Assignment"** button
+7. **Modal should open** with questions!
+8. Answer questions and submit
+9. Score should be recorded
+
+---
+
+## 🎯 SUMMARY
+
+**What You're Deploying:**
+The fixed Edge Function that properly saves `assignment_type`, `question_paper_id`, and `grade` fields.
+
+**Why This Fixes the Bug:**
+The old code was ignoring these fields from the frontend and hardcoding `assignment_type: 'room'`. Now it respects all fields sent from frontend.
+
+**Next Steps After Deployment:**
+1. ✅ Deploy function (follow steps above)
+2. ✅ Create new assignment via application
+3. ✅ Verify in database
+4. ✅ Test student portal modal
+5. ✅ Verify question paper opens
+
+**Time Required:**
+- Deployment: 2-3 minutes
+- Testing: 5 minutes
+- **Total: ~10 minutes to complete fix!**
+
+---
+
+## 📞 Need Help?
+
+If deployment fails or you see errors:
+1. Check that you copied the ENTIRE code (all 305+ lines)
+2. Make sure function name is exactly `assignments` (lowercase)
+3. Check Supabase Dashboard logs under "Edge Functions" → "assignments" → "Logs"
+4. Look for error messages in the deployment output
+
+Once deployed successfully, your student portal will work! 🎉
