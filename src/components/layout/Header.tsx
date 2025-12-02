@@ -40,8 +40,9 @@ export const Header = () => {
       <header className="border-b border-border bg-card shadow-sm fixed top-0 left-0 right-0 w-full z-50 h-24">
         <div className="container mx-auto px-6 h-full">
           <div className="flex items-center justify-between h-full relative">
-            {/* Logo - Left Side */}
-            <Link to="/dashboard" className="flex items-center group">
+            {/* Logos - Left Side */}
+            <Link to="/dashboard" className="flex items-center gap-4 group">
+              {/* BrightMinds Logo */}
               <div className="relative w-32 h-32 flex items-center justify-center">
                 {/* Bulb Head Glow - Focused on top part */}
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-20 bg-gradient-radial from-yellow-300/80 via-yellow-400/50 to-transparent rounded-full blur-2xl animate-bulb-shine"></div>
@@ -53,7 +54,7 @@ export const Header = () => {
                 {/* Main Logo - With Brightness Animation */}
                 <img
                   src="/brightminds-logo1.png"
-                  alt="Athol Murray College Notre Dame Logo"
+                  alt="BrightMinds Logo"
                   className="h-28 w-28 object-contain relative z-10 animate-bulb-brightness"
                 />
                 
@@ -65,6 +66,15 @@ export const Header = () => {
                 {/* Light rays - More visible */}
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 w-1 h-6 bg-gradient-to-b from-yellow-200/70 to-transparent blur-sm animate-light-ray"></div>
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 w-1 h-5 bg-gradient-to-b from-white/60 to-transparent blur-sm animate-light-ray-delayed rotate-12"></div>
+              </div>
+              
+              {/* School Logo */}
+              <div className="flex items-center justify-center w-20 h-20">
+                <img
+                  src="https://stanleymills.peelschools.org/images/logo.svg"
+                  alt="Stanley Mills Public School Logo"
+                  className="h-16 w-16 object-contain transition-transform group-hover:scale-105"
+                />
               </div>
             </Link>
             
