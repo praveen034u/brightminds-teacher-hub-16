@@ -71,7 +71,7 @@ export const Header = () => {
             {/* School Name - Centered & Clickable */}
             <Link to="/dashboard" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center hover:opacity-80 transition-opacity cursor-pointer">
               <h1 className="text-3xl font-semibold tracking-wide bg-gradient-to-r from-purple-600 via-pink-500 to-rose-500 bg-clip-text text-transparent">
-                Merrick Preparatory School
+                Stanly Mills Public School
               </h1>
             </Link>
 

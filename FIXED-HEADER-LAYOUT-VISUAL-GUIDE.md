@@ -8,7 +8,7 @@
 ┌─────────────────────────────────────────────────┐
 │                                                 │
 │          FIXED HEADER (96px)                    │
-│    Logo    Merrick Preparatory School   User    │
+│    Logo    Stanly Mills Public School   User    │
 │                                                 │
 ├─────────────────────────────────────────────────┤
 │  ⚠️ CONTENT STARTS HERE - HIDDEN! ⚠️           │ ← Hidden behind header
@@ -29,7 +29,7 @@
 ┌─────────────────────────────────────────────────┐
 │                                                 │
 │          FIXED HEADER (96px)                    │
-│    Logo    Merrick Preparatory School   User    │
+│    Logo    Stanly Mills Public School   User    │
 │                                                 │
 └─────────────────────────────────────────────────┘
                     ↓

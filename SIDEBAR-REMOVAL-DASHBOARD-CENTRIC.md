@@ -164,7 +164,7 @@ User Menu → Profile
 
 // School name made clickable
 <Link to="/dashboard" className="...hover:opacity-80...">
-  <h1>Merrick Preparatory School</h1>
+  <h1>Stanly Mills Public School</h1>
 </Link>
 ```
 

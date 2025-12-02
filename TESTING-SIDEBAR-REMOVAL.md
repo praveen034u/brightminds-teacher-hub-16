@@ -41,7 +41,7 @@ Test on each page:
 2. Click the **BrightMinds logo** (left side of header)
 3. **Expected**: Navigate to dashboard
 4. Go to another page
-5. Click the **school name** ("Merrick Preparatory School")
+5. Click the **school name** ("Stanly Mills Public School")
 6. **Expected**: Navigate to dashboard
 
 ### Test 5: Grade Filter Persistence ✅
