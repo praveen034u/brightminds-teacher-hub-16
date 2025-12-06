@@ -489,6 +489,15 @@ function AssignmentsPage() {
       // Inject the correct data array and force correct game_type for prebuilt assignments
       let injectedGameConfig: any = { ...selectedGameConfig };
       let forcedGameType = undefined;
+      // Dummy crosswordsData for demonstration; replace with your actual data or import as needed
+      const crosswordsData: Record<string, any> = {};
+      // Dummy wordScrambleData for demonstration; replace with your actual data or import as needed
+      const wordScrambleData: any[] = [];
+      // Dummy emojiGuessData for demonstration; replace with your actual data or import as needed
+      const emojiGuessData: any[] = [];
+      // Dummy riddlesData for demonstration; replace with your actual data or import as needed
+      const riddlesData: Record<string, any> = {};
+
       if (roomType === 'prebuilt') {
         const selectedGame = games.find(g => g.id === selectedPrebuiltRoom);
         if (selectedGame) {
@@ -798,6 +807,29 @@ function AssignmentsPage() {
       setShowAssignmentDetails(true);
       setAssignmentProgress([]); // Reset progress data
       
+      // Helper: fetch student IDs for the assignment's room
+      const getStudentIdsForRoom = async (roomId: string | null): Promise<string[] | null> => {
+        if (!roomId) return null;
+        try {
+          const { data, error } = await supabase
+            .from('room_students')
+            .select('student_id')
+            .eq('room_id', roomId);
+          if (error) {
+            console.warn('⚠️ Error fetching room members:', error);
+            return null;
+          }
+          const ids = (data || []).map((r: any) => r.student_id).filter(Boolean);
+          console.log(`🏠 Room ${roomId} has ${ids.length} members`);
+          return ids.length ? ids : [];
+        } catch (e) {
+          console.warn('⚠️ Exception fetching room members:', e);
+          return null;
+        }
+      };
+      
+      const roomStudentIds = await getStudentIdsForRoom(assignment.room_id || null);
+      
       // Use the teacher-progress API to get comprehensive data
       const supabaseUrl = getSupabaseUrl();
       
@@ -807,7 +839,7 @@ function AssignmentsPage() {
         console.log('📊 Progress API response:', progressResult);
         
         if (progressResult.progress && Array.isArray(progressResult.progress)) {
-          const progressData = progressResult.progress.map((student: any) => ({
+          let progressData = progressResult.progress.map((student: any) => ({
             id: student.student_id,
             student_name: student.student_name,
             student_email: student.student_email || 'No email',
@@ -818,6 +850,11 @@ function AssignmentsPage() {
             started_at: student.started_at,
             completed_at: student.completed_at,
           }));
+          // Filter by room membership if assignment has a room
+          if (roomStudentIds && Array.isArray(roomStudentIds)) {
+            progressData = progressData.filter(p => roomStudentIds.includes(p.id));
+            console.log(`✅ Filtered progress to ${progressData.length} students in room`);
+          }
           
           console.log('✅ Processed progress data:', progressData);
           setAssignmentProgress(progressData);
@@ -846,6 +883,27 @@ function AssignmentsPage() {
       console.log('🔄 Fallback: Loading students directly...');
       const supabaseUrl = getSupabaseUrl();
       
+      // Helper: fetch student IDs for the assignment's room (reused)
+      const getStudentIdsForRoom = async (roomId: string | null): Promise<string[] | null> => {
+        if (!roomId) return null;
+        try {
+          const { data, error } = await supabase
+            .from('room_students')
+            .select('student_id')
+            .eq('room_id', roomId);
+          if (error) {
+            console.warn('⚠️ Error fetching room members:', error);
+            return null;
+          }
+          const ids = (data || []).map((r: any) => r.student_id).filter(Boolean);
+          return ids.length ? ids : [];
+        } catch (e) {
+          console.warn('⚠️ Exception fetching room members:', e);
+          return null;
+        }
+      };
+      const roomStudentIds = await getStudentIdsForRoom(assignment.room_id || null);
+
       // Fetch students directly
       const studentsResponse = await fetch(
         `${supabaseUrl}/functions/v1/students?auth0_user_id=${auth0UserId}`,
@@ -859,6 +917,10 @@ function AssignmentsPage() {
       if (studentsResponse.ok) {
         const students = await studentsResponse.json();
         console.log('👥 Students data:', students);
+        // Filter students list by room membership, if applicable
+        const filteredStudents = (roomStudentIds && Array.isArray(roomStudentIds))
+          ? students.filter((s: any) => roomStudentIds.includes(s.id))
+          : students;
         
         // Fetch assignment attempts using Supabase client
         console.log('📝 Fetching assignment attempts for assignment:', assignment.id);
@@ -875,7 +937,7 @@ function AssignmentsPage() {
         }
         
         // Create progress data for each student
-        const progressData = students.map((student: any) => {
+        const progressData = filteredStudents.map((student: any) => {
           const attempt = attempts?.find(a => a.student_id === student.id);
           
           console.log(`🎯 Student ${student.name} (${student.id}):`, {
