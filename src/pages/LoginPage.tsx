@@ -84,13 +84,14 @@ export const LoginPage = () => {
           console.log('🔗 Linking Auth0 account to enrollment:', { pendingCode, pendingEmail });
           
           try {
-            // Update teacher record with auth0_user_id
+            // Update teacher record with auth0_user_id and set is_active to true
             const { error } = await supabase
               .from('teachers')
               .update({
                 auth0_user_id: auth0User.sub,
                 invitation_status: 'completed',
                 enrolled_at: new Date().toISOString(),
+                is_active: true,
               })
               .eq('enrollment_code', pendingCode)
               .eq('email', pendingEmail);

@@ -15,6 +15,7 @@ interface Teacher {
   updated_at?: string;
   role?: 'admin' | 'teacher';
   school_id?: string;
+  is_active?: boolean;
 }
 
 interface AuthContextType {
@@ -132,6 +133,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (teacher && teacher.auth0_user_id) {
           console.log('✅ Valid teacher profile found via GET:', teacher);
+          
+          // Check if teacher is active
+          if (teacher.is_active === false) {
+            console.log('🚫 Teacher account is inactive');
+            alert('Your account has been deactivated. Please contact your administrator.');
+            setIsLoading(false);
+            setUser(null);
+            auth0Logout({ 
+              logoutParams: { 
+                returnTo: window.location.origin 
+              } 
+            });
+            return;
+          }
           
           // Check if teacher was invited but hasn't completed enrollment yet
           if (teacher.invitation_status === 'pending' && !teacher.enrolled_at) {

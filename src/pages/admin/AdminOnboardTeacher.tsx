@@ -177,7 +177,7 @@ const AdminOnboardTeacher = () => {
           grades_taught: formData.gradesTeaching,
           subjects: formData.subjects,
           role: 'teacher',
-          is_active: false, // Inactive until they complete onboarding
+          is_active: true, // Active immediately when created by admin
           preferred_language: 'English',
           // Add enrollment fields (you'll need to add these columns to the table)
           enrollment_code: enrollmentCode,
