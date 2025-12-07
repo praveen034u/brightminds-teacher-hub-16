@@ -1,15 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/config/supabase';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { testAuth0Configuration } from '@/utils/auth0Debug';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { KeyRound, Loader2, CheckCircle, ArrowRight } from 'lucide-react';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0();
+  const { loginWithRedirect, isAuthenticated, isLoading, error, user: auth0User } = useAuth0();
   const { isNewUser, isLoading: authLoading, user } = useAuth();
+  const [step, setStep] = useState<'choice' | 'code' | 'verify' | 'auth'>('choice');
+  const [loading, setLoading] = useState(false);
+  const [enrollmentCode, setEnrollmentCode] = useState('');
+  const [teacherData, setTeacherData] = useState<any>(null);
+  const [showError, setShowError] = useState(false);
+
+  // Check for error in URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === 'no_enrollment') {
+      setShowError(true);
+      setStep('choice');
+      toast.error('No enrollment found. Please enter your enrollment code or contact your administrator.');
+    }
+  }, []);
 
   // Debug Auth0 configuration only when needed (removed automatic debug to prevent spam)
 
@@ -54,111 +73,330 @@ export const LoginPage = () => {
     }
   }, [isAuthenticated, authLoading, isNewUser, user, navigate]);
 
-  const handleLogin = () => {
-    console.log('🔑 Login button clicked, redirecting to teacher onboarding...');
-    // Redirect to enrollment verification instead of direct Auth0 login
-    navigate('/teacher-onboarding');
+  // Handle linking enrollment after Auth0 authentication
+  useEffect(() => {
+    const linkEnrollment = async () => {
+      if (isAuthenticated && auth0User) {
+        const pendingCode = localStorage.getItem('pending_enrollment_code');
+        const pendingEmail = localStorage.getItem('pending_teacher_email');
+        
+        if (pendingCode && pendingEmail) {
+          console.log('🔗 Linking Auth0 account to enrollment:', { pendingCode, pendingEmail });
+          
+          try {
+            // Update teacher record with auth0_user_id
+            const { error } = await supabase
+              .from('teachers')
+              .update({
+                auth0_user_id: auth0User.sub,
+                invitation_status: 'completed',
+                enrolled_at: new Date().toISOString(),
+              })
+              .eq('enrollment_code', pendingCode)
+              .eq('email', pendingEmail);
+
+            if (error) {
+              console.error('Error linking enrollment:', error);
+              toast.error('Failed to complete enrollment. Please contact support.');
+            } else {
+              console.log('✅ Enrollment linked successfully');
+              localStorage.removeItem('pending_enrollment_code');
+              localStorage.removeItem('pending_teacher_email');
+              toast.success('Account created successfully!');
+              // Redirect to dashboard
+              setTimeout(() => navigate('/dashboard'), 1000);
+            }
+          } catch (error) {
+            console.error('Error linking enrollment:', error);
+            toast.error('Failed to complete enrollment');
+          }
+        }
+      }
+    };
+
+    linkEnrollment();
+  }, [isAuthenticated, auth0User, navigate]);
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!enrollmentCode || enrollmentCode.length !== 8) {
+      toast.error('Please enter a valid 8-character enrollment code');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Verify enrollment code
+      const { data, error } = await supabase
+        .from('teachers')
+        .select('*')
+        .eq('enrollment_code', enrollmentCode.toUpperCase())
+        .eq('invitation_status', 'pending')
+        .single();
+
+      if (error || !data) {
+        toast.error('Invalid or expired enrollment code');
+        return;
+      }
+
+      setTeacherData(data);
+      setStep('verify');
+      toast.success('Enrollment code verified!');
+    } catch (error) {
+      console.error('Error verifying code:', error);
+      toast.error('Failed to verify enrollment code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProceedToAuth = () => {
+    setStep('auth');
+    toast.info('Please create your Auth0 account to continue');
+  };
+
+  const handleCreateAccount = async () => {
+    // Store enrollment code in localStorage so we can link it after Auth0 signup
+    localStorage.setItem('pending_enrollment_code', enrollmentCode.toUpperCase());
+    localStorage.setItem('pending_teacher_email', teacherData?.email || '');
+    
+    // Redirect to Auth0 signup with the teacher's email pre-filled
+    loginWithRedirect({
+      authorizationParams: {
+        screen_hint: 'signup',
+        login_hint: teacherData?.email,
+      },
+    });
+  };
+
+  const handleExistingLogin = () => {
+    // Direct login for existing teachers
+    loginWithRedirect();
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center p-6">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center space-y-2">
-          <div className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-2">
-            BrightMinds
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-6">
+      <Card className="w-full max-w-md shadow-xl">
+        {/* Logo and Header */}
+        <CardHeader className="text-center space-y-4 pb-6">
+          <div className="flex justify-center mb-2">
+            <img 
+              src="/brightminds-logo1.png" 
+              alt="BrightMinds Logo" 
+              className="h-24 w-auto"
+            />
           </div>
-          <CardTitle className="text-2xl">Welcome Back, Teacher!</CardTitle>
-          <p className="text-muted-foreground">
-            Sign in to manage your students and classrooms
-          </p>
+          <div>
+            <CardTitle className="text-2xl font-semibold">
+              Welcome to BrightMinds — Teacher Portal
+            </CardTitle>
+            {step === 'choice' && (
+              <CardDescription className="mt-2 text-sm">
+                New teachers need to obtain an enrollment code from their administrator
+              </CardDescription>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-muted/50 p-4 rounded-lg text-sm text-center">
-            <p className="mb-2 font-medium">Secure Authentication</p>
-            <p className="text-muted-foreground">
-              Sign in securely with Auth0 to access your teacher dashboard.
-            </p>
-          </div>
-          
-          <Button 
-            onClick={handleLogin} 
-            disabled={isLoading}
-            className="w-full h-12 text-lg"
-          >
-            {isLoading ? 'Loading...' : 'Sign Up / Sign In'}
-          </Button>
-          
-          <p className="text-center text-sm text-muted-foreground">
-            New teacher? You'll need an enrollment code from your admin
-          </p>
-          
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm">
-              <p className="text-red-800 font-medium mb-1">Authentication Error:</p>
-              <p className="text-red-600">{error.message}</p>
-              <p className="text-red-500 text-xs mt-2">
-                Check console for more details
-              </p>
+
+        <CardContent>
+          {/* Step 0: Choose New or Existing */}
+          {step === 'choice' && (
+            <div className="space-y-4">
+              {showError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-red-900 font-medium">⚠️ Enrollment Required</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    You must have a valid enrollment code from your school administrator to create an account.
+                  </p>
+                </div>
+              )}
+              
+              <Button 
+                onClick={() => setStep('code')} 
+                className="w-full h-14 text-base bg-primary hover:bg-primary/90"
+              >
+                <KeyRound className="mr-2 h-5 w-5" />
+                New Teacher - I have an enrollment code
+              </Button>
+              
+              <Button 
+                onClick={handleExistingLogin}
+                variant="outline"
+                className="w-full h-14 text-base"
+              >
+                <ArrowRight className="mr-2 h-5 w-5" />
+                Existing Teacher - Sign In
+              </Button>
+
+              <div className="text-center text-sm text-muted-foreground mt-6 pt-4 border-t">
+                <p className="mb-1">Sign in securely with Auth0 to access</p>
+                <p>your teacher dashboard</p>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm mt-4">
+                  <p className="text-red-800 font-medium mb-1">Authentication Error:</p>
+                  <p className="text-red-600">{error.message}</p>
+                </div>
+              )}
             </div>
           )}
 
-          {localStorage.getItem('student_presigned_token') && (
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground mb-2">
-                Student session detected
-              </p>
-              <div className="grid grid-cols-1 gap-2">
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    const studentToken = localStorage.getItem('student_presigned_token');
-                    if (studentToken) {
-                      window.location.href = `/student-portal?token=${encodeURIComponent(studentToken)}`;
+          {/* Step 1: Enter Enrollment Code */}
+          {step === 'code' && (
+            <div>
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-semibold mb-2 flex items-center justify-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" />
+                  Enter Your Enrollment Code
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Your school administrator has sent you an 8-character code
+                </p>
+              </div>
+              
+              <form onSubmit={handleVerifyCode} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="code">Enrollment Code</Label>
+                  <Input
+                    id="code"
+                    placeholder="XXXXXXXX"
+                    value={enrollmentCode}
+                    onChange={(e) =>
+                      setEnrollmentCode(e.target.value.toUpperCase())
                     }
-                  }}
-                  className="w-full"
-                >
-                  Continue as Student
+                    maxLength={8}
+                    className="text-center text-2xl font-bold tracking-widest"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground text-center">
+                    Enter the 8-character code from your invitation email
+                  </p>
+                </div>
+
+                <Button type="submit" className="w-full h-12" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      Verify Code
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
-                <Button 
-                  variant="ghost"
-                  onClick={() => {
-                    localStorage.removeItem('student_presigned_token');
-                    window.location.reload();
-                  }}
-                  className="w-full text-sm"
-                  size="sm"
+              </form>
+
+              <div className="mt-6 text-center">
+                <Button
+                  variant="link"
+                  onClick={() => setStep('choice')}
+                  className="text-sm"
                 >
-                  Clear Student Session
+                  ← Back to login options
                 </Button>
               </div>
             </div>
           )}
 
-          <div className="text-center text-sm text-muted-foreground">
-            <p>Protected by Auth0</p>
-            <p className="text-xs mt-1">
-              Enterprise-grade security for your classroom
-            </p>
-            
-            {/* Debug button for development only */}
-            {import.meta.env.DEV && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={async () => {
-                  const result = await testAuth0Configuration();
-                  const message = result.success 
-                    ? '✅ Auth0 Connection: SUCCESS'
-                    : `❌ Auth0 Connection: FAILED - ${result.error}`;
-                  alert(message);
-                }}
-                className="mt-2 text-xs"
-              >
-                Test Auth0
+          {/* Step 2: Verify Information */}
+          {step === 'verify' && teacherData && (
+            <div>
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-semibold mb-2 flex items-center justify-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  Verify Your Information
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Please confirm that this information is correct
+                </p>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3 mb-6">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Full Name</Label>
+                  <p className="font-medium">{teacherData.full_name}</p>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">Email</Label>
+                  <p className="font-medium">{teacherData.email}</p>
+                </div>
+
+                <div>
+                  <Label className="text-xs text-muted-foreground">School</Label>
+                  <p className="font-medium">{teacherData.school_name || 'Not specified'}</p>
+                </div>
+
+                {teacherData.grades_taught && teacherData.grades_taught.length > 0 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Grades</Label>
+                    <p className="font-medium">
+                      {teacherData.grades_taught.join(', ')}
+                    </p>
+                  </div>
+                )}
+
+                {teacherData.subjects && teacherData.subjects.length > 0 && (
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Subjects</Label>
+                    <p className="font-medium">
+                      {teacherData.subjects.join(', ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Button onClick={handleProceedToAuth} className="w-full h-12">
+                  Looks Good - Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep('choice')}
+                  className="w-full"
+                >
+                  ← Back to start
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Create Auth0 Account */}
+          {step === 'auth' && (
+            <div>
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-semibold mb-2">Create Your Account</h3>
+                <p className="text-sm text-muted-foreground">
+                  Set up your secure login credentials to access BrightMinds
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p className="text-sm text-blue-900 font-medium mb-2">
+                  Next Step:
+                </p>
+                <p className="text-sm text-blue-800">
+                  You'll be redirected to create your secure account. Use your email:{' '}
+                  <strong className="block mt-1">{teacherData?.email}</strong>
+                </p>
+              </div>
+
+              <Button onClick={handleCreateAccount} className="w-full h-12" size="lg">
+                Create Account & Get Started
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-            )}
-          </div>
+
+              <p className="text-xs text-center text-muted-foreground mt-4">
+                By creating an account, you agree to our Terms of Service and Privacy Policy
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
