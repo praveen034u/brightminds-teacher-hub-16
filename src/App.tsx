@@ -6,8 +6,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Auth0Provider } from "@auth0/auth0-react";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/routing/AdminRoute";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
+import NotAuthorized from "./pages/NotAuthorized";
 import TeacherHome from "./pages/TeacherHome";
 import StudentsPage from "./pages/StudentsPage";
 import RoomsPage from "./pages/RoomsPage";
@@ -18,6 +20,11 @@ import ProfilePage from "./pages/ProfilePage";
 import StudentPortalRedirect from "./pages/StudentPortalRedirect";
 import StudentPortalPage from "./pages/StudentPortalPage";
 import QuestionPapersPage from "./pages/QuestionPapersPage";
+import TeacherOnboardingPage from "./pages/TeacherOnboardingPage";
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminTeachers from "./pages/admin/AdminTeachers";
+import AdminNewsletters from "./pages/admin/AdminNewsletters";
+import AdminOnboardTeacher from "./pages/admin/AdminOnboardTeacher";
 import { Footer } from "@/components/layout/Footer";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
@@ -46,8 +53,21 @@ const App = () => (
               <Routes>
                 {/* Routes without sidebar */}
                 <Route path="/" element={<LoginPage />} />
+                <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
                 <Route path="/student-portal" element={<StudentPortalPage />} />
-                <Route path="*" element={<NotFound />} />
+                <Route path="/not-authorized" element={<NotAuthorized />} />
+                
+                {/* Admin routes */}
+                <Route path="/admin" element={
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                }>
+                  <Route index element={<AdminTeachers />} />
+                  <Route path="teachers" element={<AdminTeachers />} />
+                  <Route path="onboard" element={<AdminOnboardTeacher />} />
+                  <Route path="newsletters" element={<AdminNewsletters />} />
+                </Route>
                 
                 {/* Protected routes - full width, no sidebar */}
                 <Route path="/dashboard" element={
@@ -95,6 +115,9 @@ const App = () => (
                     <StudentPortalRedirect />
                   </ProtectedRoute>
                 } />
+                
+                {/* 404 - Must be last */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
               <Footer />
             </div>

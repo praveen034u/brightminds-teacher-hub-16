@@ -13,6 +13,8 @@ interface Teacher {
   preferred_language?: string;
   created_at?: string;
   updated_at?: string;
+  role?: 'admin' | 'teacher';
+  school_id?: string;
 }
 
 interface AuthContextType {
@@ -79,13 +81,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const realUserName = auth0User.name || auth0User.email?.split('@')[0] || 'Teacher';
       const realUserEmail = auth0User.email || 'teacher@example.com';
 
+      // Extract role from Auth0 token (from custom claim)
+      // Auth0 Action injects role at: https://brightminds.ai4magic.com/role
+      const auth0Role = (auth0User as any)['https://brightminds.ai4magic.com/role'] as 'admin' | 'teacher' | undefined;
+      const userRole = auth0Role || 'teacher'; // Default to teacher if no role specified
+
       console.log('🔍 Auth0 User Data:', {
         sub: auth0User.sub,
         name: auth0User.name,
         email: auth0User.email,
         picture: auth0User.picture,
         extractedName: realUserName,
-        extractedEmail: realUserEmail
+        extractedEmail: realUserEmail,
+        role: userRole,
+        rawAuth0User: auth0User,
+        customClaim: (auth0User as any)['https://brightminds/role']
       });
 
       const headers: Record<string, string> = {
@@ -101,7 +111,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         auth0_user_id: userId,
         auth0_name: realUserName,
         auth0_email: realUserEmail,
-        auth0_picture: auth0User.picture || null
+        auth0_picture: auth0User.picture || null,
+        role: userRole
       });
 
       const apiUrl = `${getSupabaseUrl()}/functions/v1/me?auth0_user_id=${userId}`;
@@ -121,6 +132,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (teacher && teacher.auth0_user_id) {
           console.log('✅ Valid teacher profile found via GET:', teacher);
+          
+          // Check if teacher was invited but hasn't completed enrollment yet
+          if (teacher.invitation_status === 'pending' && !teacher.enrolled_at) {
+            console.log('⚠️ Teacher invited but not enrolled yet');
+            setIsNewUser(true);
+            setUser(teacher);
+            return;
+          }
+          
+          // Merge role from Auth0 token with profile data
+          teacher.role = userRole;
+          
+          console.log('✅ Final teacher object with role:', {
+            id: teacher.id,
+            email: teacher.email,
+            role: teacher.role,
+            fullTeacher: teacher
+          });
+          
           // Check if profile is complete (has school_name or subjects/grades)
           const profileIncomplete = !teacher.school_name && 
             (!teacher.subjects || teacher.subjects.length === 0) && 
@@ -134,33 +164,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           setUser(teacher);
         } else {
-          console.log('⚠️ GET returned null/empty - teacher not found, creating new profile...');
-          // Teacher doesn't exist, create one using POST
-          const createResponse = await fetch(apiUrl, {
-            method: 'POST',
-            headers,
-            body: requestBody
-          });
+          console.log('⚠️ GET returned null/empty - teacher not found in database');
+          console.log('🚫 No valid enrollment found - user needs enrollment code');
           
-          if (createResponse.ok) {
-            const newTeacher = await createResponse.json();
-            console.log('✅ New teacher profile created via POST:', newTeacher);
-            setIsNewUser(true); // New profile created, needs completion
-            setUser(newTeacher);
-          } else {
-            console.log('❌ POST also failed, creating temporary profile');
-            setIsNewUser(true); // Temporary profile needs completion
-            setUser({
-              id: userId,
-              auth0_user_id: userId,
-              full_name: realUserName,
-              email: realUserEmail,
-              school_name: '',
-              grades_taught: [],
-              subjects: [],
-              preferred_language: 'English'
-            });
-          }
+          // DO NOT create a profile automatically
+          // User must have been invited by admin with enrollment code
+          setIsLoading(false);
+          setUser(null);
+          auth0Logout({ 
+            logoutParams: { 
+              returnTo: `${window.location.origin}/teacher-onboarding?error=no_enrollment` 
+            } 
+          });
+          return;
         }
       } else if (response.status === 405) {
         console.log('⚠️ GET method not supported, trying POST method...');
@@ -187,8 +203,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               auth0_user_id: userId,
               full_name: realUserName,
               email: realUserEmail,
+              role: userRole
             } as Teacher);
           } else {
+            // Merge role from Auth0 token
+            teacher.role = userRole;
             // Check if profile is complete
             const profileIncomplete = !teacher.school_name && 
               (!teacher.subjects || teacher.subjects.length === 0) && 
@@ -215,7 +234,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             school_name: '',
             grades_taught: [],
             subjects: [],
-            preferred_language: 'English'
+            preferred_language: 'English',
+            role: userRole
           });
         }
       } else {
@@ -237,7 +257,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           school_name: '',
           grades_taught: [],
           subjects: [],
-          preferred_language: 'English'
+          preferred_language: 'English',
+          role: userRole
         });
       }
     } catch (error) {

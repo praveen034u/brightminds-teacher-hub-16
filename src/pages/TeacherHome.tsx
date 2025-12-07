@@ -5,6 +5,7 @@ import { useGradeFilter } from '@/contexts/GradeFilterContext';
 import { Header } from '@/components/layout/Header';
 import { QuickActionCard } from '@/components/cards/QuickActionCard';
 import { DashboardCard } from '@/components/cards/DashboardCard';
+import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { studentsAPI, roomsAPI, assignmentsAPI, helpRequestsAPI, meAPI } from '@/api/edgeClient';
@@ -288,6 +289,9 @@ const TeacherHome = () => {
       <Header />
       
       <main className="container mx-auto px-6 py-8 pt-32">
+        {/* Announcement Banner */}
+        <AnnouncementBanner />
+
         {/* Grade Filter Section - Prominent and First */}
         <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">

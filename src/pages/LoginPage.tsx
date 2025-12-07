@@ -9,7 +9,7 @@ import { testAuth0Configuration } from '@/utils/auth0Debug';
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { loginWithRedirect, isAuthenticated, isLoading, error } = useAuth0();
-  const { isNewUser, isLoading: authLoading } = useAuth();
+  const { isNewUser, isLoading: authLoading, user } = useAuth();
 
   // Debug Auth0 configuration only when needed (removed automatic debug to prevent spam)
 
@@ -32,9 +32,17 @@ export const LoginPage = () => {
       return;
     }
     
-    if (isAuthenticated && !authLoading && !window.location.pathname.includes('/dashboard') && !window.location.pathname.includes('/profile')) {
+    if (isAuthenticated && !authLoading && !window.location.pathname.includes('/dashboard') && !window.location.pathname.includes('/profile') && !window.location.pathname.includes('/admin')) {
       console.log('✅ User is authenticated, checking if profile is complete');
-      console.log('🔍 LoginPage redirect check:', { isNewUser, authLoading, isAuthenticated });
+      console.log('🔍 LoginPage redirect check:', { isNewUser, authLoading, isAuthenticated, userRole: user?.role });
+      
+      // Redirect admin users to admin portal
+      if (user?.role === 'admin') {
+        console.log('👑 Admin user detected, redirecting to admin portal');
+        navigate('/admin', { replace: true });
+        return;
+      }
+      
       // Redirect new users to profile page first, existing users to dashboard
       if (isNewUser) {
         console.log('📝 New user detected, redirecting to profile page');
@@ -44,15 +52,12 @@ export const LoginPage = () => {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [isAuthenticated, authLoading, isNewUser, navigate]);
+  }, [isAuthenticated, authLoading, isNewUser, user, navigate]);
 
   const handleLogin = () => {
-    console.log('🔑 Login button clicked, initiating Auth0 redirect...');
-    try {
-      loginWithRedirect();
-    } catch (error) {
-      console.error('❌ Auth0 login error:', error);
-    }
+    console.log('🔑 Login button clicked, redirecting to teacher onboarding...');
+    // Redirect to enrollment verification instead of direct Auth0 login
+    navigate('/teacher-onboarding');
   };
 
   return (
@@ -80,8 +85,12 @@ export const LoginPage = () => {
             disabled={isLoading}
             className="w-full h-12 text-lg"
           >
-            {isLoading ? 'Loading...' : 'Sign In with Auth0'}
+            {isLoading ? 'Loading...' : 'Sign Up / Sign In'}
           </Button>
+          
+          <p className="text-center text-sm text-muted-foreground">
+            New teacher? You'll need an enrollment code from your admin
+          </p>
           
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm">
