@@ -130,7 +130,7 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
   const [llmComplexity, setLlmComplexity] = useState('medium');
   const [llmCount, setLlmCount] = useState(5);
   const [llmType, setLlmType] = useState('multiple-choice');
-  const [llmApiKey, setLlmApiKey] = useState('');
+  const [llmApiKey, setLlmApiKey] = useState(import.meta.env.VITE_OPENAI_API_KEY || '');
   const [llmLoading, setLlmLoading] = useState(false);
   const [llmError, setLlmError] = useState('');
   const [llmGeneratedQuestions, setLlmGeneratedQuestions] = useState<any[]>([]);
@@ -1372,18 +1372,23 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="llmApiKey">OpenAI API Key *</Label>
-                  <Input
-                    id="llmApiKey"
-                    type="password"
-                    value={llmApiKey}
-                    onChange={(e) => setLlmApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    disabled={false}
-                    readOnly={false}
-                  />
-                </div>
+                {!import.meta.env.VITE_OPENAI_API_KEY && (
+                  <div>
+                    <Label htmlFor="llmApiKey">OpenAI API Key *</Label>
+                    <Input
+                      id="llmApiKey"
+                      type="password"
+                      value={llmApiKey}
+                      onChange={(e) => setLlmApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      disabled={false}
+                      readOnly={false}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Tip: Set VITE_OPENAI_API_KEY in .env.local to avoid entering it each time
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   onClick={handleGenerateAIQuestions}
