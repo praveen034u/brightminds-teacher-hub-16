@@ -27,11 +27,13 @@ export async function callEdgeFunction(
 
   const url = `${SUPABASE_URL}/functions/v1/${functionName}?${urlParams}`;
 
+  const apiKey = getSupabasePublishableKey();
   const config: RequestInit = {
     method,
     headers: {
       'Content-Type': 'application/json',
-      'apikey': getSupabasePublishableKey(),
+      'apikey': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
     },
   };
 
