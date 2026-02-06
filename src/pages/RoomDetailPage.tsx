@@ -13,17 +13,24 @@ import { toast } from 'sonner';
 export const RoomDetailPage = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
-  const { auth0UserId } = useAuth();
+  const { auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
   const [room, setRoom] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !auth0UserId) {
+      setLoading(false);
+      return;
+    }
     loadRoomDetails();
-  }, [roomId, auth0UserId]);
+  }, [roomId, auth0UserId, authLoading, isAuthenticated]);
 
   const loadRoomDetails = async () => {
     try {
+      if (authLoading || !isAuthenticated || !auth0UserId) {
+        return;
+      }
       setLoading(true);
       const [roomsData, allStudents] = await Promise.all([
         roomsAPI.list(auth0UserId),

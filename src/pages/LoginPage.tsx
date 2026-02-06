@@ -55,6 +55,17 @@ export const LoginPage = () => {
       console.log('✅ User is authenticated, checking if profile is complete');
       console.log('🔍 LoginPage redirect check:', { isNewUser, authLoading, isAuthenticated, userRole: user?.role });
       
+      // If login was initiated via "Existing Teacher - Sign In", force dashboard
+      try {
+        const forceExisting = localStorage.getItem('existing_teacher_login') === 'true';
+        if (forceExisting) {
+          console.log('➡️ Existing teacher flow detected, redirecting to dashboard');
+          localStorage.removeItem('existing_teacher_login');
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+      } catch {}
+
       // Redirect admin users to admin portal
       if (user?.role === 'admin') {
         console.log('👑 Admin user detected, redirecting to admin portal');
@@ -174,6 +185,9 @@ export const LoginPage = () => {
 
   const handleExistingLogin = () => {
     // Direct login for existing teachers
+    try {
+      localStorage.setItem('existing_teacher_login', 'true');
+    } catch {}
     loginWithRedirect();
   };
 

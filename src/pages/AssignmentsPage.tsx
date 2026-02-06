@@ -37,7 +37,7 @@ function AssignmentsPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   
-  const { auth0UserId } = useAuth();
+  const { auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
   const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -261,6 +261,12 @@ function AssignmentsPage() {
   }, [auth0UserId, attemptReconnect]);
 
   useEffect(() => {
+    // Avoid triggering data load until auth is ready
+    if (authLoading || !isAuthenticated || !auth0UserId) {
+      setLoading(false);
+      return;
+    }
+
     loadData();
     
     // Set up real-time subscription
@@ -319,7 +325,7 @@ function AssignmentsPage() {
         supabase.removeChannel(broadcastChannelRef.current);
       }
     };
-  }, [auth0UserId, setupRealtimeSubscription]);
+  }, [auth0UserId, setupRealtimeSubscription, authLoading, isAuthenticated]);
 
   const refreshData = () => {
     console.log('🔄 Manual refresh triggered');
@@ -329,16 +335,16 @@ function AssignmentsPage() {
 
   const loadData = async () => {
     try {
+      // Ensure we have auth context before starting load
+      if (authLoading || !isAuthenticated || !auth0UserId) {
+        console.warn('❌ No auth0UserId available yet; skipping load');
+        return;
+      }
+
       setLoading(true);
       
       // Debug: Check if auth0UserId is available
       console.log('🔍 Loading data for auth0UserId:', auth0UserId);
-      
-      if (!auth0UserId) {
-        console.warn('❌ No auth0UserId available');
-        toast.error('Authentication error: Please log in again');
-        return;
-      }
       
       // First, ensure teacher is registered in database
       console.log('👨‍🏫 Initializing teacher profile...');

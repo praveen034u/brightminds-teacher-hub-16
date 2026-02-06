@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 export const StudentsPage = () => {
-  const { auth0UserId } = useAuth();
+  const { auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
   const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [students, setStudents] = useState<any[]>([]);
@@ -57,11 +57,18 @@ export const StudentsPage = () => {
   }, [students, selectedGrades]);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !auth0UserId) {
+      setLoading(false);
+      return;
+    }
     loadStudents();
-  }, [auth0UserId]);
+  }, [auth0UserId, authLoading, isAuthenticated]);
 
   const loadStudents = async () => {
     try {
+      if (authLoading || !isAuthenticated || !auth0UserId) {
+        return;
+      }
       setLoading(true);
       const data = await studentsAPI.list(auth0UserId);
       setStudents(data);

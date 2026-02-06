@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 export const RoomsPage = () => {
-  const { auth0UserId } = useAuth();
+  const { auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
   const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<any[]>([]);
@@ -39,11 +39,18 @@ export const RoomsPage = () => {
   });
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !auth0UserId) {
+      setLoading(false);
+      return;
+    }
     loadData();
-  }, [auth0UserId]);
+  }, [auth0UserId, authLoading, isAuthenticated]);
 
   const loadData = async () => {
     try {
+      if (authLoading || !isAuthenticated || !auth0UserId) {
+        return;
+      }
       setLoading(true);
       const [roomsData, studentsData] = await Promise.all([
         roomsAPI.list(auth0UserId),

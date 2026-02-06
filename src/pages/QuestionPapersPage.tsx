@@ -20,7 +20,7 @@ import { supabase } from '@/config/supabase';
 import { meAPI } from '@/api/edgeClient';
 
 export const QuestionPapersPage = () => {
-  const { auth0UserId } = useAuth();
+  const { auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
   const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [questionPapers, setQuestionPapers] = useState<any[]>([]);
@@ -32,11 +32,18 @@ export const QuestionPapersPage = () => {
   const [teacherId, setTeacherId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading || !isAuthenticated || !auth0UserId) {
+      setLoading(false);
+      return;
+    }
     loadTeacherAndQuestionPapers();
-  }, [auth0UserId]);
+  }, [auth0UserId, authLoading, isAuthenticated]);
 
   const loadTeacherAndQuestionPapers = async () => {
     try {
+      if (authLoading || !isAuthenticated || !auth0UserId) {
+        return;
+      }
       setLoading(true);
 
       // First, get the teacher's UUID using Edge Function (has service role access)

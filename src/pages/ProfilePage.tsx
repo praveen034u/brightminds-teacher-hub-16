@@ -86,17 +86,30 @@ const ProfilePage = () => {
       await refreshProfile();
       if (isFirstTimeSetup) {
         // Check if the profile is now complete
-        const isProfileComplete = !!formData.school_name &&
-          formData.grades_taught.split(',').filter((g) => g.trim()).length > 0 &&
-          formData.subjects.split(',').filter((s) => s.trim()).length > 0;
+        // Align completeness with AuthContext logic: any of school, grades, or subjects
+        const hasSchool = !!formData.school_name && formData.school_name.trim().length > 0;
+        const hasGrades = formData.grades_taught.split(',').filter((g) => g.trim()).length > 0;
+        const hasSubjects = formData.subjects.split(',').filter((s) => s.trim()).length > 0;
+        const isProfileComplete = hasSchool || hasGrades || hasSubjects;
         if (isProfileComplete) {
           toast.success('Profile setup complete!');
           markProfileComplete();
+          // Redirect to dashboard after completing first-time setup
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 800);
         } else {
           toast.warning('Please complete all required profile fields.');
         }
-        // Do NOT redirect to dashboard here; let ProtectedRoute handle redirect after profile is complete
+        // Note: We now redirect directly after completion to avoid staying on profile
       } else {
+        // For existing users, mark profile complete if any required field is now present
+        const hasSchool = !!formData.school_name && formData.school_name.trim().length > 0;
+        const hasGrades = formData.grades_taught.split(',').filter((g) => g.trim()).length > 0;
+        const hasSubjects = formData.subjects.split(',').filter((s) => s.trim()).length > 0;
+        if (hasSchool || hasGrades || hasSubjects) {
+          markProfileComplete();
+        }
         toast.success('Profile updated successfully');
         setTimeout(() => {
           navigate('/dashboard');

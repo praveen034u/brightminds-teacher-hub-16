@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/config/supabase';
 
 const TeacherHome = () => {
-  const { user, auth0UserId, isLoading } = useAuth();
+  const { user, auth0UserId, isLoading, isNewUser } = useAuth();
   const navigate = useNavigate();
   
   // Use global grade filter context
@@ -38,12 +38,21 @@ const TeacherHome = () => {
   const [allStudents, setAllStudents] = useState<any[]>([]);
 
   // Redirect to profile page if teacher profile is incomplete (missing full_name)
+  // Skip redirect on hard reload to avoid navigation loops
   useEffect(() => {
-    if (!isLoading && user && (!user.full_name || user.full_name.trim() === '')) {
-      console.log('Profile incomplete, redirecting to profile page');
+    const isReload = (() => {
+      try {
+        const nav = (performance.getEntriesByType('navigation') as any)[0];
+        return nav && nav.type === 'reload';
+      } catch {
+        return false;
+      }
+    })();
+    if (!isLoading && !isReload && isNewUser) {
+      console.log('New user flow, redirecting to profile page');
       navigate('/profile', { replace: true });
     }
-  }, [user, isLoading, navigate]);
+  }, [user, isLoading, isNewUser, navigate]);
 
   // Keyboard navigation for assignments
   useEffect(() => {

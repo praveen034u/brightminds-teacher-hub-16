@@ -148,12 +148,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
           }
           
-          // Check if teacher was invited but hasn't completed enrollment yet
+          // Treat invited-but-not-enrolled teachers as existing for dashboard access
           if (teacher.invitation_status === 'pending' && !teacher.enrolled_at) {
-            console.log('⚠️ Teacher invited but not enrolled yet');
-            setIsNewUser(true);
-            setUser(teacher);
-            return;
+            console.log('⚠️ Teacher invited but not enrolled yet — allowing dashboard access');
+            setIsNewUser(false);
+            // Continue without returning to finish normal setup
           }
           
           // Merge role from Auth0 token with profile data
@@ -166,17 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fullTeacher: teacher
           });
           
-          // Check if profile is complete (has school_name or subjects/grades)
-          const profileIncomplete = !teacher.school_name && 
-            (!teacher.subjects || teacher.subjects.length === 0) && 
-            (!teacher.grades_taught || teacher.grades_taught.length === 0);
-          
-          if (profileIncomplete) {
-            console.log('📝 Profile incomplete, marking as new user');
-            setIsNewUser(true);
-          } else {
-            setIsNewUser(false);
-          }
+          // Existing teacher: do not force profile completion flow
+          setIsNewUser(false);
           setUser(teacher);
         } else {
           console.log('⚠️ GET returned null/empty - teacher not found in database');
@@ -223,11 +213,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             // Merge role from Auth0 token
             teacher.role = userRole;
-            // Check if profile is complete
-            const profileIncomplete = !teacher.school_name && 
-              (!teacher.subjects || teacher.subjects.length === 0) && 
-              (!teacher.grades_taught || teacher.grades_taught.length === 0);
-            setIsNewUser(profileIncomplete);
+            // Treat as existing teacher regardless of profile completeness
+            setIsNewUser(false);
             setUser(teacher);
           }
         } else {
@@ -333,7 +320,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user, 
       auth0UserId, 
       isLoading, 
-      isAuthenticated: contextIsAuthenticated,
+      // Use Auth0's authenticated state to avoid reload loops
+      isAuthenticated: isAuthenticated,
       isNewUser,
       logout,
       refreshProfile,

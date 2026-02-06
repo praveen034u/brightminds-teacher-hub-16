@@ -12,8 +12,8 @@ const StudentPortalRedirect = () => {
       // Redirect to student portal with token
       window.location.replace(`/student-portal?token=${encodeURIComponent(token)}`);
     } else {
-      // Show a message or redirect to login
-      navigate('/login');
+      // Show a message or redirect to login (root route)
+      navigate('/');
     }
   }, [navigate]);
 
