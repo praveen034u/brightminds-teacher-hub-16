@@ -29,7 +29,7 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
 
   if (!isAuthenticated) {
     console.log('❌ AdminRoute: Not authenticated, redirecting to login');
-    return <Navigate to="/" replace />;
+    return <Navigate to="/admin" replace />;
   }
 
   if (user?.role !== 'admin') {

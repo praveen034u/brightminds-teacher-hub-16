@@ -25,6 +25,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminTeachers from "./pages/admin/AdminTeachers";
 import AdminNewsletters from "./pages/admin/AdminNewsletters";
 import AdminOnboardTeacher from "./pages/admin/AdminOnboardTeacher";
+import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import { Footer } from "@/components/layout/Footer";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
@@ -56,17 +57,29 @@ const App = () => (
                 <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
                 <Route path="/student-portal" element={<StudentPortalPage />} />
                 <Route path="/not-authorized" element={<NotAuthorized />} />
+                <Route path="/admin" element={<AdminLoginPage />} />
                 
                 {/* Admin routes */}
-                <Route path="/admin" element={
+                <Route path="/admin/teachers" element={
                   <AdminRoute>
                     <AdminLayout />
                   </AdminRoute>
                 }>
                   <Route index element={<AdminTeachers />} />
-                  <Route path="teachers" element={<AdminTeachers />} />
-                  <Route path="onboard" element={<AdminOnboardTeacher />} />
-                  <Route path="newsletters" element={<AdminNewsletters />} />
+                </Route>
+                <Route path="/admin/onboard" element={
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                }>
+                  <Route index element={<AdminOnboardTeacher />} />
+                </Route>
+                <Route path="/admin/newsletters" element={
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                }>
+                  <Route index element={<AdminNewsletters />} />
                 </Route>
                 
                 {/* Protected routes - full width, no sidebar */}

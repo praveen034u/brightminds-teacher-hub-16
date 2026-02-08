@@ -301,6 +301,14 @@ const TeacherHome = () => {
         {/* Announcement Banner */}
         <AnnouncementBanner />
 
+        {user?.role === 'admin' && (
+          <div className="mb-6 flex flex-col items-start">
+            <Button asChild className="h-10 px-4">
+              <Link to="/admin/teachers"> Go to admin portal</Link>
+            </Button>
+          </div>
+        )}
+
         {/* Grade Filter Section - Prominent and First */}
         <div className="mb-8 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">

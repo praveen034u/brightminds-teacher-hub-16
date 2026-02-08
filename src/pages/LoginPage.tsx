@@ -69,7 +69,7 @@ export const LoginPage = () => {
       // Redirect admin users to admin portal
       if (user?.role === 'admin') {
         console.log('👑 Admin user detected, redirecting to admin portal');
-        navigate('/admin', { replace: true });
+        navigate('/admin/teachers', { replace: true });
         return;
       }
       
@@ -191,6 +191,17 @@ export const LoginPage = () => {
     loginWithRedirect();
   };
 
+  if (isLoading || authLoading || isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50 flex items-center justify-center p-6">
       <Card className="w-full max-w-md shadow-xl">
@@ -205,11 +216,12 @@ export const LoginPage = () => {
           </div>
           <div>
             <CardTitle className="text-2xl font-semibold">
-              Welcome to BrightMinds — Teacher Portal
+              <span className="block">Welcome to BrightMinds</span>
+              <span className="block italic text-xl">Teacher Portal</span>
             </CardTitle>
             {step === 'choice' && (
               <CardDescription className="mt-2 text-sm">
-                New teachers need to obtain an enrollment code from their administrator
+                Please choose an option below to continue
               </CardDescription>
             )}
           </div>
@@ -244,6 +256,10 @@ export const LoginPage = () => {
                 <ArrowRight className="mr-2 h-5 w-5" />
                 Existing Teacher - Sign In
               </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                New teachers need to obtain an enrollment code from their administrator
+              </p>
 
               <div className="text-center text-sm text-muted-foreground mt-6 pt-4 border-t">
                 <p className="mb-1">Sign in securely with Auth0 to access</p>

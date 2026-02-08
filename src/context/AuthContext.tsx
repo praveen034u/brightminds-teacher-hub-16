@@ -86,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Auth0 Action injects role at: https://brightminds.ai4magic.com/role
       const auth0Role = (auth0User as any)['https://brightminds.ai4magic.com/role'] as 'admin' | 'teacher' | undefined;
       const userRole = auth0Role || 'teacher'; // Default to teacher if no role specified
+      const resolveRole = (profileRole?: 'admin' | 'teacher') => auth0Role || profileRole || 'teacher';
 
       console.log('🔍 Auth0 User Data:', {
         sub: auth0User.sub,
@@ -155,8 +156,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Continue without returning to finish normal setup
           }
           
-          // Merge role from Auth0 token with profile data
-          teacher.role = userRole;
+          // Prefer Auth0 role if present, otherwise keep database role
+          teacher.role = resolveRole(teacher.role);
           
           console.log('✅ Final teacher object with role:', {
             id: teacher.id,
@@ -211,8 +212,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: userRole
             } as Teacher);
           } else {
-            // Merge role from Auth0 token
-            teacher.role = userRole;
+            // Prefer Auth0 role if present, otherwise keep database role
+            teacher.role = resolveRole(teacher.role);
             // Treat as existing teacher regardless of profile completeness
             setIsNewUser(false);
             setUser(teacher);
