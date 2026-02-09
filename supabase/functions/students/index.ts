@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     // Get teacher ID from auth0_user_id
     const { data: teacher } = await supabase
       .from('teachers')
-      .select('id')
+      .select('id, grades_taught')
       .eq('auth0_user_id', auth0UserId)
       .single();
 
@@ -44,13 +44,21 @@ Deno.serve(async (req) => {
     }
 
     const teacherId = teacher.id;
+    const gradesTaught = Array.isArray(teacher.grades_taught)
+      ? teacher.grades_taught.filter((grade) => typeof grade === 'string' && grade.trim())
+      : [];
 
     if (req.method === 'GET') {
       let query = supabase
         .from('students')
         .select('*', { count: includeMeta || page !== null || pageSize !== null ? 'exact' : undefined })
-        .eq('teacher_id', teacherId)
         .order('name');
+
+      if (gradesTaught.length > 0) {
+        query = query.in('grade', gradesTaught);
+      } else {
+        query = query.eq('teacher_id', teacherId);
+      }
 
       if (gradeFilter) {
         const grades = gradeFilter

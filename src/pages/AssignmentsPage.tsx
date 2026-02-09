@@ -37,7 +37,7 @@ function AssignmentsPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   
-  const { auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { auth0UserId, isLoading: authLoading, isAuthenticated, user } = useAuth();
   const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -68,6 +68,21 @@ function AssignmentsPage() {
   const [selectedRoom, setSelectedRoom] = useState('none');
   const [selectedQuestionPaper, setSelectedQuestionPaper] = useState('');
   const [questionPapers, setQuestionPapers] = useState<any[]>([]);
+  const allowedGrades = useMemo(
+    () =>
+      Array.isArray(user?.grades_taught)
+        ? user.grades_taught.filter((g) => typeof g === 'string' && g.trim())
+        : [],
+    [user?.grades_taught]
+  );
+
+  const formatGradeLabel = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Grade';
+    return trimmed.toLowerCase() === 'pre-k' || trimmed.toLowerCase() === 'k'
+      ? trimmed
+      : `Grade ${trimmed}`;
+  };
 
   // Refresh assignment progress when modal is opened
   useEffect(() => {
@@ -725,6 +740,11 @@ function AssignmentsPage() {
       toast.error('Please select a grade level');
       return false;
     }
+    if (allowedGrades.length > 0 && !allowedGrades.includes(grade)) {
+      console.log('❌ Validation failed: Grade not assigned to teacher');
+      toast.error('You can only create assignments for grades assigned by your admin');
+      return false;
+    }
     if (!description.trim()) {
       console.log('❌ Validation failed: No description');
       toast.error('Please enter a description');
@@ -1380,18 +1400,17 @@ function AssignmentsPage() {
                       <SelectValue placeholder="Select grade level..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Grade 1</SelectItem>
-                      <SelectItem value="2">Grade 2</SelectItem>
-                      <SelectItem value="3">Grade 3</SelectItem>
-                      <SelectItem value="4">Grade 4</SelectItem>
-                      <SelectItem value="5">Grade 5</SelectItem>
-                      <SelectItem value="6">Grade 6</SelectItem>
-                      <SelectItem value="7">Grade 7</SelectItem>
-                      <SelectItem value="8">Grade 8</SelectItem>
-                      <SelectItem value="9">Grade 9</SelectItem>
-                      <SelectItem value="10">Grade 10</SelectItem>
-                      <SelectItem value="11">Grade 11</SelectItem>
-                      <SelectItem value="12">Grade 12</SelectItem>
+                      {allowedGrades.length === 0 ? (
+                        <SelectItem value="no-grades" disabled>
+                          No grades assigned
+                        </SelectItem>
+                      ) : (
+                        allowedGrades.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {formatGradeLabel(value)}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
