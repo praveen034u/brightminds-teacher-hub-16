@@ -14,7 +14,7 @@ const AdminLayout = () => {
     { name: 'Students', href: '/admin/students', icon: User },
     { name: 'Onboard Teacher', href: '/admin/onboard', icon: UserPlus },
     { name: 'Announcements', href: '/admin/newsletters', icon: Megaphone },
-    { name: 'School Settings', href: '/admin/settings', icon: Settings, disabled: true },
+    { name: 'School Settings', href: '/admin/settings', icon: Settings },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -67,9 +67,6 @@ const AdminLayout = () => {
                 >
                   <Icon className="h-5 w-5" />
                   {item.name}
-                  {item.disabled && (
-                    <span className="ml-auto text-xs">(Soon)</span>
-                  )}
                 </Link>
               );
             })}

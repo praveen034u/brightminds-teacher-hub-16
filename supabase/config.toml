@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.templates]
 verify_jwt = false
+
+[functions.admin-settings]
+verify_jwt = false
+
+[functions.ai-question-bank]
+verify_jwt = false

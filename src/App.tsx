@@ -27,6 +27,7 @@ import AdminNewsletters from "./pages/admin/AdminNewsletters";
 import AdminOnboardTeacher from "./pages/admin/AdminOnboardTeacher";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminStudents from "./pages/admin/AdminStudents";
+import AdminSettings from "./pages/admin/AdminSettings";
 import { Footer } from "@/components/layout/Footer";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
@@ -88,6 +89,13 @@ const App = () => (
                   </AdminRoute>
                 }>
                   <Route index element={<AdminStudents />} />
+                </Route>
+                <Route path="/admin/settings" element={
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                }>
+                  <Route index element={<AdminSettings />} />
                 </Route>
                 
                 {/* Protected routes - full width, no sidebar */}

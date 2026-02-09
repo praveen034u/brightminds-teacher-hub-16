@@ -6,6 +6,7 @@ interface EdgeFunctionOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: any;
   params?: Record<string, string>;
+  accessToken?: string;
 }
 
 export async function callEdgeFunction(
@@ -17,7 +18,7 @@ export async function callEdgeFunction(
     throw new Error('Not authenticated');
   }
 
-  const { method = 'GET', body, params = {} } = options;
+  const { method = 'GET', body, params = {}, accessToken } = options;
 
   // Add auth0_user_id to params
   const urlParams = new URLSearchParams({
@@ -33,9 +34,12 @@ export async function callEdgeFunction(
     headers: {
       'Content-Type': 'application/json',
       'apikey': apiKey,
-      'Authorization': `Bearer ${apiKey}`,
     },
   };
+
+  if (accessToken) {
+    (config.headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`;
+  }
 
   if (body && (method === 'POST' || method === 'PUT')) {
     config.body = JSON.stringify(body);
@@ -147,4 +151,10 @@ export const teacherProgressAPI = {
   getOverview: (auth0UserId: string | null) => callEdgeFunction('teacher-progress', auth0UserId),
   getAssignmentProgress: (auth0UserId: string | null, assignmentId: string) =>
     callEdgeFunction('teacher-progress', auth0UserId, { params: { assignment_id: assignmentId } }),
+};
+
+export const adminSettingsAPI = {
+  getOpenAiKey: (auth0UserId: string | null) => callEdgeFunction('admin-settings', auth0UserId),
+  setOpenAiKey: (auth0UserId: string | null, apiKey: string) =>
+    callEdgeFunction('admin-settings', auth0UserId, { method: 'PUT', body: { key: apiKey } }),
 };

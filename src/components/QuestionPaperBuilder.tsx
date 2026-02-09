@@ -92,7 +92,7 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
   isEditMode = false,
   initialData
 }) => {
-  const { user } = useAuth();
+  const { user, auth0UserId } = useAuth();
   // Question Paper State - Initialize with existing paper data if in edit mode
   const [paperTitle, setPaperTitle] = useState(
     existingPaper?.title || initialData?.title || ''
@@ -139,7 +139,6 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
   
   // AI Generation State
   const [llmSubject, setLlmSubject] = useState('');
-  const [llmGrade, setLlmGrade] = useState('');
   const [llmTopics, setLlmTopics] = useState<string[]>([]);
   const [currentTopic, setCurrentTopic] = useState('');
   const [topicSuggestions, setTopicSuggestions] = useState<string[]>([]);
@@ -147,7 +146,6 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
   const [llmComplexity, setLlmComplexity] = useState('medium');
   const [llmCount, setLlmCount] = useState(5);
   const [llmType, setLlmType] = useState('multiple-choice');
-  const [llmApiKey, setLlmApiKey] = useState(import.meta.env.VITE_OPENAI_API_KEY || '');
   const [llmLoading, setLlmLoading] = useState(false);
   const [llmError, setLlmError] = useState('');
   const [llmGeneratedQuestions, setLlmGeneratedQuestions] = useState<any[]>([]);
@@ -560,7 +558,7 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
 
   // AI Question Generation
   const handleGenerateAIQuestions = async () => {
-    if (!llmApiKey || !llmSubject || !llmGrade) {
+    if (!auth0UserId || !llmSubject || !paperGrade) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -576,9 +574,9 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
         : '';
       
       const { questions: generatedQuestions } = await generateQuestions({
-        apiKey: llmApiKey,
+        auth0UserId,
         subject: llmSubject + topicsContext,
-        grade: llmGrade,
+        grade: paperGrade,
         complexity: llmComplexity,
         count: llmCount,
         type: llmType
@@ -1250,17 +1248,6 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
                       readOnly={false}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="llmGrade">Grade Level *</Label>
-                    <Input
-                      id="llmGrade"
-                      value={llmGrade}
-                      onChange={(e) => setLlmGrade(e.target.value)}
-                      placeholder="e.g., 5"
-                      disabled={false}
-                      readOnly={false}
-                    />
-                  </div>
                 </div>
 
                 {/* Topic Selection with Suggestions */}
@@ -1393,21 +1380,9 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
                   </div>
                 </div>
 
-                {!import.meta.env.VITE_OPENAI_API_KEY && (
-                  <div>
-                    <Label htmlFor="llmApiKey">OpenAI API Key *</Label>
-                    <Input
-                      id="llmApiKey"
-                      type="password"
-                      value={llmApiKey}
-                      onChange={(e) => setLlmApiKey(e.target.value)}
-                      placeholder="sk-..."
-                      disabled={false}
-                      readOnly={false}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Tip: Set VITE_OPENAI_API_KEY in .env.local to avoid entering it each time
-                    </p>
+                {!auth0UserId && (
+                  <div className="text-xs text-red-600">
+                    Authentication required to generate questions.
                   </div>
                 )}
 

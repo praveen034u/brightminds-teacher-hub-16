@@ -1,48 +1,45 @@
 // src/api/llmQuestionBank.ts
-// Simple API client for LLM-powered question generation (OpenAI)
-
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+// Simple API client for LLM-powered question generation (via edge function)
+import { getSupabasePublishableKey, getSupabaseUrl } from '@/config/supabase';
 
 export async function generateQuestions({
-  apiKey,
+  auth0UserId,
   subject,
   grade,
   complexity,
   count,
   type
 }: {
-  apiKey: string;
+  auth0UserId: string;
   subject: string;
   grade: string;
   complexity: string;
   count: number;
   type: string;
 }): Promise<{ questions: any[]; raw: string }> {
-  const prompt = `Generate ${count} ${subject} questions for grade ${grade} students. Complexity: ${complexity}. Type: ${type}. Provide options and correct answer. Format as JSON array with fields: text, options, answer.`;
-  // Debug: log the URL and request details
-  console.log('[LLM] Fetching:', OPENAI_API_URL);
-  console.log('[LLM] Request body:', {
-    model: 'gpt-4',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7
-  });
-  const response = await fetch(OPENAI_API_URL, {
+  const url = `${getSupabaseUrl()}/functions/v1/ai-question-bank?auth0_user_id=${encodeURIComponent(auth0UserId)}`;
+  const apiKey = getSupabasePublishableKey();
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'apikey': apiKey,
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'gpt-4',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7
+      subject,
+      grade,
+      complexity,
+      count,
+      type
     })
   });
   if (!response.ok) {
-    throw new Error('Failed to generate questions: ' + response.statusText);
+    const errorText = await response.text();
+    throw new Error('Failed to generate questions: ' + (errorText || response.statusText));
   }
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
+  const content = data.raw || '';
   let questions: any[] = [];
   try {
     // Try to extract JSON array from the response
