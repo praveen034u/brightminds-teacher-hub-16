@@ -81,6 +81,19 @@ export const meAPI = {
 
 export const studentsAPI = {
   list: (auth0UserId: string | null) => callEdgeFunction('students', auth0UserId),
+  listPaged: (
+    auth0UserId: string | null,
+    options: { page: number; pageSize: number; grade?: string; search?: string }
+  ) =>
+    callEdgeFunction('students', auth0UserId, {
+      params: {
+        includeMeta: 'true',
+        page: String(options.page),
+        pageSize: String(options.pageSize),
+        ...(options.grade ? { grade: options.grade } : {}),
+        ...(options.search ? { search: options.search } : {}),
+      },
+    }),
   create: (auth0UserId: string | null, data: any) =>
     callEdgeFunction('students', auth0UserId, { method: 'POST', body: data }),
   update: (auth0UserId: string | null, id: string, data: any) =>

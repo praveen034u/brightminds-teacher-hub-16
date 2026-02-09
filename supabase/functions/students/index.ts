@@ -4,6 +4,7 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Expose-Headers': 'x-total-count, x-page, x-page-size',
 };
 
 Deno.serve(async (req) => {
@@ -20,6 +21,13 @@ Deno.serve(async (req) => {
     const auth0UserId = url.searchParams.get('auth0_user_id') || 'mock-teacher-1';
     const studentId = url.searchParams.get('id');
     const action = url.searchParams.get('action');
+    const gradeFilter = url.searchParams.get('grade');
+    const search = url.searchParams.get('search');
+    const includeMeta = url.searchParams.get('includeMeta') === 'true';
+    const pageParam = url.searchParams.get('page');
+    const pageSizeParam = url.searchParams.get('pageSize');
+    const page = pageParam ? Math.max(1, Number.parseInt(pageParam, 10) || 1) : null;
+    const pageSize = pageSizeParam ? Math.max(1, Number.parseInt(pageSizeParam, 10) || 10) : null;
 
     // Get teacher ID from auth0_user_id
     const { data: teacher } = await supabase
@@ -38,12 +46,36 @@ Deno.serve(async (req) => {
     const teacherId = teacher.id;
 
     if (req.method === 'GET') {
-      // List all students for teacher
-      const { data: students, error } = await supabase
+      let query = supabase
         .from('students')
-        .select('*')
+        .select('*', { count: includeMeta || page !== null || pageSize !== null ? 'exact' : undefined })
         .eq('teacher_id', teacherId)
         .order('name');
+
+      if (gradeFilter) {
+        const grades = gradeFilter
+          .split(',')
+          .map((grade) => grade.trim())
+          .filter(Boolean);
+        if (grades.length === 1) {
+          query = query.eq('grade', grades[0]);
+        } else if (grades.length > 1) {
+          query = query.in('grade', grades);
+        }
+      }
+
+      if (search) {
+        const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+        query = query.or(`name.ilike.%${escaped}%,email.ilike.%${escaped}%`);
+      }
+
+      if (page !== null && pageSize !== null) {
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize - 1;
+        query = query.range(start, end);
+      }
+
+      const { data: students, error, count } = await query;
 
       if (error) throw error;
 
@@ -55,8 +87,24 @@ Deno.serve(async (req) => {
           : null
       })) || [];
 
-      return new Response(JSON.stringify(studentsWithUrls), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      const totalCount = count ?? studentsWithUrls.length;
+      const responseBody = includeMeta || page !== null || pageSize !== null
+        ? {
+            data: studentsWithUrls,
+            total: totalCount,
+            page: page ?? 1,
+            pageSize: pageSize ?? totalCount,
+          }
+        : studentsWithUrls;
+
+      return new Response(JSON.stringify(responseBody), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'x-total-count': totalCount.toString(),
+          'x-page': (page ?? 1).toString(),
+          'x-page-size': (pageSize ?? totalCount).toString(),
+        },
       });
     }
 

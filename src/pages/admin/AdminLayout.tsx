@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Users, Megaphone, Settings, LogOut, Home, ChevronLeft, UserPlus } from 'lucide-react';
+import { Users, Megaphone, Settings, LogOut, Home, ChevronLeft, UserPlus, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AdminLayout = () => {
@@ -11,6 +11,7 @@ const AdminLayout = () => {
 
   const navigation = [
     { name: 'Teachers', href: '/admin/teachers', icon: Users },
+    { name: 'Students', href: '/admin/students', icon: User },
     { name: 'Onboard Teacher', href: '/admin/onboard', icon: UserPlus },
     { name: 'Announcements', href: '/admin/newsletters', icon: Megaphone },
     { name: 'School Settings', href: '/admin/settings', icon: Settings, disabled: true },
