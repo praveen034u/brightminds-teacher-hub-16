@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-4';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
