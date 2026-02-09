@@ -73,8 +73,18 @@ Deno.serve(async (req) => {
 
     if (roomDetailsError) throw roomDetailsError;
 
-    // Get teacher ID for this student (to fetch game assignments)
+    // Resolve teacher IDs via rooms first, then fall back to student's teacher_id
     const teacherId = student.teacher_id;
+    const roomTeacherIds = Array.from(
+      new Set(
+        (rooms || [])
+          .map((room: { teacher_id?: string | null }) => room.teacher_id)
+          .filter((id: string | null | undefined): id is string => Boolean(id))
+      )
+    );
+    const teacherIds = roomTeacherIds.length > 0
+      ? roomTeacherIds
+      : (teacherId ? [teacherId] : []);
 
     // Get assignments for student's rooms AND game assignments from their teacher
     let assignmentQuery = supabase
@@ -93,11 +103,15 @@ Deno.serve(async (req) => {
 
     // Build query to show only relevant assignments for this student
     console.log(`📚 Student ${student.name} (ID: ${student.id}) is in rooms:`, roomIds);
-    console.log(`👨‍🏫 Student's teacher ID:`, teacherId);
+    console.log(`👨‍🏫 Teacher IDs resolved for student:`, teacherIds);
     
     // FIXED: Proper room-based assignment filtering
     // This ensures students only see assignments they should have access to
-    assignmentQuery = assignmentQuery.eq('teacher_id', teacherId);
+    if (teacherIds.length > 0) {
+      assignmentQuery = assignmentQuery.in('teacher_id', teacherIds);
+    } else {
+      console.log('⚠️ No teacher IDs resolved for student - no assignments will be returned');
+    }
     
     if (roomIds.length > 0) {
       // Build complex OR condition: (room assignments for student's rooms) OR (unassigned assignments)
@@ -112,7 +126,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(`🔍 Final query being executed for student ${student.name}`);
-    console.log(`🔍 Query conditions: teacher_id=${teacherId}, roomIds=[${roomIds.join(', ')}]`);
+    console.log(`🔍 Query conditions: teacherIds=[${teacherIds.join(', ')}], roomIds=[${roomIds.join(', ')}]`);
     
     const { data: assignments, error: assignmentsError } = await assignmentQuery
       .order('due_date', { ascending: true });
