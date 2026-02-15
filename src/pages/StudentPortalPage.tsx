@@ -1258,6 +1258,10 @@ export const StudentPortalPage = () => {
     if (!assignment) return;
 
     resubmitHandledRef.current = true;
+    const currentAttempt = assignmentAttempts[assignment.id];
+    if (currentAttempt) {
+      resubmitAttemptSnapshotRef.current[assignment.id] = currentAttempt;
+    }
     if (assignment.question_paper_id) {
       startAssignmentWithQuestionPaper(assignment);
     } else if (assignment.assignment_type === 'game') {
@@ -1271,7 +1275,7 @@ export const StudentPortalPage = () => {
     } else {
       startAssignment(assignment.id);
     }
-  }, [resubmitAssignmentId, studentData]);
+  }, [resubmitAssignmentId, studentData, assignmentAttempts]);
 
   // Load student data function (defined early for use in effects)
   const loadStudentData = useCallback(async (accessToken: string) => {
