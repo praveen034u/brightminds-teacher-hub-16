@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useSearchParams, Navigate } from 'react-router-dom';
+import { useSearchParams, Navigate, useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -628,10 +628,14 @@ interface AssignmentAttempt {
 
 export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
-  const schoolIdParam = searchParams.get('school_id');
-  const resubmitAssignmentId = searchParams.get('resubmit_assignment_id');
+  const navigate = useNavigate();
+  const token = searchParams?.get('token') ?? null;
+  const schoolIdParam = searchParams?.get('school_id') ?? null;
+  const resubmitAssignmentId = searchParams?.get('resubmit_assignment_id') ?? null;
   const resubmitHandledRef = useRef(false);
+  const resubmitAttemptSnapshotRef = useRef<Record<string, AssignmentAttempt>>({});
+  const resubmitAttemptOverrideRef = useRef<Record<string, AssignmentAttempt>>({});
+  const hasLoadedRef = useRef(false);
 
   // Store token in localStorage for PWA redirect (only if explicitly accessing student portal)
   useEffect(() => {
@@ -645,7 +649,9 @@ export const StudentPortalPage = () => {
       localStorage.setItem('student_school_id', schoolIdParam);
     }
   }, [schoolIdParam]);
+
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -679,6 +685,35 @@ export const StudentPortalPage = () => {
   const [loadingQuestionPaper, setLoadingQuestionPaper] = useState(false);
   const [isSubmittingQuestionPaper, setIsSubmittingQuestionPaper] = useState(false);
   const [submissionProgress, setSubmissionProgress] = useState(0);
+
+  // FIX 1 & 4: Explicitly reset all modal states on component mount and clear persisted state
+  useEffect(() => {
+    // Clear any persisted modal state from localStorage/sessionStorage
+    try {
+      localStorage.removeItem('modal_open_state');
+      sessionStorage.removeItem('modal_open_state');
+      sessionStorage.removeItem('showGameModal');
+      sessionStorage.removeItem('showCustomModal');
+      sessionStorage.removeItem('showQuestionPaperModal');
+    } catch (error) {
+      console.warn('Failed to clear persisted modal state:', error);
+    }
+
+    // Explicitly reset all modal states to closed on mount
+    setShowGameModal(false);
+    setShowCustomModal(false);
+    setShowQuestionPaperModal(false);
+    setCurrentGame(null);
+    setCurrentCustomAssignment(null);
+    setCurrentQuestionPaper(null);
+    setQuestionPaperAnswers({});
+    setQuestionPaperAttachments({});
+    setLoadingQuestionPaper(false);
+    setIsSubmittingQuestionPaper(false);
+    
+    console.log('✅ Modal states explicitly reset on component mount');
+  }, []); // Only run once on mount
+
   // Load question paper for an assignment
   const loadQuestionPaper = async (questionPaperId: string) => {
     setLoadingQuestionPaper(true);
@@ -715,7 +750,7 @@ export const StudentPortalPage = () => {
       return data;
     } catch (error) {
       console.error('Error loading question paper:', error);
-      toast.error('Failed to load question paper');
+      //toast.error('Failed to load question paper');
       return null;
     } finally {
       setLoadingQuestionPaper(false);
@@ -737,12 +772,27 @@ export const StudentPortalPage = () => {
       return;
     }
 
+    // FIX 3: Prevent race condition - Check if modal is already opening/open
+    if (loadingQuestionPaper || showQuestionPaperModal) {
+      console.warn('⚠️ Question paper modal already opening/open, ignoring duplicate request');
+      return;
+    }
+
     try {
       // STEP 1: Open modal immediately with loading state
       console.log('📄 STEP 1: Loading question paper...');
-      setShowQuestionPaperModal(true);
+      // Reset all states first before opening
+      setQuestionPaperAnswers({});
+      setQuestionPaperAttachments({});
+      setQuestionPaperAttachmentReady({});
+      setIsSubmittingQuestionPaper(false);
+      setSubmissionProgress(0);
+      // Then open modal with loading state
       setLoadingQuestionPaper(true);
       setCurrentQuestionPaper({ assignment });
+      // Small delay to ensure state is set before opening modal
+      await new Promise(resolve => setTimeout(resolve, 50));
+      setShowQuestionPaperModal(true);
       toast.info('Loading question paper...', { duration: 2000 });
       
       const paper = await loadQuestionPaper(assignment.question_paper_id);
@@ -795,6 +845,23 @@ export const StudentPortalPage = () => {
     }
   };
 
+  const restoreResubmitAttemptIfNeeded = (assignmentId?: string | null) => {
+    if (!assignmentId) return;
+    const snapshot = resubmitAttemptSnapshotRef.current[assignmentId];
+    if (!snapshot) return;
+    resubmitAttemptOverrideRef.current[assignmentId] = snapshot;
+    setAssignmentAttempts(prev => {
+      const updated = { ...prev, [assignmentId]: snapshot };
+      try {
+        localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
+      } catch {
+        // Ignore localStorage failures
+      }
+      return updated;
+    });
+    delete resubmitAttemptSnapshotRef.current[assignmentId];
+  };
+
   // Handle answer change for question paper
   const handleQuestionPaperAnswerChange = (questionIndex: number, answer: string | number) => {
     setQuestionPaperAnswers(prev => ({
@@ -840,15 +907,32 @@ export const StudentPortalPage = () => {
   };
 
   const handleQuestionPaperModalChange = (open: boolean) => {
-    if (!open && (loadingQuestionPaper || isSubmittingQuestionPaper)) return;
+    // FIX 3: Prevent closing while loading or submitting
+    if (!open && (loadingQuestionPaper || isSubmittingQuestionPaper)) {
+      console.warn('⚠️ Cannot close modal while loading or submitting');
+      return;
+    }
+    
     if (!open) {
+      // FIX 3: Clear all states atomically to prevent race conditions
+      console.log('🔒 Closing question paper modal and clearing all states');
+      restoreResubmitAttemptIfNeeded(currentQuestionPaper?.assignment?.id);
       setShowQuestionPaperModal(false);
       setCurrentQuestionPaper(null);
       setQuestionPaperAnswers({});
       setQuestionPaperAttachments({});
+      setQuestionPaperAttachmentReady({});
+      setLoadingQuestionPaper(false);
+      setIsSubmittingQuestionPaper(false);
+      setSubmissionProgress(0);
       return;
     }
-    setShowQuestionPaperModal(true);
+    
+    // FIX 3: Only allow opening if not already open
+    if (!showQuestionPaperModal) {
+      console.log('📖 Opening question paper modal');
+      setShowQuestionPaperModal(true);
+    }
   };
 
   // Submit question paper answers
@@ -1000,6 +1084,7 @@ export const StudentPortalPage = () => {
             status: 'submitted' as const,
             attempts_count: 1,
             score: percentageScore,
+            submission_data: {},
           };
           const updatedAttempt = {
             ...baseAttempt,
@@ -1134,7 +1219,15 @@ export const StudentPortalPage = () => {
                 },
               }
             : attempt;
-          attemptsMap[attempt.assignment_id] = mergedAttempt;
+          const override = resubmitAttemptOverrideRef.current[attempt.assignment_id];
+          if (override && (mergedAttempt.status === 'in_progress' || mergedAttempt.status === 'not_started')) {
+            attemptsMap[attempt.assignment_id] = override;
+          } else {
+            if (override && (mergedAttempt.status === 'completed' || mergedAttempt.status === 'submitted')) {
+              delete resubmitAttemptOverrideRef.current[attempt.assignment_id];
+            }
+            attemptsMap[attempt.assignment_id] = mergedAttempt;
+          }
         });
         setAssignmentAttempts(attemptsMap);
         // Save to localStorage for fallback
@@ -1167,6 +1260,14 @@ export const StudentPortalPage = () => {
     resubmitHandledRef.current = true;
     if (assignment.question_paper_id) {
       startAssignmentWithQuestionPaper(assignment);
+    } else if (assignment.assignment_type === 'game') {
+      startAssignment(assignment.id)
+        .catch((error) => {
+          console.warn('Failed to record game resubmit attempt:', error);
+        })
+        .finally(() => {
+          playGame(assignment);
+        });
     } else {
       startAssignment(assignment.id);
     }
@@ -1175,7 +1276,11 @@ export const StudentPortalPage = () => {
   // Load student data function (defined early for use in effects)
   const loadStudentData = useCallback(async (accessToken: string) => {
     try {
-      setLoading(true);
+      if (!hasLoadedRef.current) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       
       // Enable mock data for testing when function is not deployed
       // Remove this block once the Supabase function is deployed
@@ -1444,6 +1549,8 @@ export const StudentPortalPage = () => {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      hasLoadedRef.current = true;
     }
   }, []); // Empty deps - function is stable
 
@@ -2329,6 +2436,7 @@ export const StudentPortalPage = () => {
   }
 
   if (error || !studentData) {
+    console.error('Error loading student data:', error);
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -2361,6 +2469,12 @@ export const StudentPortalPage = () => {
                 <p className="text-sm text-gray-600">{studentData.email || 'Student Portal'}</p>
               </div>
             </div>
+            {isRefreshing && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span>Refreshing...</span>
+              </div>
+            )}
             
           </div>
         </div>
@@ -2586,15 +2700,37 @@ export const StudentPortalPage = () => {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => {
-                                      const storedToken = localStorage.getItem('student_presigned_token');
-                                      const storedSchoolId = localStorage.getItem('student_school_id');
-                                      const tokenParam = storedToken ? `?token=${encodeURIComponent(storedToken)}` : '?token=';
-                                      const schoolParam = storedSchoolId ? `&school_id=${encodeURIComponent(storedSchoolId)}` : '';
-                                      window.location.href = `/student-portal${tokenParam}${schoolParam}&resubmit_assignment_id=${encodeURIComponent(assignment.id)}`;
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      resubmitHandledRef.current = true;
+                                      if (attempt) {
+                                        resubmitAttemptSnapshotRef.current[assignment.id] = attempt;
+                                      }
+                                      if (assignment.assignment_type === 'game') {
+                                        startAssignment(assignment.id)
+                                          .catch((error) => {
+                                            console.warn('Failed to record game resubmit attempt:', error);
+                                          })
+                                          .finally(() => {
+                                            playGame(assignment);
+                                          });
+                                      } else if (assignment.question_paper_id) {
+                                        startAssignmentWithQuestionPaper(assignment);
+                                      } else {
+                                        startAssignment(assignment.id);
+                                      }
                                     }}
+                                    disabled={isLoading}
                                   >
-                                    Resubmit
+                                    {isLoading ? (
+                                      <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-1"></div>
+                                        Resubmitting...
+                                      </>
+                                    ) : (
+                                      'Resubmit'
+                                    )}
                                   </Button>
                                 </div>
                               );
@@ -2666,7 +2802,9 @@ export const StudentPortalPage = () => {
                             return (
                               <Button 
                                 onClick={(e) => {
+                                  // FIX 2: Prevent event propagation to avoid bubbling to parent elements
                                   e.preventDefault();
+                                  e.stopPropagation();
                                   
                                   // ULTRA DEBUG - Log everything about this assignment
                                   console.log('╔══════════════════════════════════════════════╗');
@@ -2805,7 +2943,15 @@ export const StudentPortalPage = () => {
       </main>
 
       {/* Game Modal */}
-      <Dialog open={showGameModal} onOpenChange={setShowGameModal}>
+      <Dialog
+        open={showGameModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            restoreResubmitAttemptIfNeeded(currentGame?.assignmentId);
+          }
+          setShowGameModal(open);
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -2934,7 +3080,13 @@ export const StudentPortalPage = () => {
                         Game interface coming soon!
                       </p>
                       <Button 
-                        onClick={() => setShowGameModal(false)}
+                        onClick={(e) => {
+                          // FIX 2: Prevent event propagation
+                          e.preventDefault();
+                          e.stopPropagation();
+                          restoreResubmitAttemptIfNeeded(currentGame?.assignmentId);
+                          setShowGameModal(false);
+                        }}
                         variant="outline"
                       >
                         Close Game
@@ -2946,14 +3098,23 @@ export const StudentPortalPage = () => {
 
               <div className="mt-4 flex justify-between">
                 <Button 
-                  onClick={() => setShowGameModal(false)}
+                  onClick={(e) => {
+                    // FIX 2: Prevent event propagation
+                    e.preventDefault();
+                    e.stopPropagation();
+                    restoreResubmitAttemptIfNeeded(currentGame?.assignmentId);
+                    setShowGameModal(false);
+                  }}
                   variant="outline"
                 >
                   Close Game
                 </Button>
                 <Button 
                   onClick={(e) => {
+                    // FIX 2: Prevent event propagation
                     e.preventDefault();
+                    e.stopPropagation();
+                    
                     if (currentGame?.assignmentId) {
                       // If not completed, treat as wrong answer (score 0)
                       const scoreToSubmit = gameCompleted ? gameScore : 0;
@@ -3128,11 +3289,18 @@ export const StudentPortalPage = () => {
                       return (
                         <>
                     <Button
-                      onClick={() => {
+                      onClick={(e) => {
+                        // FIX 2: Prevent event propagation
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        restoreResubmitAttemptIfNeeded(currentQuestionPaper?.assignment?.id);
+                        
                         setShowQuestionPaperModal(false);
                         setCurrentQuestionPaper(null);
                         setQuestionPaperAnswers({});
                         setQuestionPaperAttachments({});
+                        setQuestionPaperAttachmentReady({});
                       }}
                       variant="outline"
                       disabled={isSubmittingQuestionPaper}
@@ -3140,7 +3308,12 @@ export const StudentPortalPage = () => {
                       Cancel
                     </Button>
                     <Button
-                      onClick={submitQuestionPaper}
+                      onClick={(e) => {
+                        // FIX 2: Prevent event propagation
+                        e.preventDefault();
+                        e.stopPropagation();
+                        submitQuestionPaper();
+                      }}
                       className="bg-green-600 hover:bg-green-700 text-white"
                       disabled={!isSubmittable || isSubmittingQuestionPaper}
                     >
@@ -3188,10 +3361,15 @@ export const StudentPortalPage = () => {
               <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No questions available in this paper</p>
               <Button
-                onClick={() => {
+                onClick={(e) => {
+                  // FIX 2: Prevent event propagation
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
                   setShowQuestionPaperModal(false);
                   setQuestionPaperAnswers({});
                   setQuestionPaperAttachments({});
+                  setQuestionPaperAttachmentReady({});
                   setCurrentQuestionPaper(null);
                 }}
                 variant="outline"
