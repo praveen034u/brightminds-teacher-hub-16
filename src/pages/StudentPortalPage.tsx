@@ -9,6 +9,80 @@ import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, G
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
+import { useSubmissionStore } from '@/context/SubmissionStore';
+import { aiAssessmentSettings } from '@/config/appSettings';
+
+const stripHtml = (value: string) => value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+
+const RichTextEditor = ({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) => {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const isEmpty = !stripHtml(value);
+
+  const runCommand = (command: string) => {
+    if (typeof document === 'undefined') return;
+    document.execCommand(command, false);
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    if (editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [value]);
+
+  return (
+    <div className="rounded-lg border-2 border-gray-300 bg-white">
+      <div className="flex flex-wrap gap-2 border-b border-gray-200 bg-gray-50 p-2">
+        <button type="button" onClick={() => runCommand('bold')} className="rounded px-2 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+          B
+        </button>
+        <button type="button" onClick={() => runCommand('italic')} className="rounded px-2 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+          I
+        </button>
+        <button type="button" onClick={() => runCommand('underline')} className="rounded px-2 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+          U
+        </button>
+        <button type="button" onClick={() => runCommand('insertUnorderedList')} className="rounded px-2 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+          Bullet List
+        </button>
+        <button type="button" onClick={() => runCommand('insertOrderedList')} className="rounded px-2 py-1 text-sm font-semibold text-gray-700 hover:bg-gray-200">
+          Numbered List
+        </button>
+      </div>
+      <div className="relative">
+        {isEmpty && (
+          <div className="pointer-events-none absolute left-4 top-4 text-sm text-gray-400">
+            {placeholder || 'Type your answer here...'}
+          </div>
+        )}
+        <div
+          ref={editorRef}
+          className="min-h-[140px] p-4 text-sm text-gray-700 focus:outline-none"
+          contentEditable
+          onInput={handleInput}
+          suppressContentEditableWarning
+        />
+      </div>
+    </div>
+  );
+};
 
 // Simple game components
 // Utility: fuzzy matching to accept near-miss answers (typos, small variations)
@@ -485,6 +559,7 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
 
 interface StudentData {
   id: string;
+  school_id?: string | null;
   name: string;
   email: string;
   primary_language: string;
@@ -548,11 +623,15 @@ interface AssignmentAttempt {
   submitted_at?: string;
   submission_data?: any;
   feedback?: string;
+  ai_submission_id?: string;
 }
 
 export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const schoolIdParam = searchParams.get('school_id');
+  const resubmitAssignmentId = searchParams.get('resubmit_assignment_id');
+  const resubmitHandledRef = useRef(false);
 
   // Store token in localStorage for PWA redirect (only if explicitly accessing student portal)
   useEffect(() => {
@@ -560,6 +639,12 @@ export const StudentPortalPage = () => {
       localStorage.setItem('student_presigned_token', token);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (schoolIdParam) {
+      localStorage.setItem('student_school_id', schoolIdParam);
+    }
+  }, [schoolIdParam]);
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -575,6 +660,7 @@ export const StudentPortalPage = () => {
     return {};
   });
   const [loadingAttempts, setLoadingAttempts] = useState<Record<string, boolean>>({});
+  const { setSubmission } = useSubmissionStore();
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameScore, setGameScore] = useState(0);
   // Custom assignment modal state
@@ -588,7 +674,11 @@ export const StudentPortalPage = () => {
   const [showQuestionPaperModal, setShowQuestionPaperModal] = useState(false);
   const [currentQuestionPaper, setCurrentQuestionPaper] = useState<any>(null);
   const [questionPaperAnswers, setQuestionPaperAnswers] = useState<Record<number, string | number>>({});
+  const [questionPaperAttachments, setQuestionPaperAttachments] = useState<Record<number, File | null>>({});
+  const [questionPaperAttachmentReady, setQuestionPaperAttachmentReady] = useState<Record<number, boolean>>({});
   const [loadingQuestionPaper, setLoadingQuestionPaper] = useState(false);
+  const [isSubmittingQuestionPaper, setIsSubmittingQuestionPaper] = useState(false);
+  const [submissionProgress, setSubmissionProgress] = useState(0);
   // Load question paper for an assignment
   const loadQuestionPaper = async (questionPaperId: string) => {
     setLoadingQuestionPaper(true);
@@ -648,9 +738,11 @@ export const StudentPortalPage = () => {
     }
 
     try {
-      // STEP 1: Load the question paper FIRST
+      // STEP 1: Open modal immediately with loading state
       console.log('📄 STEP 1: Loading question paper...');
+      setShowQuestionPaperModal(true);
       setLoadingQuestionPaper(true);
+      setCurrentQuestionPaper({ assignment });
       toast.info('Loading question paper...', { duration: 2000 });
       
       const paper = await loadQuestionPaper(assignment.question_paper_id);
@@ -680,8 +772,8 @@ export const StudentPortalPage = () => {
       console.log('🎨 STEP 2: Opening question paper modal...');
       setCurrentQuestionPaper({ ...paper, assignment });
       setQuestionPaperAnswers({});
+      setQuestionPaperAttachments({});
       setLoadingQuestionPaper(false);
-      setShowQuestionPaperModal(true);
       
       console.log('✅ Modal opened with', paper.questions.length, 'questions');
       toast.success(`Question paper ready: ${paper.questions.length} questions`, { duration: 3000 });
@@ -711,9 +803,61 @@ export const StudentPortalPage = () => {
     }));
   };
 
+  const handleQuestionPaperAttachmentChange = (questionIndex: number, file: File | null) => {
+    setQuestionPaperAttachments(prev => ({
+      ...prev,
+      [questionIndex]: file
+    }));
+
+    if (!file) {
+      setQuestionPaperAttachmentReady(prev => ({
+        ...prev,
+        [questionIndex]: false,
+      }));
+      return;
+    }
+
+    setQuestionPaperAttachmentReady(prev => ({
+      ...prev,
+      [questionIndex]: false,
+    }));
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setQuestionPaperAttachmentReady(prev => ({
+        ...prev,
+        [questionIndex]: true,
+      }));
+    };
+    reader.onerror = () => {
+      setQuestionPaperAttachmentReady(prev => ({
+        ...prev,
+        [questionIndex]: false,
+      }));
+      toast.error('File upload failed. Please try again.');
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleQuestionPaperModalChange = (open: boolean) => {
+    if (!open && (loadingQuestionPaper || isSubmittingQuestionPaper)) return;
+    if (!open) {
+      setShowQuestionPaperModal(false);
+      setCurrentQuestionPaper(null);
+      setQuestionPaperAnswers({});
+      setQuestionPaperAttachments({});
+      return;
+    }
+    setShowQuestionPaperModal(true);
+  };
+
   // Submit question paper answers
   const submitQuestionPaper = async () => {
     if (!currentQuestionPaper) return;
+    if (isSubmittingQuestionPaper) return;
+
+    setIsSubmittingQuestionPaper(true);
+    setSubmissionProgress(15);
 
     const questions = currentQuestionPaper.questions || [];
     const assignment = currentQuestionPaper.assignment;
@@ -736,29 +880,160 @@ export const StudentPortalPage = () => {
       } else if (q.type === 'subjective') {
         // Subjective: Award partial marks (teacher will grade later)
         // For now, give full marks if student provided an answer
-        if (studentAnswer && String(studentAnswer).trim().length > 0) {
+        const answerText = typeof studentAnswer === 'string' ? stripHtml(studentAnswer) : String(studentAnswer || '');
+        if (answerText.trim().length > 0) {
           score += questionMarks * 0.5; // 50% for attempt
         }
       }
     });
 
     const percentageScore = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
+    setSubmissionProgress(35);
+
+    const subjectiveText = questions
+      .map((q: any, idx: number) => (q.type === 'subjective' ? stripHtml(String(questionPaperAnswers[idx] || '')) : ''))
+      .filter((value: string) => value.trim().length > 0)
+      .join('\n\n');
 
     // Submit the assignment with answers
     await completeAssignment(assignment.id, percentageScore, {
       question_paper_id: currentQuestionPaper.id,
       answers: questionPaperAnswers,
+      attachments_meta: Object.entries(questionPaperAttachments).reduce((acc, [key, file]) => {
+        if (file) {
+          acc[key] = { name: file.name, type: file.type, size: file.size };
+        }
+        return acc;
+      }, {} as Record<string, { name: string; type: string; size: number }>),
       questions_attempted: Object.keys(questionPaperAnswers).length,
       total_questions: questions.length,
       raw_score: score,
       total_marks: totalMarks,
       submitted_at: new Date().toISOString()
     });
+    setSubmissionProgress(60);
 
+    const attachmentKeys = Object.keys(questionPaperAttachments)
+      .map((key) => Number(key))
+      .filter((key) => !Number.isNaN(key))
+      .sort((a, b) => a - b);
+    const lastAttachmentKey = attachmentKeys.reverse().find((key) => questionPaperAttachments[key]);
+    const lastAttachment = lastAttachmentKey !== undefined ? questionPaperAttachments[lastAttachmentKey] : null;
+
+    if ((subjectiveText || lastAttachment) && assignment?.id && studentData?.id) {
+      try {
+        const schoolId =
+          schoolIdParam ||
+          studentData?.school_id ||
+          localStorage.getItem('student_school_id') ||
+          '';
+        if (!schoolId) {
+          toast.error('Missing school ID for AI feedback. Please refresh or contact support.');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('student_id', studentData.id);
+        formData.append('assignment_id', assignment.id);
+        formData.append('school_id', schoolId);
+        if (assignment.grade) formData.append('grade_level', assignment.grade);
+        formData.append('subject', assignment.title || 'Assignment');
+        formData.append('rubric', aiAssessmentSettings.rubric);
+        formData.append('max_score', String(aiAssessmentSettings.maxScore));
+        formData.append('language', aiAssessmentSettings.language);
+        formData.append('submission_text', subjectiveText || 'Submitted via file upload.');
+
+        if (lastAttachment) {
+          formData.append('image', lastAttachment);
+        }
+
+        const response = await fetch(
+          `${aiAssessmentSettings.apiBaseUrl}/api/v1/assignments/assess`,
+          {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+            },
+            body: formData,
+          }
+        );
+        setSubmissionProgress(80);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'AI feedback failed');
+        }
+
+        const submission = await response.json();
+        let aiSubmissionId =
+          (submission?.submission_id || submission?.submissionId || submission?.id) as string | undefined;
+        if (!aiSubmissionId) {
+          aiSubmissionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          console.warn('AI response missing submission id. Generated local id:', aiSubmissionId);
+        }
+        setSubmission({
+          id: aiSubmissionId,
+          assignmentId: assignment.id,
+          studentId: studentData.id,
+          submittedAt: new Date().toISOString(),
+          inputMode: 'text',
+          text: subjectiveText,
+          feedback: submission.feedback || submission.data?.feedback || submission.ai_feedback,
+        });
+        try {
+          const raw = localStorage.getItem('student_ai_submission_map');
+          const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+          map[assignment.id] = aiSubmissionId;
+          localStorage.setItem('student_ai_submission_map', JSON.stringify(map));
+        } catch {
+          // Ignore localStorage failures
+        }
+
+        setAssignmentAttempts(prev => {
+          const current = prev[assignment.id];
+          const baseAttempt = current || {
+            id: `ai-${assignment.id}`,
+            assignment_id: assignment.id,
+            student_id: studentData.id,
+            status: 'submitted' as const,
+            attempts_count: 1,
+            score: percentageScore,
+          };
+          const updatedAttempt = {
+            ...baseAttempt,
+            ai_submission_id: aiSubmissionId,
+            submission_data: {
+              ...(baseAttempt.submission_data || {}),
+              ai_submission_id: aiSubmissionId,
+            },
+          };
+          const updated = { ...prev, [assignment.id]: updatedAttempt };
+          localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
+          return updated;
+        });
+
+        try {
+          await loadAssignmentAttempts();
+        } catch (refreshError) {
+          console.warn('Failed to refresh assignment attempts:', refreshError);
+        }
+        setSubmissionProgress(95);
+      } catch (error) {
+        console.warn('AI feedback submission failed:', error);
+        toast.error('AI feedback is not available right now.');
+      }
+    }
+
+    setSubmissionProgress(100);
     toast.success(`Assignment submitted! Score: ${percentageScore}% (${score}/${totalMarks} marks)`);
     setShowQuestionPaperModal(false);
     setCurrentQuestionPaper(null);
     setQuestionPaperAnswers({});
+    setQuestionPaperAttachments({});
+    setSubmissionProgress(0);
+    setIsSubmittingQuestionPaper(false);
   };
 
   // Start a custom assignment (question paper) - keep for backward compatibility
@@ -840,8 +1115,26 @@ export const StudentPortalPage = () => {
       if (response.ok) {
         const attempts = await response.json();
         const attemptsMap: Record<string, AssignmentAttempt> = {};
+        let aiSubmissionMap: Record<string, string> = {};
+        try {
+          const raw = localStorage.getItem('student_ai_submission_map');
+          aiSubmissionMap = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+        } catch {
+          aiSubmissionMap = {};
+        }
         attempts.forEach((attempt: AssignmentAttempt) => {
-          attemptsMap[attempt.assignment_id] = attempt;
+          const mappedSubmissionId = aiSubmissionMap[attempt.assignment_id];
+          const mergedAttempt = mappedSubmissionId && !attempt.ai_submission_id
+            ? {
+                ...attempt,
+                ai_submission_id: mappedSubmissionId,
+                submission_data: {
+                  ...(attempt.submission_data || {}),
+                  ai_submission_id: mappedSubmissionId,
+                },
+              }
+            : attempt;
+          attemptsMap[attempt.assignment_id] = mergedAttempt;
         });
         setAssignmentAttempts(attemptsMap);
         // Save to localStorage for fallback
@@ -864,6 +1157,21 @@ export const StudentPortalPage = () => {
     }
   }, [studentData, loadAssignmentAttempts]);
 
+  useEffect(() => {
+    if (resubmitHandledRef.current) return;
+    if (!resubmitAssignmentId || !studentData) return;
+
+    const assignment = studentData.assignments.find((item) => item.id === resubmitAssignmentId);
+    if (!assignment) return;
+
+    resubmitHandledRef.current = true;
+    if (assignment.question_paper_id) {
+      startAssignmentWithQuestionPaper(assignment);
+    } else {
+      startAssignment(assignment.id);
+    }
+  }, [resubmitAssignmentId, studentData]);
+
   // Load student data function (defined early for use in effects)
   const loadStudentData = useCallback(async (accessToken: string) => {
     try {
@@ -880,6 +1188,7 @@ export const StudentPortalPage = () => {
         
         const mockData: StudentData = {
           id: 'mock-student-1',
+          school_id: 'mock-school-1',
           name: 'Demo Student',
           email: 'demo.student@example.com',
           primary_language: 'English',
@@ -950,6 +1259,9 @@ export const StudentPortalPage = () => {
         };
         
         setStudentData(mockData);
+        if (mockData.school_id) {
+          localStorage.setItem('student_school_id', mockData.school_id);
+        }
         setError(null);
         toast.success('Loaded demo data successfully');
         return;
@@ -999,6 +1311,31 @@ export const StudentPortalPage = () => {
       const data = await response.json();
       console.log('Successfully loaded student data:', data);
       console.log('📊 Assignments received:', data.assignments?.length || 0);
+      if (data.school_id) {
+        localStorage.setItem('student_school_id', data.school_id);
+      }
+
+      const assignmentsCacheKey = `student_assignments_cache_${data.id}`;
+      if (Array.isArray(data.assignments) && data.assignments.length > 0) {
+        try {
+          localStorage.setItem(assignmentsCacheKey, JSON.stringify(data.assignments));
+        } catch {
+          // Ignore localStorage failures
+        }
+      } else {
+        try {
+          const cached = localStorage.getItem(assignmentsCacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              data.assignments = parsed;
+              console.warn('Using cached assignments because server returned empty list.');
+            }
+          }
+        } catch {
+          // Ignore cache issues
+        }
+      }
       
       // DETAILED LOGGING - BEFORE ENRICHMENT
       console.log('\n╔════════════════════════════════════════════════════════════╗');
@@ -2215,10 +2552,51 @@ export const StudentPortalPage = () => {
                             
                             // Check for submitted/completed status FIRST
                             if (attempt && (attempt.status === 'completed' || attempt.status === 'submitted')) {
+                              let aiSubmissionId =
+                                attempt.ai_submission_id ||
+                                attempt.submission_data?.ai_submission_id ||
+                                attempt.submission_data?.submissionId ||
+                                attempt.submission_data?.submission_id ||
+                                null;
+                              if (!aiSubmissionId) {
+                                try {
+                                  const raw = localStorage.getItem('student_ai_submission_map');
+                                  const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
+                                  aiSubmissionId = map[assignment.id] || null;
+                                } catch {
+                                  aiSubmissionId = null;
+                                }
+                              }
                               return (
-                                <Badge className="bg-green-100 text-green-800 border-green-300">
-                                  ✅ Submitted {attempt.score !== undefined ? `(${attempt.score}%)` : ''}
-                                </Badge>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge className="bg-green-100 text-green-800 border-green-300">
+                                    ✅ Submitted {attempt.score !== undefined ? `(${attempt.score}%)` : ''}
+                                  </Badge>
+                                  {aiSubmissionId && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        window.location.href = `/student/feedback/${aiSubmissionId}`;
+                                      }}
+                                    >
+                                      View AI Feedback
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      const storedToken = localStorage.getItem('student_presigned_token');
+                                      const storedSchoolId = localStorage.getItem('student_school_id');
+                                      const tokenParam = storedToken ? `?token=${encodeURIComponent(storedToken)}` : '?token=';
+                                      const schoolParam = storedSchoolId ? `&school_id=${encodeURIComponent(storedSchoolId)}` : '';
+                                      window.location.href = `/student-portal${tokenParam}${schoolParam}&resubmit_assignment_id=${encodeURIComponent(assignment.id)}`;
+                                    }}
+                                  >
+                                    Resubmit
+                                  </Button>
+                                </div>
                               );
                             }
                             
@@ -2604,7 +2982,7 @@ export const StudentPortalPage = () => {
       </Dialog>
 
       {/* Question Paper Modal */}
-      <Dialog open={showQuestionPaperModal} onOpenChange={setShowQuestionPaperModal}>
+      <Dialog open={showQuestionPaperModal} onOpenChange={handleQuestionPaperModalChange}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -2681,13 +3059,40 @@ export const StudentPortalPage = () => {
                         <label className="text-sm font-medium text-gray-700">
                           Your Answer:
                         </label>
-                        <textarea
-                          value={questionPaperAnswers[idx] || ''}
-                          onChange={(e) => handleQuestionPaperAnswerChange(idx, e.target.value)}
+                        <RichTextEditor
+                          value={String(questionPaperAnswers[idx] || '')}
+                          onChange={(value) => handleQuestionPaperAnswerChange(idx, value)}
                           placeholder="Type your answer here..."
-                          className="w-full min-h-[120px] p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors resize-y"
-                          rows={4}
                         />
+                        <div className="flex flex-wrap items-center gap-3">
+                          <input
+                            id={`attachment-${idx}`}
+                            type="file"
+                            accept="image/*,text/plain,application/pdf"
+                            className="hidden"
+                            onChange={(event) => handleQuestionPaperAttachmentChange(idx, event.target.files?.[0] || null)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById(`attachment-${idx}`)?.click()}
+                          >
+                            Upload file
+                          </Button>
+                          {questionPaperAttachments[idx] && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <span>{questionPaperAttachments[idx]?.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuestionPaperAttachmentChange(idx, null)}
+                                className="text-red-500"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500">
                           * Subjective answers will be reviewed by your teacher
                         </p>
@@ -2708,34 +3113,74 @@ export const StudentPortalPage = () => {
                     {currentQuestionPaper.questions.length} questions answered
                   </div>
                   <div className="flex gap-2">
+                    {(() => {
+                      const hasTextAnswer = Object.values(questionPaperAnswers).some((answer) => {
+                        if (typeof answer === 'string') return stripHtml(answer).trim().length > 0;
+                        return typeof answer === 'number';
+                      });
+                      const hasAttachment = Object.values(questionPaperAttachments).some(Boolean);
+                      const allAttachmentsReady = Object.entries(questionPaperAttachments).every(([key, file]) => {
+                        if (!file) return true;
+                        const idx = Number(key);
+                        return questionPaperAttachmentReady[idx] === true;
+                      });
+                      const isSubmittable = (hasTextAnswer || hasAttachment) && allAttachmentsReady;
+                      return (
+                        <>
                     <Button
                       onClick={() => {
                         setShowQuestionPaperModal(false);
                         setCurrentQuestionPaper(null);
                         setQuestionPaperAnswers({});
+                        setQuestionPaperAttachments({});
                       }}
                       variant="outline"
+                      disabled={isSubmittingQuestionPaper}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={submitQuestionPaper}
                       className="bg-green-600 hover:bg-green-700 text-white"
-                      disabled={Object.keys(questionPaperAnswers).length === 0}
+                      disabled={!isSubmittable || isSubmittingQuestionPaper}
                     >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Submit Assignment
+                      {isSubmittingQuestionPaper ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Submit Assignment
+                        </>
+                      )}
                     </Button>
+                    {!isSubmittable && hasAttachment && !allAttachmentsReady && (
+                      <span className="text-xs text-gray-500 self-center">Processing file...</span>
+                    )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${(Object.keys(questionPaperAnswers).length / currentQuestionPaper.questions.length) * 100}%`
-                    }}
-                  ></div>
-                </div>
+                {isSubmittingQuestionPaper ? (
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${submissionProgress}%` }}
+                    ></div>
+                  </div>
+                ) : (
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${(Object.keys(questionPaperAnswers).length / currentQuestionPaper.questions.length) * 100}%`
+                      }}
+                    ></div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -2743,7 +3188,12 @@ export const StudentPortalPage = () => {
               <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No questions available in this paper</p>
               <Button
-                onClick={() => setShowQuestionPaperModal(false)}
+                onClick={() => {
+                  setShowQuestionPaperModal(false);
+                  setQuestionPaperAnswers({});
+                  setQuestionPaperAttachments({});
+                  setCurrentQuestionPaper(null);
+                }}
                 variant="outline"
                 className="mt-4"
               >

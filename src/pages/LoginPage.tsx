@@ -46,8 +46,10 @@ export const LoginPage = () => {
     // Only auto-redirect to student portal if explicitly requested via URL param
     // This prevents unwanted redirects when accessing localhost normally
     const studentToken = localStorage.getItem('student_presigned_token');
+    const schoolId = localStorage.getItem('student_school_id');
     if (studentToken && studentRedirect && !forceTeacher) {
-      window.location.replace(`/student-portal?token=${encodeURIComponent(studentToken)}`);
+      const schoolParam = schoolId ? `&school_id=${encodeURIComponent(schoolId)}` : '';
+      window.location.replace(`/student-portal?token=${encodeURIComponent(studentToken)}${schoolParam}`);
       return;
     }
     

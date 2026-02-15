@@ -8,9 +8,11 @@ const StudentPortalRedirect = () => {
     // Try to get the presigned token from localStorage/sessionStorage/cookie
     // You can change this logic to match your auth flow
     const token = localStorage.getItem('student_presigned_token');
+    const schoolId = localStorage.getItem('student_school_id');
     if (token) {
       // Redirect to student portal with token
-      window.location.replace(`/student-portal?token=${encodeURIComponent(token)}`);
+      const schoolParam = schoolId ? `&school_id=${encodeURIComponent(schoolId)}` : '';
+      window.location.replace(`/student-portal?token=${encodeURIComponent(token)}${schoolParam}`);
     } else {
       // Show a message or redirect to login (root route)
       navigate('/');

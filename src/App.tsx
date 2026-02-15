@@ -31,6 +31,12 @@ import AdminSettings from "./pages/admin/AdminSettings";
 import { Footer } from "@/components/layout/Footer";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
+import { SubmissionStoreProvider } from "@/context/SubmissionStore";
+import TeacherCreateAssignmentPage from "./pages/teacher/TeacherCreateAssignmentPage";
+import TeacherAssignmentsListPage from "./pages/teacher/TeacherAssignmentsListPage";
+import StudentAssignmentsListPage from "./pages/student/StudentAssignmentsListPage";
+import StudentSubmitAssignmentPage from "./pages/student/StudentSubmitAssignmentPage";
+import StudentFeedbackPage from "./pages/student/StudentFeedbackPage";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +53,7 @@ const App = () => (
       >
         <AuthProvider>
         <GradeFilterProvider>
+        <SubmissionStoreProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -97,6 +104,16 @@ const App = () => (
                 }>
                   <Route index element={<AdminSettings />} />
                 </Route>
+
+                {/* Subjective assignments - teacher/student UX */}
+                <Route path="/teacher/assignments" element={<TeacherAssignmentsListPage />} />
+                <Route path="/teacher/assignments/new" element={<TeacherCreateAssignmentPage />} />
+                <Route path="/student/assignments" element={<StudentAssignmentsListPage />} />
+                <Route
+                  path="/student/assignments/:assignmentId/submit"
+                  element={<StudentSubmitAssignmentPage />}
+                />
+                <Route path="/student/feedback/:submissionId" element={<StudentFeedbackPage />} />
                 
                 {/* Protected routes - full width, no sidebar */}
                 <Route path="/dashboard" element={
@@ -152,6 +169,7 @@ const App = () => (
             </div>
           </BrowserRouter>
         </TooltipProvider>
+        </SubmissionStoreProvider>
         </GradeFilterProvider>
         </AuthProvider>
       </Auth0Provider>

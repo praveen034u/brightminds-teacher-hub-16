@@ -192,6 +192,9 @@ const AdminStudents = () => {
       return;
     }
 
+    const selectedTeacherRecord = teachers.find((teacher) => teacher.id === formData.teacher_id);
+    const resolvedSchoolId = selectedTeacherRecord?.school_id || user?.school_id || null;
+
     const payload = {
       name: formData.name,
       email: formData.email || null,
@@ -204,6 +207,7 @@ const AdminStudents = () => {
         : [],
       additional_details: formData.additional_details || null,
       teacher_id: formData.teacher_id,
+      school_id: resolvedSchoolId,
     };
 
     try {

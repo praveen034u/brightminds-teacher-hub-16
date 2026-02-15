@@ -287,6 +287,7 @@ Deno.serve(async (req) => {
     // Prepare response
     const response = {
       id: student.id,
+      school_id: (student as { school_id?: string | null }).school_id ?? null,
       name: student.name,
       email: student.email,
       primary_language: student.primary_language,
