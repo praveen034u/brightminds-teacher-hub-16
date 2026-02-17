@@ -1,8 +1,11 @@
-import React from "react";
+
+import React, { useState } from "react";
 import PracticeWizard from "../components/PracticeWizard";
 import styles from "../styles/PracticeMode.module.css";
 
+
 const StudentPracticeModePage: React.FC = () => {
+  const [step, setStep] = useState<'pick' | 'audio' | 'ai' | 'results'>('pick');
 
   // Handler for Start New Session
   const handleStartNew = () => {
@@ -23,8 +26,10 @@ const StudentPracticeModePage: React.FC = () => {
 
   return (
     <div className={styles.practiceModePage} style={{ position: "relative", minHeight: "100vh", paddingBottom: 96 }}>
-      <h1 className={styles.title}>🎯 Practice Mode</h1>
-      <PracticeWizard />
+      {step !== 'results' && (
+        <h1 className={styles.title}>🎯 Practice Mode</h1>
+      )}
+      <PracticeWizard initialStep="pick" />
       <div style={{
         position: "fixed",
         left: 0,
