@@ -1,5 +1,6 @@
 // Mock API for Practice Mode
 import { PracticeSessionPayload, PracticeSession, UploadUrlResponse, AiFeedbackResponse, PracticeSessionDetails, PracticeType } from "../types/practiceTypes";
+import axios from "axios";
 
 function randomFail<T>(data: T, failRate = 0.1): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -13,27 +14,87 @@ function randomFail<T>(data: T, failRate = 0.1): Promise<T> {
   });
 }
 
-export async function createPracticeSession(payload: PracticeSessionPayload): Promise<PracticeSession> {
-  return randomFail({ sessionId: "sess_" + Math.random().toString(36).slice(2) });
+  // Real API integration
+  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+  const response = await axios.post(
+    "https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions",
+    {
+      practice_type: payload.activityType,
+      topic: payload.topic,
+      position: payload.position ?? null,
+      language: payload.language,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "x-student-id": studentId,
+      },
+    }
+  );
+  return { sessionId: response.data.session_id || response.data.sessionId };
+}
 }
 
-export async function getUploadUrl(sessionId: string, file: File): Promise<UploadUrlResponse> {
-  return randomFail({
-    uploadUrl: "https://mock-upload-url.com/" + sessionId,
-    audioUrl: "https://mock-audio-url.com/audio/" + sessionId + ".mp3"
-  });
+  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+  const response = await axios.post(
+    `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/upload-url`,
+    {},
+    {
+      headers: {
+        "x-student-id": studentId,
+      },
+    }
+  );
+  return {
+    uploadUrl: response.data.upload_url || response.data.uploadUrl,
+    audioUrl: response.data.audio_url || response.data.audioUrl,
+  };
+}
 }
 
-export async function uploadAudio(uploadUrl: string, file: File): Promise<{ success: boolean }> {
-  return randomFail({ success: true });
+  // Upload audio file to GCS
+  await axios.put(
+    uploadUrl,
+    file,
+    {
+      headers: {
+        "Content-Type": "audio/wav",
+      },
+    }
+  );
+  return { success: true };
+}
 }
 
-export async function attachAudio(sessionId: string, audioUrl: string): Promise<{ success: boolean }> {
-  return randomFail({ success: true });
+  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+  await axios.post(
+    `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/attach-audio`,
+    {
+      audio_url: audioUrl,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "x-student-id": studentId,
+      },
+    }
+  );
+  return { success: true };
+}
 }
 
-export async function requestAiFeedback(sessionId: string): Promise<{ jobId: string }> {
-  return randomFail({ jobId: "job_" + Math.random().toString(36).slice(2) });
+  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+  const response = await axios.post(
+    `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/ai-feedback`,
+    {},
+    {
+      headers: {
+        "x-student-id": studentId,
+      },
+    }
+  );
+  return { jobId: response.data.job_id || response.data.jobId || sessionId };
+}
 }
 
 const mockFeedback = (type: PracticeType): AiFeedbackResponse => ({
@@ -88,22 +149,15 @@ const mockFeedback = (type: PracticeType): AiFeedbackResponse => ({
 
 let sessionStatus: Record<string, { status: string; feedback?: AiFeedbackResponse }> = {};
 
-export async function getSessionDetails(sessionId: string): Promise<PracticeSessionDetails> {
-  if (!sessionStatus[sessionId]) {
-    sessionStatus[sessionId] = { status: "processing" };
-    setTimeout(() => {
-      sessionStatus[sessionId] = {
-        status: "completed",
-        feedback: mockFeedback(Math.random() > 0.5 ? "speech" : "debate")
-      };
-    }, 2000 + Math.random() * 2000);
-  }
-  const entry = sessionStatus[sessionId];
-  let ai_feedback_status: "processing" | "completed" | "failed" =
-    entry.status === "completed" ? "completed" : entry.status === "failed" ? "failed" : "processing";
-  return randomFail({
-    ai_feedback_status,
-    ai_feedback: entry.feedback,
-    score: entry.feedback ? Math.round((Object.values(entry.feedback.scores).reduce((a, b) => a + b, 0)) / Object.values(entry.feedback.scores).length) : undefined
-  });
+  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+  const response = await axios.get(
+    `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}`,
+    {
+      headers: {
+        "x-student-id": studentId,
+      },
+    }
+  );
+  return response.data;
+}
 }
