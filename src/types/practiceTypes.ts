@@ -13,8 +13,7 @@ export interface PracticeSession {
 
 export interface UploadUrlResponse {
   uploadUrl: string;
-  audioUrl: string;
-  audio_url?: string; // for backend snake_case compatibility
+  blobUrl?: string; // for backend snake_case compatibility
 }
 
 export interface AiFeedbackResponse {

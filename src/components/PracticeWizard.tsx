@@ -128,7 +128,7 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
       console.log("getUploadUrl response:", uploadUrlResponse);
       const uploadUrl = uploadUrlResponse.uploadUrl;
       // Use only the audio_url property as required by backend
-      const blobUrl = uploadUrlResponse.audio_url;
+      const blobUrl = uploadUrlResponse.blobUrl;
       await api.uploadAudio(uploadUrl, file);
       // Log and check blobUrl before calling attachAudio
       console.log("audio_url to attach:", blobUrl);

@@ -46,8 +46,8 @@ export async function getUploadUrl(sessionId: string, file: File, studentId: str
     }
   );
   return {
-    uploadUrl: response.data.upload_url || response.data.uploadUrl,
-    audioUrl: response.data.audio_url || response.data.audioUrl,
+    uploadUrl: response.data.uploadUrl,
+    blobUrl: response.data.blobUrl,
   };
 }
 
@@ -67,7 +67,7 @@ export async function attachAudio(sessionId: string, audioUrl: string, studentId
   await axios.post(
     `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/attach-audio`,
     {
-      audio_url: audioUrl,
+      "audio_url": audioUrl,
     },
     {
       headers: {
