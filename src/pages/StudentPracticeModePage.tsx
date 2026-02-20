@@ -1,11 +1,129 @@
+          // API: Get Session Details (with feedback)
+          const getSessionDetailsWithFeedback = async ({ sessionId, studentId }) => {
+            try {
+              const response = await axios.get(
+                `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}`,
+                {
+                  headers: {
+                    "x-student-id": studentId,
+                  },
+                }
+              );
+              return response.data;
+            } catch (error) {
+              console.error("Get Session Details (with feedback) error:", error);
+              throw error;
+            }
+          };
+        // API: Request AI Feedback
+        const requestAIFeedback = async ({ sessionId, studentId }) => {
+          try {
+            const response = await axios.post(
+              `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/ai-feedback`,
+              {},
+              {
+                headers: {
+                  "x-student-id": studentId,
+                },
+              }
+            );
+            return response.data;
+          } catch (error) {
+            console.error("Request AI Feedback error:", error);
+            throw error;
+          }
+        };
+      // API: Attach Audio Session
+      const attachAudioSession = async ({ sessionId, studentId, audioUrl }) => {
+        try {
+          const response = await axios.post(
+            `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/attach-audio`,
+            {
+              audio_url: audioUrl,
+            },
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "x-student-id": studentId,
+              },
+            }
+          );
+          return response.data;
+        } catch (error) {
+          console.error("Attach Audio Session error:", error);
+          throw error;
+        }
+      };
+    // API: Upload Audio (to GCS)
+    const uploadAudioToGCS = async ({ uploadUrl, audioFile }) => {
+      try {
+        const response = await axios.put(
+          uploadUrl,
+          audioFile,
+          {
+            headers: {
+              "Content-Type": "audio/wav",
+            },
+          }
+        );
+        return response.data;
+      } catch (error) {
+        console.error("Upload Audio to GCS error:", error);
+        throw error;
+      }
+    };
+  // API: Get Upload Url
+  const getUploadUrl = async ({ sessionId, studentId }) => {
+    try {
+      const response = await axios.post(
+        `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/upload-url`,
+        {},
+        {
+          headers: {
+            "x-student-id": studentId,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Get Upload Url error:", error);
+      throw error;
+    }
+  };
 
 import React, { useState } from "react";
+import axios from "axios";
 import PracticeWizard from "../components/PracticeWizard";
 import styles from "../styles/PracticeMode.module.css";
 
 
 const StudentPracticeModePage: React.FC = () => {
   const [step, setStep] = useState<'pick' | 'audio' | 'ai' | 'results'>('pick');
+
+  // API: Create Speech Session
+  const createSpeechSession = async ({ studentId, topic, language }) => {
+    try {
+      const response = await axios.post(
+        "https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions",
+        {
+          practice_type: "speech",
+          topic,
+          position: null,
+          language,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "x-student-id": studentId,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Create Speech Session error:", error);
+      throw error;
+    }
+  };
 
   // Handler for Start New Session
   const handleStartNew = () => {
