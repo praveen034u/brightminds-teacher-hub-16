@@ -53,14 +53,12 @@ export async function getUploadUrl(sessionId: string, file: File, studentId: str
 
 // Upload Audio to GCS
 export async function uploadAudio(uploadUrl: string, file: File): Promise<{ success: boolean }> {
-  // Ensure the file is sent as binary (File/Blob) and not wrapped in an object
-  // Also, set headers only if required by GCS (some signed URLs require no Content-Type header)
-  const config = {
+  // Always set Content-Type to audio/wav for GCS upload
+  await axios.put(uploadUrl, file, {
     headers: {
-      'Content-Type': file.type || 'audio/wav',
+      'Content-Type': 'audio/wav',
     },
-  };
-  await axios.put(uploadUrl, file, config);
+  });
   return { success: true };
 }
 
