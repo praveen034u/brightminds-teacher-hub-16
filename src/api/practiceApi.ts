@@ -55,15 +55,14 @@ export async function getUploadUrl(sessionId: string, file: File): Promise<Uploa
 
 // Upload Audio to GCS
 export async function uploadAudio(uploadUrl: string, file: File): Promise<{ success: boolean }> {
-  await axios.put(
-    uploadUrl,
-    file,
-    {
-      headers: {
-        "Content-Type": "audio/wav",
-      },
-    }
-  );
+  // Ensure the file is sent as binary (File/Blob) and not wrapped in an object
+  // Also, set headers only if required by GCS (some signed URLs require no Content-Type header)
+  const config = {
+    headers: {
+      'Content-Type': file.type || 'audio/wav',
+    },
+  };
+  await axios.put(uploadUrl, file, config);
   return { success: true };
 }
 
