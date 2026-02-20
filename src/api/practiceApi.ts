@@ -15,8 +15,7 @@ function randomFail<T>(data: T, failRate = 0.1): Promise<T> {
 }
 
 // Create Practice Session
-export async function createPracticeSession(payload: PracticeSessionPayload): Promise<PracticeSession> {
-  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+export async function createPracticeSession(payload: PracticeSessionPayload, studentId: string): Promise<PracticeSession> {
   const response = await axios.post(
     "https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions",
     {
@@ -36,8 +35,7 @@ export async function createPracticeSession(payload: PracticeSessionPayload): Pr
 }
 
 // Get Upload URL
-export async function getUploadUrl(sessionId: string, file: File): Promise<UploadUrlResponse> {
-  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+export async function getUploadUrl(sessionId: string, file: File, studentId: string): Promise<UploadUrlResponse> {
   const response = await axios.post(
     `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/upload-url`,
     {},
@@ -67,8 +65,7 @@ export async function uploadAudio(uploadUrl: string, file: File): Promise<{ succ
 }
 
 // Attach Audio Session
-export async function attachAudio(sessionId: string, audioUrl: string): Promise<{ success: boolean }> {
-  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+export async function attachAudio(sessionId: string, audioUrl: string, studentId: string): Promise<{ success: boolean }> {
   await axios.post(
     `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/attach-audio`,
     {
@@ -85,8 +82,7 @@ export async function attachAudio(sessionId: string, audioUrl: string): Promise<
 }
 
 // Request AI Feedback
-export async function requestAiFeedback(sessionId: string): Promise<{ jobId: string }> {
-  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+export async function requestAiFeedback(sessionId: string, studentId: string): Promise<{ jobId: string }> {
   const response = await axios.post(
     `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/ai-feedback`,
     {},
@@ -152,8 +148,7 @@ const mockFeedback = (type: PracticeType): AiFeedbackResponse => ({
 let sessionStatus: Record<string, { status: string; feedback?: AiFeedbackResponse }> = {};
 
 // Get Session Details (with feedback)
-export async function getSessionDetails(sessionId: string): Promise<PracticeSessionDetails> {
-  const studentId = localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+export async function getSessionDetails(sessionId: string, studentId: string): Promise<PracticeSessionDetails> {
   const response = await axios.get(
     `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}`,
     {
