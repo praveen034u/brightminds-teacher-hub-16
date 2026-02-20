@@ -126,6 +126,12 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
       const studentId = getStudentId();
       const { uploadUrl, audioUrl } = await api.getUploadUrl(state.sessionId, file, studentId);
       await api.uploadAudio(uploadUrl, file);
+      // Log and check audioUrl before calling attachAudio
+      console.log("audioUrl to attach:", audioUrl);
+      if (!audioUrl) {
+        dispatch({ type: "SET_ERROR", error: "Audio URL is missing after upload. Please try again." });
+        return;
+      }
       await api.attachAudio(state.sessionId, audioUrl, studentId);
       dispatch({ type: "SET_AUDIO", file });
       dispatch({ type: "SET_AUDIO_URL", audioUrl });
