@@ -98,12 +98,16 @@ interface PracticeWizardProps {
 const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' }) => {
   const [state, dispatch] = useReducer(reducer, { ...initialState, step: initialStep });
 
+  // Utility: Get studentId from localStorage (or fallback)
+  const getStudentId = () => localStorage.getItem("student_id") || "cec48a71-e5a1-4e29-ba21-9cbc7549d8ec";
+
   // Step 1: Pick topic and activity
   const handleStart = async (payload: PracticeSessionPayload) => {
     dispatch({ type: "SET_ERROR", error: "" });
     try {
       dispatch({ type: "SET_UPLOADING", uploading: true });
-      const session = await api.createPracticeSession(payload);
+      const studentId = getStudentId();
+      const session = await api.createPracticeSession(payload, studentId);
       dispatch({ type: "SET_SESSION", sessionId: session.sessionId });
       dispatch({ type: "NEXT_STEP" });
     } catch (e: any) {
@@ -119,9 +123,10 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
     dispatch({ type: "SET_ERROR", error: "" });
     dispatch({ type: "SET_UPLOADING", uploading: true });
     try {
-      const { uploadUrl, audioUrl } = await api.getUploadUrl(state.sessionId, file);
+      const studentId = getStudentId();
+      const { uploadUrl, audioUrl } = await api.getUploadUrl(state.sessionId, file, studentId);
       await api.uploadAudio(uploadUrl, file);
-      await api.attachAudio(state.sessionId, audioUrl);
+      await api.attachAudio(state.sessionId, audioUrl, studentId);
       dispatch({ type: "SET_AUDIO", file });
       dispatch({ type: "SET_AUDIO_URL", audioUrl });
       dispatch({ type: "NEXT_STEP" });
@@ -138,10 +143,11 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
     dispatch({ type: "SET_ERROR", error: "" });
     dispatch({ type: "SET_POLLING", polling: true });
     try {
-      const { jobId } = await api.requestAiFeedback(state.sessionId);
+      const studentId = getStudentId();
+      const { jobId } = await api.requestAiFeedback(state.sessionId, studentId);
       dispatch({ type: "SET_AI_JOB", aiJobId: jobId });
       // Poll for feedback
-      pollFeedback(state.sessionId);
+      pollFeedback(state.sessionId, studentId);
     } catch (e: any) {
       dispatch({ type: "SET_ERROR", error: e.message });
       dispatch({ type: "SET_POLLING", polling: false });
@@ -149,11 +155,11 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
   };
 
   // Polling logic
-  const pollFeedback = (sessionId: string) => {
+  const pollFeedback = (sessionId: string, studentId: string) => {
     let cancelled = false;
     const poll = async () => {
       try {
-        const details = await api.getSessionDetails(sessionId);
+        const details = await api.getSessionDetails(sessionId, studentId);
         if (details.ai_feedback_status === "completed") {
           dispatch({ type: "SET_FEEDBACK", feedback: details });
           dispatch({ type: "NEXT_STEP" });
