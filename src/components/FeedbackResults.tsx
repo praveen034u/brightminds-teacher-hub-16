@@ -5,6 +5,7 @@ import styles from "../styles/PracticeMode.module.css";
 interface FeedbackResultsProps {
   feedback: PracticeSessionDetails;
   activityType: PracticeType;
+  aiFeedbackTTSUrl?: string;
   onPracticeAgain: (stepOverride?: 'pick' | 'audio') => void;
   onNewTopic: () => void;
 }
@@ -17,7 +18,7 @@ async function fetchAiFeedbackAudioUrl(sessionId: string): Promise<string> {
   return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
 }
 
-const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityType, onPracticeAgain, onNewTopic }) => {
+const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityType, aiFeedbackTTSUrl, onPracticeAgain, onNewTopic }) => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
@@ -30,17 +31,12 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
     return () => clearTimeout(t);
   }, [feedback]);
 
-  const handleListenAudio = async () => {
-    setLoadingAudio(true);
+  const handleListenAudio = () => {
     setAudioError(null);
-    try {
-      // Use sessionId or fallback to a mock id
-      const url = await fetchAiFeedbackAudioUrl("mock-session-id");
-      setAudioUrl(url);
-    } catch (e: any) {
-      setAudioError("Could not fetch audio. Please try again.");
-    } finally {
-      setLoadingAudio(false);
+    if (aiFeedbackTTSUrl) {
+      setAudioUrl(aiFeedbackTTSUrl);
+    } else {
+      setAudioError("No AI feedback audio available.");
     }
   };
 
@@ -49,6 +45,19 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
       {showConfetti && <div className={styles.confetti}></div>}
       <h2 className={styles.resultTitle}>🎉 Nice job! Let’s level up!</h2>
       <div className={styles.scoreBadge}>
+              <div style={{ margin: '1rem 0' }}>
+                <button
+                  className={styles.bigButton}
+                  onClick={handleListenAudio}
+                  disabled={!aiFeedbackTTSUrl}
+                >
+                  🎧 Listen To AI Feedback
+                </button>
+                {audioError && <div className={styles.errorBox}>{audioError}</div>}
+                {audioUrl && (
+                  <audio controls autoPlay src={audioUrl} style={{ marginTop: 8, width: '100%' }} />
+                )}
+              </div>
         <span role="img" aria-label="Score">⭐</span> {feedback.score}/10
       </div>
       <div className={styles.scoreCards}>

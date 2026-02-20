@@ -171,7 +171,14 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
       try {
         const details = await api.getSessionDetails(sessionId, studentId);
         if (details.ai_feedback_status === "completed") {
-          dispatch({ type: "SET_FEEDBACK", feedback: details });
+          // Extract TTS URL if present
+          let ttsUrl = undefined;
+          if (details.ai_feedback && (details.ai_feedback as any).ai_feedback_tts_url) {
+            ttsUrl = (details.ai_feedback as any).ai_feedback_tts_url;
+          }
+          // Attach ttsUrl to feedback for use in FeedbackResults
+          const feedbackWithTTS = ttsUrl ? { ...details, ai_feedback: { ...details.ai_feedback, ai_feedback_tts_url: ttsUrl } } : details;
+          dispatch({ type: "SET_FEEDBACK", feedback: feedbackWithTTS });
           dispatch({ type: "NEXT_STEP" });
           dispatch({ type: "SET_POLLING", polling: false });
         } else if (details.ai_feedback_status === "failed") {
@@ -264,6 +271,7 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
         <FeedbackResults
           feedback={state.feedback}
           activityType={state.activityType!}
+          aiFeedbackTTSUrl={state.feedback.ai_feedback?.ai_feedback_tts_url}
           onPracticeAgain={(stepOverride?: 'pick' | 'audio') => {
             if (stepOverride === 'audio') {
               dispatch({ type: "RESET", keepTopic: true });

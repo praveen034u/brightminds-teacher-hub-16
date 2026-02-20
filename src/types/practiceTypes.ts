@@ -40,6 +40,7 @@ export interface AiFeedbackResponse {
     endSec: number;
     note: string;
   }>;
+  ai_feedback_tts_url?: string;
 }
 
 export interface PracticeSessionDetails {
