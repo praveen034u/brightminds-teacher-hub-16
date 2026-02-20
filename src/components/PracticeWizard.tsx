@@ -125,14 +125,15 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
     try {
       const studentId = getStudentId();
       const uploadUrlResponse = await api.getUploadUrl(state.sessionId, file, studentId);
+      console.log("getUploadUrl response:", uploadUrlResponse);
       const uploadUrl = uploadUrlResponse.uploadUrl;
-      // Use the exact blob URL from the API response (audioUrl or audio_url)
-      const blobUrl = uploadUrlResponse.audioUrl || uploadUrlResponse.audio_url;
+      // Use only the audio_url property as required by backend
+      const blobUrl = uploadUrlResponse.audio_url;
       await api.uploadAudio(uploadUrl, file);
       // Log and check blobUrl before calling attachAudio
       console.log("audio_url to attach:", blobUrl);
       if (!blobUrl || typeof blobUrl !== "string") {
-        dispatch({ type: "SET_ERROR", error: "Audio URL is missing after upload. Please try again." });
+        dispatch({ type: "SET_ERROR", error: "Audio URL is missing after upload. Please try again. (Check getUploadUrl response in console)" });
         return;
       }
       await api.attachAudio(state.sessionId, blobUrl, studentId);
