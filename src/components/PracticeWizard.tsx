@@ -124,17 +124,20 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
     dispatch({ type: "SET_UPLOADING", uploading: true });
     try {
       const studentId = getStudentId();
-      const { uploadUrl, audioUrl } = await api.getUploadUrl(state.sessionId, file, studentId);
+      const uploadUrlResponse = await api.getUploadUrl(state.sessionId, file, studentId);
+      const uploadUrl = uploadUrlResponse.uploadUrl;
+      // Use the exact blob URL from the API response (audioUrl or audio_url)
+      const blobUrl = uploadUrlResponse.audioUrl || uploadUrlResponse.audio_url;
       await api.uploadAudio(uploadUrl, file);
-      // Log and check audioUrl before calling attachAudio
-      console.log("audioUrl to attach:", audioUrl);
-      if (!audioUrl) {
+      // Log and check blobUrl before calling attachAudio
+      console.log("audio_url to attach:", blobUrl);
+      if (!blobUrl || typeof blobUrl !== "string") {
         dispatch({ type: "SET_ERROR", error: "Audio URL is missing after upload. Please try again." });
         return;
       }
-      await api.attachAudio(state.sessionId, audioUrl, studentId);
+      await api.attachAudio(state.sessionId, blobUrl, studentId);
       dispatch({ type: "SET_AUDIO", file });
-      dispatch({ type: "SET_AUDIO_URL", audioUrl });
+      dispatch({ type: "SET_AUDIO_URL", audioUrl: blobUrl });
       dispatch({ type: "NEXT_STEP" });
     } catch (e: any) {
       dispatch({ type: "SET_ERROR", error: e.message });
