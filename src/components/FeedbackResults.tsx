@@ -24,6 +24,7 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
   console.log('FeedbackResults: feedback.ai_feedback =', feedback.ai_feedback);
   const [showConfetti, setShowConfetti] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [showAudio, setShowAudio] = useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const ai = feedback.ai_feedback!;
 
@@ -35,6 +36,7 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
 
   const handleListenAudio = () => {
     setAudioError(null);
+    setShowAudio(true);
     if (aiFeedbackTTSUrl && audioRef.current) {
       // Always reload the audio and play from the start
       audioRef.current.pause();
@@ -68,17 +70,19 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
             🔊 Listen to AI Feedback
           </button>
           {audioError && <div className={styles.errorBox}>{audioError}</div>}
-          <div style={{ marginTop: 12 }}>
-            <audio
-              ref={audioRef}
-              controls
-              style={{ width: "100%" }}
-              onError={() => setAudioError("Failed to load audio.")}
-            >
-              <source src={aiFeedbackTTSUrl} type="audio/mpeg" />
-              Your browser does not support the audio element.
-            </audio>
-          </div>
+          {showAudio && (
+            <div style={{ marginTop: 12 }}>
+              <audio
+                ref={audioRef}
+                controls
+                style={{ width: "100%" }}
+                onError={() => setAudioError("Failed to load audio.")}
+              >
+                <source src={aiFeedbackTTSUrl} type="audio/mpeg" />
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ margin: "1.5rem 0" }}>
