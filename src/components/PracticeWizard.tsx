@@ -271,7 +271,11 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
         <FeedbackResults
           feedback={state.feedback}
           activityType={state.activityType!}
-          aiFeedbackTTSUrl={state.feedback.ai_feedback && (state.feedback.ai_feedback as any).ai_feedback_tts_url}
+          aiFeedbackTTSUrl={
+            // Prefer top-level ai_feedback_tts_url, fallback to inside ai_feedback
+            (state.feedback as any).ai_feedback_tts_url ||
+            (state.feedback.ai_feedback && (state.feedback.ai_feedback as any).ai_feedback_tts_url)
+          }
           onPracticeAgain={(stepOverride?: 'pick' | 'audio') => {
             if (stepOverride === 'audio') {
               dispatch({ type: "RESET", keepTopic: true });
