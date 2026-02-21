@@ -1,3 +1,33 @@
+/* Progress bar for audio upload step */
+.progressBarContainer {
+  width: 80%;
+  background: #e0e7ff;
+  border-radius: 8px;
+  height: 16px;
+  margin: 1rem auto;
+  overflow: hidden;
+}
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #1e90ff 60%, #00c3ff 100%);
+  border-radius: 8px;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+/* Progress bar styles for AI feedback step */
+.progressBarContainer {
+  width: 100%;
+  background: #e0e7ff;
+  border-radius: 8px;
+  height: 14px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd700 60%, #b3e0ff 100%);
+  border-radius: 8px;
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
 .practiceModePage {
   max-width: 600px;
   margin: 0 auto;

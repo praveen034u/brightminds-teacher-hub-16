@@ -255,10 +255,17 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
             Get AI Coach Feedback
           </button>
           {state.polling && (
-            <div className={styles.loader}>
-              <span role="img" aria-label="listening">👂</span> Your AI Coach is listening…
-              <div className={styles.animatedLoader}></div>
-            </div>
+            <>
+              <div className={styles.loader}>
+                <span role="img" aria-label="listening">👂</span> Your AI Coach is listening…
+                <div className={styles.animatedLoader}></div>
+              </div>
+              <div style={{ margin: '1.5rem 0' }}>
+                <div className={styles.progressBarContainer}>
+                  <div className={styles.progressBar} style={{ width: '80%' }} />
+                </div>
+              </div>
+            </>
           )}
           {state.error && (
             <div className={styles.errorBox}>

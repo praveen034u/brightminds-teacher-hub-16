@@ -77,7 +77,9 @@ const AudioUploadStep: React.FC<AudioUploadStepProps> = ({ onUpload, loading, er
         </button>
       )}
       {progress > 0 && progress < 100 && (
-        <div className={styles.progressBar}><div style={{ width: `${progress}%` }} /></div>
+        <div className={styles.progressBarContainer}>
+          <div className={styles.progressBar} style={{ width: `${progress}%` }} />
+        </div>
       )}
       {error && <div className={styles.errorBox}>{error}</div>}
     </div>
