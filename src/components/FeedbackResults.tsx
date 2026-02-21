@@ -19,6 +19,9 @@ async function fetchAiFeedbackAudioUrl(sessionId: string): Promise<string> {
 }
 
 const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityType, aiFeedbackTTSUrl, onPracticeAgain, onNewTopic }) => {
+  // Debugging output for troubleshooting
+  console.log('FeedbackResults: aiFeedbackTTSUrl =', aiFeedbackTTSUrl);
+  console.log('FeedbackResults: feedback.ai_feedback =', feedback.ai_feedback);
   const [showConfetti, setShowConfetti] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
@@ -33,7 +36,10 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
   const handleListenAudio = () => {
     setAudioError(null);
     if (aiFeedbackTTSUrl && audioRef.current) {
+      // Always reload the audio and play from the start
+      audioRef.current.pause();
       audioRef.current.currentTime = 0;
+      audioRef.current.load();
       audioRef.current.play().catch((e) => setAudioError("Failed to play audio: " + e.message));
     } else {
       setAudioError("No AI feedback audio available.");
@@ -56,7 +62,7 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
         )}
       </div>
       {/* Listen to AI Feedback Audio Button */}
-      {aiFeedbackTTSUrl && (
+      {aiFeedbackTTSUrl && typeof aiFeedbackTTSUrl === 'string' && aiFeedbackTTSUrl.trim() !== '' ? (
         <div style={{ margin: "1.5rem 0" }}>
           <button className={styles.bigButton} onClick={handleListenAudio}>
             🔊 Listen to AI Feedback
@@ -66,13 +72,17 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
             <audio
               ref={audioRef}
               controls
-              src={aiFeedbackTTSUrl}
               style={{ width: "100%" }}
               onError={() => setAudioError("Failed to load audio.")}
             >
+              <source src={aiFeedbackTTSUrl} type="audio/mpeg" />
               Your browser does not support the audio element.
             </audio>
           </div>
+        </div>
+      ) : (
+        <div style={{ margin: "1.5rem 0" }}>
+          <div className={styles.errorBox}>No AI feedback audio available.</div>
         </div>
       )}
       {!aiFeedbackTTSUrl && (
