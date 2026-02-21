@@ -4,8 +4,8 @@
               const response = await axios.get(
                 `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}`,
                 {
-                  headers: {
-                    "x-student-id": studentId,
+                    headers: {
+                      "x-student-id": studentId,
                   },
                 }
               );
@@ -22,8 +22,8 @@
               `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/ai-feedback`,
               {},
               {
-                headers: {
-                  "x-student-id": studentId,
+                  headers: {
+                    "x-student-id": studentId,
                 },
               }
             );
@@ -44,7 +44,7 @@
             {
               headers: {
                 "Content-Type": "application/json",
-                "x-student-id": studentId,
+                  "x-student-id": studentId,
               },
             }
           );
@@ -79,8 +79,8 @@
         `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/upload-url`,
         {},
         {
-          headers: {
-            "x-student-id": studentId,
+                headers: {
+                  "x-student-id": studentId,
           },
         }
       );
@@ -114,7 +114,7 @@ const StudentPracticeModePage: React.FC = () => {
         {
           headers: {
             "Content-Type": "application/json",
-            "x-student-id": studentId,
+              "x-student-id": studentId,
           },
         }
       );

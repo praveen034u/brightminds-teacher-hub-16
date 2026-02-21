@@ -1246,6 +1246,12 @@ export const StudentPortalPage = () => {
   useEffect(() => {
     studentDataRef.current = studentData;
     if (studentData) {
+      // Save student id in localStorage
+      try {
+        localStorage.setItem('student_id', studentData.id);
+      } catch (e) {
+        console.warn('Failed to save student_id to localStorage:', e);
+      }
       loadAssignmentAttempts();
     }
   }, [studentData, loadAssignmentAttempts]);
