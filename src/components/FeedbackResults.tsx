@@ -20,8 +20,6 @@ async function fetchAiFeedbackAudioUrl(sessionId: string): Promise<string> {
 
 const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityType, aiFeedbackTTSUrl, onPracticeAgain, onNewTopic }) => {
   const [showConfetti, setShowConfetti] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [loadingAudio, setLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const ai = feedback.ai_feedback!;
@@ -34,14 +32,9 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
 
   const handleListenAudio = () => {
     setAudioError(null);
-    if (aiFeedbackTTSUrl) {
-      setAudioUrl(aiFeedbackTTSUrl);
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch((e) => setAudioError("Failed to play audio: " + e.message));
-        }
-      }, 100); // ensure audio element is rendered
+    if (aiFeedbackTTSUrl && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch((e) => setAudioError("Failed to play audio: " + e.message));
     } else {
       setAudioError("No AI feedback audio available.");
     }
@@ -65,8 +58,8 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
       {/* Listen to AI Feedback Audio Button */}
       {aiFeedbackTTSUrl && (
         <div style={{ margin: "1.5rem 0" }}>
-          <button className={styles.bigButton} onClick={handleListenAudio} disabled={loadingAudio}>
-            {loadingAudio ? "Loading audio..." : "🔊 Listen to AI Feedback"}
+          <button className={styles.bigButton} onClick={handleListenAudio}>
+            🔊 Listen to AI Feedback
           </button>
           {audioError && <div className={styles.errorBox}>{audioError}</div>}
           <div style={{ marginTop: 12 }}>

@@ -255,17 +255,10 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
             Get AI Coach Feedback
           </button>
           {state.polling && (
-            <>
-              <div className={styles.loader}>
-                <span role="img" aria-label="listening">👂</span> Your AI Coach is listening…
-                <div className={styles.animatedLoader}></div>
-              </div>
-              <div style={{ margin: '1.5rem 0' }}>
-                <div className={styles.progressBarContainer}>
-                  <div className={styles.progressBar} style={{ width: '80%' }} />
-                </div>
-              </div>
-            </>
+            <div className={styles.loader}>
+              <span role="img" aria-label="listening">👂</span> Your AI Coach is listening…
+              <div className={styles.animatedLoader}></div>
+            </div>
           )}
           {state.error && (
             <div className={styles.errorBox}>
@@ -278,7 +271,7 @@ const PracticeWizard: React.FC<PracticeWizardProps> = ({ initialStep = 'pick' })
         <FeedbackResults
           feedback={state.feedback}
           activityType={state.activityType!}
-          aiFeedbackTTSUrl={state.feedback.ai_feedback?.ai_feedback_tts_url}
+          aiFeedbackTTSUrl={state.feedback.ai_feedback && (state.feedback.ai_feedback as any).ai_feedback_tts_url}
           onPracticeAgain={(stepOverride?: 'pick' | 'audio') => {
             if (stepOverride === 'audio') {
               dispatch({ type: "RESET", keepTopic: true });
