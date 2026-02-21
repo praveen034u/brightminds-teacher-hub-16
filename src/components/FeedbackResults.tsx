@@ -36,14 +36,15 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
 
   const handleListenAudio = () => {
     setAudioError(null);
-    setShowAudio(true);
-    if (aiFeedbackTTSUrl && audioRef.current) {
+    if (aiFeedbackTTSUrl && typeof aiFeedbackTTSUrl === 'string' && aiFeedbackTTSUrl.trim() !== '' && audioRef.current) {
+      setShowAudio(true);
       // Always reload the audio and play from the start
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       audioRef.current.load();
       audioRef.current.play().catch((e) => setAudioError("Failed to play audio: " + e.message));
     } else {
+      setShowAudio(false);
       setAudioError("No AI feedback audio available.");
     }
   };
