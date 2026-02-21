@@ -19,6 +19,7 @@ import AssignmentsPage from "./pages/AssignmentsPage";
 import ProfilePage from "./pages/ProfilePage";
 import StudentPortalRedirect from "./pages/StudentPortalRedirect";
 import StudentPortalPage from "./pages/StudentPortalPage";
+import StudentPracticeModePage from "./pages/StudentPracticeModePage";
 import QuestionPapersPage from "./pages/QuestionPapersPage";
 import TeacherOnboardingPage from "./pages/TeacherOnboardingPage";
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -65,6 +66,9 @@ const App = () => (
                 <Route path="/" element={<LoginPage />} />
                 <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
                 <Route path="/student-portal" element={<StudentPortalPage />} />
+
+                {/* Practice Mode route for students */}
+                <Route path="/student/practice" element={<StudentPracticeModePage />} />
                 <Route path="/not-authorized" element={<NotAuthorized />} />
                 <Route path="/admin" element={<AdminLoginPage />} />
                 

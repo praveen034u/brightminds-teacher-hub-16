@@ -1247,6 +1247,12 @@ export const StudentPortalPage = () => {
   useEffect(() => {
     studentDataRef.current = studentData;
     if (studentData) {
+      // Save student id in localStorage
+      try {
+        localStorage.setItem('student_id', studentData.id);
+      } catch (e) {
+        console.warn('Failed to save student_id to localStorage:', e);
+      }
       loadAssignmentAttempts();
     }
   }, [studentData, loadAssignmentAttempts]);
@@ -2459,6 +2465,7 @@ export const StudentPortalPage = () => {
     );
   }
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -2480,7 +2487,14 @@ export const StudentPortalPage = () => {
                 <span>Refreshing...</span>
               </div>
             )}
-            
+            {/* Practice Mode Nav Button */}
+            <a
+              href="/student/practice"
+              className="ml-4 px-4 py-2 rounded-lg bg-yellow-300 hover:bg-yellow-400 text-blue-900 font-bold text-lg shadow transition-all border-2 border-yellow-400"
+              style={{ textDecoration: 'none' }}
+            >
+              <span role="img" aria-label="Practice">🎯</span> Practice Mode
+            </a>
           </div>
         </div>
       </div>

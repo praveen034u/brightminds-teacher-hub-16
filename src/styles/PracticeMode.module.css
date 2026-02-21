@@ -1,0 +1,315 @@
+/* (Reverted progress bar container/styles for audio upload step) */
+/* Progress bar styles for AI feedback step */
+.progressBarContainer {
+  width: 100%;
+  background: #e0e7ff;
+  border-radius: 8px;
+  height: 14px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd700 60%, #b3e0ff 100%);
+  border-radius: 8px;
+  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+.practiceModePage {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: #f0f8ff;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px #b3e0ff44;
+}
+.title {
+  font-size: 2.5rem;
+  text-align: center;
+  color: #1e90ff;
+  margin-bottom: 1.5rem;
+  font-weight: bold;
+}
+.practiceWizard {
+  margin-top: 1rem;
+}
+.stepper {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.step, .stepDone, .stepActive {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem 0;
+  border-radius: 12px;
+  background: #e0e7ff;
+  color: #888;
+  margin: 0 0.25rem;
+  font-size: 1rem;
+  position: relative;
+}
+.stepActive {
+  background: #ffd700;
+  color: #222;
+  font-weight: bold;
+  box-shadow: 0 2px 8px #ffd70055;
+}
+.stepDone {
+  background: #90ee90;
+  color: #222;
+}
+.stepNumber {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+.stepLabel {
+  font-size: 0.95rem;
+}
+.cardOptions {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.card, .cardActive {
+  background: #fff;
+  border: 2px solid #b3e0ff;
+  border-radius: 18px;
+  padding: 2rem 1.5rem;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: 0.2s;
+  min-width: 140px;
+  box-shadow: 0 2px 8px #b3e0ff33;
+  outline: none;
+}
+.cardActive {
+  border-color: #1e90ff;
+  background: #e0f7fa;
+  color: #1e90ff;
+  font-weight: bold;
+}
+.topicPicker {
+  margin-bottom: 1.5rem;
+}
+.topicInputSection {
+  margin-bottom: 1rem;
+}
+.label {
+  font-weight: bold;
+  color: #1e90ff;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+.topicInput {
+  width: 100%;
+  padding: 0.7rem;
+  border-radius: 10px;
+  border: 1.5px solid #b3e0ff;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+.suggestionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.suggestionChip {
+  background: #e0e7ff;
+  border: none;
+  border-radius: 16px;
+  padding: 0.4rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #1e90ff;
+  transition: 0.2s;
+}
+.suggestionChip:hover {
+  background: #b3e0ff;
+}
+.positionToggle {
+  margin-bottom: 1rem;
+}
+.toggle, .toggleActive {
+  background: #e0e7ff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.5rem 1.5rem;
+  font-size: 1.1rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  color: #1e90ff;
+  transition: 0.2s;
+}
+.toggleActive {
+  background: #ffd700;
+  color: #222;
+  font-weight: bold;
+}
+.languageSelector {
+  margin-bottom: 1.2rem;
+}
+.bigButton {
+  background: linear-gradient(90deg, #1e90ff 60%, #00c3ff 100%);
+  color: #fff;
+  font-size: 1.3rem;
+  border: none;
+  border-radius: 16px;
+  padding: 1rem 2.5rem;
+  margin: 1rem 0 0.5rem 0;
+  cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 2px 8px #1e90ff33;
+  transition: 0.2s;
+}
+.bigButton:active {
+  background: #ffd700;
+  color: #1e90ff;
+}
+.audioUploadStep {
+  text-align: center;
+}
+.orText {
+  margin: 1rem 0 0.5rem 0;
+  color: #888;
+  font-size: 1.1rem;
+}
+.selectedFile {
+  margin: 0.5rem 0;
+  color: #1e90ff;
+  font-size: 1.1rem;
+}
+.progressBar {
+  width: 80%;
+  height: 16px;
+  background: #e0e7ff;
+  border-radius: 8px;
+  margin: 1rem auto;
+  overflow: hidden;
+}
+.progressBar > div {
+  height: 100%;
+  background: #1e90ff;
+  transition: width 0.3s;
+}
+.aiFeedbackStep {
+  text-align: center;
+  margin-top: 2rem;
+}
+.loader {
+  margin-top: 1.5rem;
+  font-size: 1.2rem;
+  color: #1e90ff;
+}
+.animatedLoader {
+  width: 60px;
+  height: 8px;
+  margin: 0.5rem auto 0 auto;
+  background: linear-gradient(90deg, #1e90ff 40%, #ffd700 100%);
+  border-radius: 8px;
+  animation: loaderMove 1.2s infinite linear;
+}
+@keyframes loaderMove {
+  0% { background-position: 0 0; }
+  100% { background-position: 60px 0; }
+}
+.errorBox {
+  background: #ffe0e0;
+  color: #d32f2f;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  margin: 1rem 0;
+  font-size: 1.1rem;
+}
+.feedbackResults {
+  text-align: center;
+  margin-top: 2rem;
+  position: relative;
+}
+.confetti {
+  position: absolute;
+  left: 0; right: 0; top: 0; height: 100px;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, #ffd700 0 10px, #1e90ff 10px 20px, #90ee90 20px 30px, #ff69b4 30px 40px);
+  animation: confettiDrop 2.5s linear;
+  z-index: 2;
+}
+@keyframes confettiDrop {
+  0% { opacity: 1; top: -100px; }
+  100% { opacity: 0; top: 0; }
+}
+.resultTitle {
+  font-size: 2rem;
+  color: #1e90ff;
+  margin-bottom: 1rem;
+}
+.scoreBadge {
+  font-size: 2.2rem;
+  color: #ffd700;
+  margin-bottom: 1.2rem;
+  font-weight: bold;
+}
+.scoreCards {
+  display: flex;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-bottom: 1.2rem;
+}
+.scoreCard {
+  background: #e0e7ff;
+  border-radius: 12px;
+  padding: 0.7rem 1.2rem;
+  font-size: 1.1rem;
+  color: #1e90ff;
+  font-weight: bold;
+}
+.strengthsImprovements {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 1.2rem;
+  gap: 1.5rem;
+}
+.strengthsImprovements ul {
+  text-align: left;
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.2rem;
+}
+.nextPracticePlan, .counterArguments {
+  margin-bottom: 1.2rem;
+}
+.timestampedNotes {
+  margin-bottom: 1.2rem;
+}
+.noteChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.noteChip {
+  background: #ffd700;
+  color: #1e90ff;
+  border-radius: 12px;
+  padding: 0.3rem 0.9rem;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.resultButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+@media (max-width: 600px) {
+  .practiceModePage {
+    padding: 1rem 0.2rem;
+  }
+  .scoreCards, .strengthsImprovements {
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+}
