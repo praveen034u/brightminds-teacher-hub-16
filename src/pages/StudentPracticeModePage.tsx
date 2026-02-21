@@ -1,11 +1,12 @@
           // API: Get Session Details (with feedback)
-          const getSessionDetailsWithFeedback = async ({ sessionId, studentId }) => {
+          const getSessionDetailsWithFeedback = async ({ sessionId }) => {
+            const studentId = typeof window !== "undefined" ? localStorage.getItem("student_id") : null;
             try {
               const response = await axios.get(
                 `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}`,
                 {
-                    headers: {
-                      "x-student-id": studentId,
+                  headers: {
+                    "x-student-id": studentId,
                   },
                 }
               );
@@ -16,14 +17,15 @@
             }
           };
         // API: Request AI Feedback
-        const requestAIFeedback = async ({ sessionId, studentId }) => {
+        const requestAIFeedback = async ({ sessionId }) => {
+          const studentId = typeof window !== "undefined" ? localStorage.getItem("student_id") : null;
           try {
             const response = await axios.post(
               `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/ai-feedback`,
               {},
               {
-                  headers: {
-                    "x-student-id": studentId,
+                headers: {
+                  "x-student-id": studentId,
                 },
               }
             );
@@ -34,7 +36,8 @@
           }
         };
       // API: Attach Audio Session
-      const attachAudioSession = async ({ sessionId, studentId, audioUrl }) => {
+      const attachAudioSession = async ({ sessionId, audioUrl }) => {
+        const studentId = typeof window !== "undefined" ? localStorage.getItem("student_id") : null;
         try {
           const response = await axios.post(
             `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/attach-audio`,
@@ -44,7 +47,7 @@
             {
               headers: {
                 "Content-Type": "application/json",
-                  "x-student-id": studentId,
+                "x-student-id": studentId,
               },
             }
           );
@@ -73,14 +76,15 @@
       }
     };
   // API: Get Upload Url
-  const getUploadUrl = async ({ sessionId, studentId }) => {
+  const getUploadUrl = async ({ sessionId }) => {
+    const studentId = typeof window !== "undefined" ? localStorage.getItem("student_id") : null;
     try {
       const response = await axios.post(
         `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/upload-url`,
         {},
         {
-                headers: {
-                  "x-student-id": studentId,
+          headers: {
+            "x-student-id": studentId,
           },
         }
       );
@@ -101,7 +105,8 @@ const StudentPracticeModePage: React.FC = () => {
   const [step, setStep] = useState<'pick' | 'audio' | 'ai' | 'results'>('pick');
 
   // API: Create Speech Session
-  const createSpeechSession = async ({ studentId, topic, language }) => {
+  const createSpeechSession = async ({ topic, language }) => {
+    const studentId = typeof window !== "undefined" ? localStorage.getItem("student_id") : null;
     try {
       const response = await axios.post(
         "https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions",
@@ -114,7 +119,7 @@ const StudentPracticeModePage: React.FC = () => {
         {
           headers: {
             "Content-Type": "application/json",
-              "x-student-id": studentId,
+            "x-student-id": studentId,
           },
         }
       );
