@@ -45,19 +45,6 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
       {showConfetti && <div className={styles.confetti}></div>}
       <h2 className={styles.resultTitle}>🎉 Nice job! Let’s level up!</h2>
       <div className={styles.scoreBadge}>
-              <div style={{ margin: '1rem 0' }}>
-                <button
-                  className={styles.bigButton}
-                  onClick={handleListenAudio}
-                  disabled={!aiFeedbackTTSUrl}
-                >
-                  🎧 Listen To AI Feedback
-                </button>
-                {audioError && <div className={styles.errorBox}>{audioError}</div>}
-                {audioUrl && (
-                  <audio controls autoPlay src={audioUrl} style={{ marginTop: 8, width: '100%' }} />
-                )}
-              </div>
         <span role="img" aria-label="Score">⭐</span> {feedback.score}/10
       </div>
       <div className={styles.scoreCards}>
@@ -69,19 +56,26 @@ const FeedbackResults: React.FC<FeedbackResultsProps> = ({ feedback, activityTyp
         )}
       </div>
       {/* Listen to AI Feedback Audio Button */}
-      <div style={{ margin: "1.5rem 0" }}>
-        <button className={styles.bigButton} onClick={handleListenAudio} disabled={loadingAudio}>
-          {loadingAudio ? "Loading audio..." : "🔊 Listen to AI Feedback"}
-        </button>
-        {audioError && <div className={styles.errorBox}>{audioError}</div>}
-        {audioUrl && (
-          <div style={{ marginTop: 12 }}>
-            <audio controls src={audioUrl} style={{ width: "100%" }}>
-              Your browser does not support the audio element.
-            </audio>
-          </div>
-        )}
-      </div>
+      {aiFeedbackTTSUrl && (
+        <div style={{ margin: "1.5rem 0" }}>
+          <button className={styles.bigButton} onClick={handleListenAudio} disabled={loadingAudio}>
+            {loadingAudio ? "Loading audio..." : "🔊 Listen to AI Feedback"}
+          </button>
+          {audioError && <div className={styles.errorBox}>{audioError}</div>}
+          {audioUrl && (
+            <div style={{ marginTop: 12 }}>
+              <audio controls autoPlay src={audioUrl} style={{ width: "100%" }}>
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          )}
+        </div>
+      )}
+      {!aiFeedbackTTSUrl && (
+        <div style={{ margin: "1.5rem 0" }}>
+          <div className={styles.errorBox}>No AI feedback audio available.</div>
+        </div>
+      )}
       <div className={styles.strengthsImprovements}>
         <div>
           <h3>You did awesome at…</h3>
