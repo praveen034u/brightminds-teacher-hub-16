@@ -8,15 +8,44 @@ interface AudioUploadStepProps {
 }
 
 const AudioUploadStep: React.FC<AudioUploadStepProps> = ({ onUpload, loading, error }) => {
+
   const fileInput = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState(0);
   const [selected, setSelected] = useState<File | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+  const [recordError, setRecordError] = useState<string | null>(null);
 
-  const handleFakeRecord = () => {
-    // Simulate recording by creating a fake file
-    const blob = new Blob(["Fake audio data"], { type: "audio/mp3" });
-    const file = new File([blob], "recording.mp3", { type: "audio/mp3" });
-    setSelected(file);
+  const handleStartRecording = async () => {
+    setRecordError(null);
+    setSelected(null);
+    setRecordedChunks([]);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new window.MediaRecorder(stream);
+      setMediaRecorder(recorder);
+      recorder.ondataavailable = (e: BlobEvent) => {
+        if (e.data.size > 0) setRecordedChunks(prev => [...prev, e.data]);
+      };
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const file = new File([blob], `recording-${Date.now()}.webm`, { type: 'audio/webm' });
+        setSelected(file);
+        setRecording(false);
+        setMediaRecorder(null);
+      };
+      recorder.start();
+      setRecording(true);
+    } catch (err: any) {
+      setRecordError('Microphone access denied or not available.');
+    }
+  };
+
+  const handleStopRecording = () => {
+    if (mediaRecorder && recording) {
+      mediaRecorder.stop();
+    }
   };
 
   const handleUpload = () => {
@@ -37,11 +66,13 @@ const AudioUploadStep: React.FC<AudioUploadStepProps> = ({ onUpload, loading, er
     <div className={styles.audioUploadStep}>
       <button
         className={styles.bigButton}
-        onClick={handleFakeRecord}
+        onClick={recording ? handleStopRecording : handleStartRecording}
         disabled={loading}
+        style={recording ? { background: '#e74c3c', borderColor: '#e74c3c' } : {}}
       >
-        <span role="img" aria-label="Record">🎙️</span> Record (Mock)
+        <span role="img" aria-label="Record">🎙️</span> {recording ? 'Stop Recording' : 'Record'}
       </button>
+      {recordError && <div className={styles.errorBox}>{recordError}</div>}
       <div className={styles.orText}>or</div>
       <input
         type="file"
