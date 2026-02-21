@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { roomsAPI, studentsAPI } from '@/api/edgeClient';
+import { chatAPI } from '@/api/chat';
 import { DoorOpen, Users, Trash2, Settings, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +27,7 @@ export const RoomsPage = () => {
   const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<any[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -57,7 +59,22 @@ export const RoomsPage = () => {
         studentsAPI.list(auth0UserId),
       ]);
       setRooms(roomsData);
+      console.log('Rooms data:', roomsData);
       setStudents(studentsData);
+      // Fetch unread counts for each room in parallel
+      try {
+        const results = await Promise.all(
+          roomsData.map(async (room: any) => {
+            const { unread_count } = await chatAPI.getUnreadForTeacher(auth0UserId, room.id);
+            return { roomId: room.id, unread: unread_count };
+          })
+        );
+        const mapping: Record<string, number> = {};
+        results.forEach(({ roomId, unread }) => { mapping[roomId] = unread || 0; });
+        setUnreadCounts(mapping);
+      } catch (e) {
+        console.warn('Failed to fetch unread counts', e);
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
       toast.error('Failed to load data');
@@ -92,8 +109,10 @@ export const RoomsPage = () => {
   };
 
   const openAssignDialog = (room: any) => {
-    setSelectedRoom(room);
-    setSelectedStudents([]);
+    // Always use the latest room object from state (in case of stale prop)
+    const latestRoom = rooms.find((r) => r.id === room.id) || room;
+    setSelectedRoom(latestRoom);
+    setSelectedStudents(latestRoom.student_ids ? [...latestRoom.student_ids] : []);
     setShowAssignDialog(true);
   };
 
@@ -104,10 +123,18 @@ export const RoomsPage = () => {
     try {
       await roomsAPI.assignStudents(auth0UserId, selectedRoom.id, selectedStudents);
       toast.success('Students assigned successfully');
+      // Reload rooms and students, and update selectedRoom and selectedStudents from backend
+      const [roomsData, studentsData] = await Promise.all([
+        roomsAPI.list(auth0UserId),
+        studentsAPI.list(auth0UserId),
+      ]);
+      setRooms(roomsData);
+      setStudents(studentsData);
+      // Find the updated room and set as selectedRoom
+      const updatedRoom = roomsData.find((r: any) => r.id === selectedRoom.id);
+      setSelectedRoom(updatedRoom);
+      setSelectedStudents(updatedRoom?.student_ids ? [...updatedRoom.student_ids] : []);
       setShowAssignDialog(false);
-      setSelectedRoom(null);
-      setSelectedStudents([]);
-      loadData();
     } catch (error) {
       toast.error('Failed to assign students');
     }
@@ -212,6 +239,11 @@ export const RoomsPage = () => {
                           Grade {room.grade_level}
                         </Badge>
                       )}
+                      {unreadCounts[room.id] > 0 && (
+                        <Badge variant="outline" className="mt-2 ml-2 bg-red-50 text-red-600 border-red-200">
+                          Unread {unreadCounts[room.id]}
+                        </Badge>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
@@ -231,14 +263,26 @@ export const RoomsPage = () => {
                       <Users className="h-4 w-4" />
                       <span className="text-sm">{room.student_count || 0} students</span>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openAssignDialog(room)}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Assign
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => navigate(`/rooms/${room.id}`)}
+                        aria-label="Open Room"
+                      >
+                        <DoorOpen className="h-4 w-4 mr-2" />
+                        Open
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openAssignDialog(room)}
+                        aria-label="View and manage assigned students"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Assigned Students
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -257,29 +301,67 @@ export const RoomsPage = () => {
         <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Assign Students to {selectedRoom?.name}</DialogTitle>
+              <DialogTitle>Assigned Students in {selectedRoom?.name}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAssignStudents} className="space-y-4">
               <div className="max-h-[400px] overflow-y-auto space-y-2">
                 {students.length > 0 ? (
-                  students.map((student) => (
-                    <div
-                      key={student.id}
-                      className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
-                    >
-                      <Checkbox
-                        id={student.id}
-                        checked={selectedStudents.includes(student.id)}
-                        onCheckedChange={() => toggleStudent(student.id)}
-                      />
-                      <label
-                        htmlFor={student.id}
-                        className="flex-1 cursor-pointer"
-                      >
-                        {student.name}
-                      </label>
-                    </div>
-                  ))
+                  (() => {
+                    // Assigned = in selectedStudents, Unassigned = not in selectedStudents
+                    const assigned = students.filter(s => selectedStudents.includes(s.id));
+                    const unassigned = students.filter(s => !selectedStudents.includes(s.id));
+
+                    return <>
+                      {/* Assigned Students Section */}
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Assigned Students</div>
+                        {assigned.length > 0 ? assigned.map(student => (
+                          <div
+                            key={student.id}
+                            className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                          >
+                            <Checkbox
+                              id={"assigned-" + student.id}
+                              checked={true}
+                              onCheckedChange={() => toggleStudent(student.id)}
+                            />
+                            <label
+                              htmlFor={"assigned-" + student.id}
+                              className="flex-1 cursor-pointer"
+                            >
+                              {student.name}
+                            </label>
+                          </div>
+                        )) : (
+                          <div className="text-muted-foreground text-sm p-3">No students assigned.</div>
+                        )}
+                      </div>
+                      {/* Unassigned Students Section */}
+                      <div className="mt-4">
+                        <div className="text-xs text-muted-foreground mb-1">Available Students</div>
+                        {unassigned.length > 0 ? unassigned.map(student => (
+                          <div
+                            key={student.id}
+                            className="flex items-center space-x-3 p-3 rounded-lg hover:bg-muted transition-colors"
+                          >
+                            <Checkbox
+                              id={"unassigned-" + student.id}
+                              checked={false}
+                              onCheckedChange={() => toggleStudent(student.id)}
+                            />
+                            <label
+                              htmlFor={"unassigned-" + student.id}
+                              className="flex-1 cursor-pointer"
+                            >
+                              {student.name}
+                            </label>
+                          </div>
+                        )) : (
+                          <div className="text-muted-foreground text-sm p-3">No available students.</div>
+                        )}
+                      </div>
+                    </>;
+                  })()
                 ) : (
                   <p className="text-center text-muted-foreground py-8">
                     No students available. Add students first.
@@ -287,7 +369,7 @@ export const RoomsPage = () => {
                 )}
               </div>
               <Button type="submit" className="w-full" disabled={students.length === 0}>
-                Assign {selectedStudents.length} Student(s)
+                Save Changes
               </Button>
             </form>
           </DialogContent>

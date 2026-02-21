@@ -52,11 +52,21 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
 
-      const roomsWithCounts = rooms?.map((room: any) => ({
-        ...room,
-        student_count: room.room_students?.length || 0,
-        room_students: undefined,
-      }));
+      const roomsWithCounts = rooms?.map((room: any) => {
+        // Always include student_ids, even if empty
+        let student_ids = [];
+        if (Array.isArray(room.room_students)) {
+          student_ids = room.room_students.map((rs: { student_id: string }) => rs.student_id);
+        }
+        return {
+          ...room,
+          student_count: student_ids.length,
+          student_ids,
+          room_students: undefined,
+        };
+      });
+        // Debug log for roomsWithCounts
+        console.log('roomsWithCounts:', JSON.stringify(roomsWithCounts, null, 2));
 
       return new Response(JSON.stringify(roomsWithCounts || []), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -76,26 +86,35 @@ Deno.serve(async (req) => {
 
         if (fetchError) throw fetchError;
 
-  const currentIds = currentRoomStudents?.map((rs: { student_id: string }) => rs.student_id) || [];
-  const newIds = studentIds.filter((id: string) => !currentIds.includes(id));
+         const currentIds = currentRoomStudents?.map((rs: { student_id: string }) => rs.student_id) || [];
+         const newIds = studentIds.filter((id: string) => !currentIds.includes(id));
+         const removedIds = currentIds.filter((id: string) => !studentIds.includes(id));
 
-        // Only insert students not already assigned
-        if (newIds.length > 0) {
-          const assignments = newIds.map((studentId: string) => ({
-            room_id: targetRoomId,
-            student_id: studentId,
-          }));
+         // Insert new assignments
+         if (newIds.length > 0) {
+           const assignments = newIds.map((studentId: string) => ({
+             room_id: targetRoomId,
+             student_id: studentId,
+           }));
+           const { error } = await supabase
+             .from('room_students')
+             .insert(assignments);
+           if (error) throw error;
+         }
 
-          const { error } = await supabase
-            .from('room_students')
-            .insert(assignments);
+         // Remove unassigned students
+         if (removedIds.length > 0) {
+           const { error } = await supabase
+             .from('room_students')
+             .delete()
+             .eq('room_id', targetRoomId)
+             .in('student_id', removedIds);
+           if (error) throw error;
+         }
 
-          if (error) throw error;
-        }
-
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+         return new Response(JSON.stringify({ success: true }), {
+           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+         });
       }
 
       // Create new room
@@ -140,22 +159,34 @@ Deno.serve(async (req) => {
       });
     }
 
+
     if (req.method === 'DELETE') {
+      // Remove a student from a room if both roomId and studentId are provided
+      const studentId = url.searchParams.get('student_id');
+      if (roomId && studentId) {
+        const { error } = await supabase
+          .from('room_students')
+          .delete()
+          .eq('room_id', roomId)
+          .eq('student_id', studentId);
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Default: delete the room
       if (!roomId) {
         return new Response(JSON.stringify({ error: 'Room ID required' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-
       const { error } = await supabase
         .from('rooms')
         .delete()
         .eq('id', roomId)
         .eq('teacher_id', teacherId);
-
       if (error) throw error;
-
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

@@ -6,7 +6,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowLeft, BookOpen, Sparkles, Brain } from 'lucide-react';
+import { ArrowLeft, BookOpen, Sparkles, Brain, MessageCircle } from 'lucide-react';
+import TeacherRoomChat from '@/components/TeacherRoomChat';
+import { chatAPI } from '@/api/chat';
 import { roomsAPI, studentsAPI } from '@/api/edgeClient';
 import { toast } from 'sonner';
 
@@ -45,6 +47,8 @@ export const RoomDetailPage = () => {
       }
 
       setRoom(currentRoom);
+      // Mark chat as read when entering the room
+      try { await chatAPI.markReadForTeacher(auth0UserId, currentRoom.id); } catch (e) { console.warn('Failed to mark chat as read', e); }
       // In a real implementation, you'd filter students by room_students table
       // For now, showing all students as a demo
       setStudents(allStudents);
@@ -112,6 +116,15 @@ export const RoomDetailPage = () => {
               <h1 className="text-2xl font-bold mb-2">{room.name}</h1>
               <p className="text-sm text-muted-foreground">{room.description}</p>
               <Badge variant="secondary" className="mt-2">{room.grade_level}</Badge>
+            </div>
+
+            {/* Class Chat for Teachers */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageCircle className="h-5 w-5 text-blue-600" />
+                <h2 className="text-xl font-semibold">Class Chat</h2>
+              </div>
+              <TeacherRoomChat auth0UserId={auth0UserId!} roomId={room.id} roomName={room.name} />
             </div>
 
             <div className="mb-6">

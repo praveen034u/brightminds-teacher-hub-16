@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText } from 'lucide-react';
+import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText, MessageCircle } from 'lucide-react';
+import StudentChat from '@/components/StudentChat';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
@@ -2924,6 +2925,26 @@ export const StudentPortalPage = () => {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+        </section>
+
+        {/* Class Chat Section */}
+        <section className="mt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageCircle className="h-6 w-6 text-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Class Chat</h2>
+          </div>
+          {token && studentData ? (
+            <StudentChat
+              token={token}
+              studentId={studentData.id}
+              studentName={studentData.name}
+              rooms={studentData.rooms?.map((r: any) => ({ id: r.id, name: r.name })) || []}
+            />
+          ) : (
+            <div className="rounded-md border p-4 bg-white">
+              <p className="text-sm text-gray-600">Chat is available once you are assigned to a classroom.</p>
             </div>
           )}
         </section>

@@ -126,6 +126,11 @@ export const roomsAPI = {
       params: { action: 'assign-students' },
       body: { roomId, studentIds },
     }),
+  removeStudent: (auth0UserId: string | null, roomId: string, studentId: string) =>
+    callEdgeFunction('rooms', auth0UserId, {
+      method: 'DELETE',
+      params: { id: roomId, student_id: studentId },
+    }),
 };
 
 export const assignmentsAPI = {
