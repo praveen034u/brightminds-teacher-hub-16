@@ -53,10 +53,10 @@ export async function getUploadUrl(sessionId: string, file: File, studentId: str
 
 // Upload Audio to GCS
 export async function uploadAudio(uploadUrl: string, file: File): Promise<{ success: boolean }> {
-  // Always set Content-Type to audio/wav for GCS upload
+  // Set Content-Type to file's actual MIME type
   await axios.put(uploadUrl, file, {
     headers: {
-      'Content-Type': 'audio/wav',
+      'Content-Type': file.type || 'application/octet-stream',
     },
   });
   return { success: true };

@@ -65,7 +65,7 @@
           audioFile,
           {
             headers: {
-              "Content-Type": "audio/wav",
+              "Content-Type": audioFile.type || "application/octet-stream",
             },
           }
         );
