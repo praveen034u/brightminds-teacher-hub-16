@@ -36,9 +36,14 @@ export async function createPracticeSession(payload: PracticeSessionPayload, stu
 
 // Get Upload URL
 export async function getUploadUrl(sessionId: string, file: File, studentId: string): Promise<UploadUrlResponse> {
+  // Send file extension and MIME type to backend
+  const extension = file.name.split('.').pop() || 'webm';
   const response = await axios.post(
     `https://ai-feedback-api-756501801816.us-east4.run.app/api/student/practice-sessions/${sessionId}/upload-url`,
-    {},
+    {
+      extension,
+      mimeType: file.type || 'audio/webm',
+    },
     {
       headers: {
         "x-student-id": studentId,
