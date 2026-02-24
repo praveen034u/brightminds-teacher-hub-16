@@ -167,3 +167,21 @@ This will tell me if there's a different issue (very unlikely).
 6. Modal will open!
 
 I'm confident this will work because the code is correct - it's just missing data!
+
+---
+
+## Changes to Practice Mode Functionality
+
+### 1. Admin Template Creation
+- Admins can create practice type templates.
+- Templates will be categorized by grade level for student access.
+
+### 2. Configurable Templates
+- Admins can create new templates (e.g., Public Speaking, Reading).
+- Each template will have an enable/disable configuration option.
+
+### Implementation Steps
+- Update the admin portal to include a template management section.
+- Implement a database schema to store templates and their configurations.
+- Modify the student login interface to display available templates based on grade.
+- Ensure that templates can be enabled or disabled by the admin.

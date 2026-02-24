@@ -500,6 +500,24 @@ For questions or issues:
 
 ---
 
+## Admin Portal Template Management
+
+### Overview
+- Admins can manage practice type templates from the admin portal.
+
+### Features
+- Create new templates with configurable options.
+- Enable or disable templates as needed.
+- Assign templates to specific grade levels for student access.
+
+### Steps to Create a Template
+1. Navigate to the Template Management section.
+2. Fill in the template details (name, grade level).
+3. Set the template status (enabled/disabled).
+4. Save the template to make it available for students.
+
+---
+
 **Implementation Date:** December 6, 2025  
 **Version:** 1.0.0  
 **Status:** ✅ Complete and Ready for Deployment

@@ -67,6 +67,7 @@ function AssignmentsPage() {
   const [selectedPrebuiltRoom, setSelectedPrebuiltRoom] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('none');
   const [selectedQuestionPaper, setSelectedQuestionPaper] = useState('');
+  const [autoPopulatedFromPaper, setAutoPopulatedFromPaper] = useState(false); // ← ADD THIS LINE
   const [questionPapers, setQuestionPapers] = useState<any[]>([]);
   const allowedGrades = useMemo(
     () =>
@@ -1114,7 +1115,32 @@ function AssignmentsPage() {
                           {/* Question Paper Selection */}
                           <div className="space-y-2">
                             <Label className="text-sm font-medium">Select Question Paper *</Label>
-                            <Select value={selectedQuestionPaper} onValueChange={setSelectedQuestionPaper}>
+                            <Select 
+                              value={selectedQuestionPaper} 
+                              onValueChange={(paperId) => {
+                                setSelectedQuestionPaper(paperId);
+                                
+                                // Find the selected paper and auto-populate fields
+                                const selectedPaper = questionPapers.find(p => p.id === paperId);
+                                if (selectedPaper) {
+                                  // Auto-populate title if not already filled
+                                  if (!title || title.trim() === '') {
+                                    setTitle(selectedPaper.title);
+                                  }
+                                
+                                  // Auto-populate grade if available and not already set
+                                  if (selectedPaper.grade && (!grade || grade === '')) {
+                                    setGrade(selectedPaper.grade);
+                                  }
+                                
+                                  setAutoPopulatedFromPaper(true);
+                                  console.log('✅ Auto-populated from question paper:', {
+                                    title: selectedPaper.title,
+                                    grade: selectedPaper.grade
+                                  });
+                                }
+                              }}
+                            >
                               <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Choose a saved question paper..." />
                               </SelectTrigger>
@@ -1141,26 +1167,48 @@ function AssignmentsPage() {
                               </SelectContent>
                             </Select>
                             
-                            {/* Show selected question paper details */}
+                            {/* Show selected question paper details as a nice label instead of dropdown */}
                             {selectedQuestionPaper && questionPapers.find(p => p.id === selectedQuestionPaper) && (
-                              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <div className="flex items-start gap-2">
-                                  <div className="h-8 w-8 rounded bg-green-600 flex items-center justify-center flex-shrink-0">
-                                    <CheckCircle className="h-5 w-5 text-white" />
+                              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-start gap-3">
+                                  <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                                    <FileText className="h-6 w-6 text-white" />
                                   </div>
                                   <div className="flex-1">
-                                    <div className="text-sm font-medium text-green-900 mb-1">
-                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.title}
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="text-sm font-bold text-green-900">
+                                        {questionPapers.find(p => p.id === selectedQuestionPaper)?.title}
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedQuestionPaper('');
+                                          setAutoPopulatedFromPaper(false);
+                                        }}
+                                        className="h-6 px-2 text-xs text-green-700 hover:bg-green-200"
+                                      >
+                                        Change
+                                      </Button>
                                     </div>
-                                    <p className="text-xs text-green-700">
-                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.description || 'No description'}
+                                    <p className="text-xs text-green-700 mb-3 leading-relaxed">
+                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.description || 'No description provided'}
                                     </p>
-                                    <div className="flex gap-2 mt-2">
-                                      <Badge variant="outline" className="text-xs bg-white">
+                                    <div className="flex flex-wrap gap-2">
+                                      <Badge className="bg-green-600 text-white text-xs">
                                         📝 {questionPapers.find(p => p.id === selectedQuestionPaper)?.question_count || 0} Questions
                                       </Badge>
-                                      <Badge variant="outline" className="text-xs bg-white">
+                                      <Badge className="bg-emerald-600 text-white text-xs">
                                         🏆 {questionPapers.find(p => p.id === selectedQuestionPaper)?.total_marks || 0} Marks
+                                      </Badge>
+                                      {questionPapers.find(p => p.id === selectedQuestionPaper)?.grade && (
+                                        <Badge className="bg-blue-600 text-white text-xs">
+                                          📚 Grade {questionPapers.find(p => p.id === selectedQuestionPaper)?.grade}
+                                        </Badge>
+                                      )}
+                                      <Badge variant="outline" className="text-xs text-green-700 bg-white border-green-300">
+                                        ✅ Ready to assign
                                       </Badge>
                                     </div>
                                   </div>

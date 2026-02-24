@@ -84,6 +84,16 @@ CREATE TABLE IF NOT EXISTS help_requests (
   resolved_at TIMESTAMPTZ
 );
 
+-- Table for Practice Type Templates
+CREATE TABLE practice_templates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    grade_level INT NOT NULL,
+    is_enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Enable Row Level Security
 ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
@@ -362,3 +372,8 @@ CREATE TRIGGER update_games_updated_at BEFORE UPDATE ON games
 -- Add updated_at trigger for assignment attempts
 CREATE TRIGGER update_assignment_attempts_updated_at BEFORE UPDATE ON assignment_attempts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Example insert for new templates
+INSERT INTO practice_templates (name, grade_level, is_enabled) VALUES
+('Public Speaking', 5, TRUE),
+('Reading', 5, TRUE);
