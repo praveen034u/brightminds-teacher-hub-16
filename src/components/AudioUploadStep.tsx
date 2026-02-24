@@ -16,6 +16,7 @@ const AudioUploadStep: React.FC<AudioUploadStepProps> = ({ onUpload, loading, er
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const [recordError, setRecordError] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   const handleStartRecording = async () => {
     setRecordError(null);
@@ -32,6 +33,7 @@ const AudioUploadStep: React.FC<AudioUploadStepProps> = ({ onUpload, loading, er
         const blob = new Blob(recordedChunks, { type: 'audio/webm' });
         const file = new File([blob], `recording-${Date.now()}.webm`, { type: 'audio/webm' });
         setSelected(file);
+        setAudioUrl(URL.createObjectURL(blob));
         setRecording(false);
         setMediaRecorder(null);
       };
@@ -82,6 +84,7 @@ const AudioUploadStep: React.FC<AudioUploadStepProps> = ({ onUpload, loading, er
         onChange={e => {
           if (e.target.files && e.target.files[0]) {
             setSelected(e.target.files[0]);
+            setAudioUrl(URL.createObjectURL(e.target.files[0]));
           }
         }}
         disabled={loading}
@@ -94,9 +97,14 @@ const AudioUploadStep: React.FC<AudioUploadStepProps> = ({ onUpload, loading, er
         <span role="img" aria-label="Upload">⬆️</span> Upload Audio
       </button>
       {selected && (
-        <div className={styles.selectedFile}>
-          <span role="img" aria-label="File">📁</span> {selected.name}
-        </div>
+        <>
+          <div className={styles.selectedFile}>
+            <span role="img" aria-label="File">📁</span> {selected.name}
+          </div>
+          {audioUrl && (
+            <audio controls src={audioUrl} style={{ width: '100%', marginTop: 8 }} />
+          )}
+        </>
       )}
       {selected && (
         <button
