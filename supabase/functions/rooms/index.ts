@@ -1,3 +1,6 @@
+// Deno version is not supported in Node.js. Please use the new Node.js/Express handler in api/rooms.js
+// Original Deno code commented out for reference.
+/*
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
@@ -27,6 +30,12 @@ Deno.serve(async (req) => {
       .select('id')
       .eq('auth0_user_id', auth0UserId)
       .single();
+    // ...existing code...
+  } catch (error) {
+    // ...existing code...
+  }
+});
+*/
 
     if (!teacher) {
       return new Response(JSON.stringify({ error: 'Teacher not found' }), {
