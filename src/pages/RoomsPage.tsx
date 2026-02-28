@@ -40,6 +40,11 @@ export const RoomsPage = () => {
     grade_level: '',
   });
 
+  // Search and sorting state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'grade' | 'students' | 'unread' | 'created'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
   useEffect(() => {
     if (authLoading || !isAuthenticated || !auth0UserId) {
       setLoading(false);
@@ -148,13 +153,53 @@ export const RoomsPage = () => {
     );
   };
 
-  // Filter rooms by selected grades from context
+  // Filter and sort rooms by selected grades, search term, and sort criteria
   const filteredRooms = useMemo(() => {
-    if (selectedGrades.length === 0) {
-      return rooms;
+    let filtered = rooms;
+    // Filter by selected grades
+    if (selectedGrades.length > 0) {
+      filtered = filtered.filter((room) => selectedGrades.includes(room.grade_level));
     }
-    return rooms.filter((room) => selectedGrades.includes(room.grade_level));
-  }, [rooms, selectedGrades]);
+    // Filter by search term (room name)
+    if (searchTerm.trim()) {
+      filtered = filtered.filter((room) =>
+        room.name && room.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    // Sorting logic
+    filtered = [...filtered].sort((a, b) => {
+      let valA, valB;
+      switch (sortBy) {
+        case 'name':
+          valA = a.name?.toLowerCase() || '';
+          valB = b.name?.toLowerCase() || '';
+          break;
+        case 'grade':
+          valA = a.grade_level || '';
+          valB = b.grade_level || '';
+          break;
+        case 'students':
+          valA = a.student_count || 0;
+          valB = b.student_count || 0;
+          break;
+        case 'unread':
+          valA = unreadCounts[a.id] || 0;
+          valB = unreadCounts[b.id] || 0;
+          break;
+        case 'created':
+          valA = new Date(a.created_at || 0).getTime();
+          valB = new Date(b.created_at || 0).getTime();
+          break;
+        default:
+          valA = a.name?.toLowerCase() || '';
+          valB = b.name?.toLowerCase() || '';
+      }
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return filtered;
+  }, [rooms, selectedGrades, searchTerm, sortBy, sortOrder, unreadCounts]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
@@ -170,6 +215,40 @@ export const RoomsPage = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
+
+            {/* Search bar UI */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6 items-center">
+              <input
+                type="text"
+                placeholder="Search rooms..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="max-w-xs border rounded px-3 py-2 shadow-sm"
+              />
+              <div className="flex gap-2 items-center">
+                <label htmlFor="sortBy" className="text-sm">Sort by:</label>
+                <select
+                  id="sortBy"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="border rounded px-2 py-1 text-sm"
+                >
+                  <option value="name">Name</option>
+                  <option value="grade">Grade</option>
+                  <option value="students">Students</option>
+                  <option value="unread">Unread</option>
+                  <option value="created">Created</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}
+                  className="border rounded px-2 py-1 text-sm"
+                  title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+            </div>
 
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
