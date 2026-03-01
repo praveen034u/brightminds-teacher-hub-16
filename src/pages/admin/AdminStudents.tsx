@@ -138,7 +138,7 @@ const AdminStudents = () => {
         throw error;
       }
 
-      setStudents((data as StudentRecord[]) || []);
+      setStudents((data as unknown as StudentRecord[]) || []);
       setTotalCount(count || 0);
     } catch (error) {
       console.error('Failed to load students:', error);

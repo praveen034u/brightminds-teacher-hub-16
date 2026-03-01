@@ -196,10 +196,7 @@ export const QuestionPaperBuilder: React.FC<QuestionPaperBuilderProps> = ({
                   console.log(`OCR Progress (${file.name}): ${progress}%`);
                 }
               },
-              // Enhanced OCR settings for better accuracy
-              tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-              tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:?!()[]{}+-=*/\'"@ ',
-            });
+            } as any);
             
             let extractedTextFromImage = result.data.text;
             
