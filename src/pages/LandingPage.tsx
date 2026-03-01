@@ -31,12 +31,6 @@ const LandingPage = () => {
           <span className="text-xl font-bold text-foreground tracking-tight">BrightMinds</span>
         </div>
 
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-          <span className="hover:text-foreground cursor-pointer transition-colors">Products</span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">Schools</span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">Pricing</span>
-          <span className="hover:text-foreground cursor-pointer transition-colors">About</span>
-        </div>
 
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => setLoginOpen(true)}>Log In</Button>
