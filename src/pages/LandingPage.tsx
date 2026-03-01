@@ -22,7 +22,7 @@ const LandingPage = () => {
       {/* ── Navigation ── */}
       <nav className="w-full px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
-          <img src="/brightminds-logo1.png" alt="BrightMinds" className="h-10 w-10 object-contain" />
+          <img src="/brightminds-logo1.png" alt="BrightMinds" className="h-14 w-14 object-contain" />
           <span className="text-xl font-bold text-foreground tracking-tight">BrightMinds</span>
         </div>
 
