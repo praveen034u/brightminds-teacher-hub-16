@@ -218,13 +218,15 @@ export default function CalendarMockup() {
                         <div key={event.id} className="w-full rounded text-xs px-2 py-1 text-white relative" style={{ background: bg }} title={teacher.name}>
                           {/* name wraps instead of truncating */}
                           <span className="text-xs font-medium break-words">{teacher.name}</span>
-                          <button
-                            aria-label="Remove event"
-                            onClick={(e) => { e.stopPropagation(); removeEvent(event.id); }}
-                            className="absolute top-0 right-0 mt-1 mr-1 w-4 h-4 flex items-center justify-center rounded hover:bg-black/40 text-white font-bold text-xs leading-none"
-                          >
-                            ×
-                          </button>
+                          {event.type !== 'leave' && (
+                            <button
+                              aria-label="Remove event"
+                              onClick={(e) => { e.stopPropagation(); removeEvent(event.id); }}
+                              className="absolute top-0 right-0 mt-1 mr-1 w-4 h-4 flex items-center justify-center rounded hover:bg-black/40 text-white font-bold text-xs leading-none"
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
                       );
                     })}
