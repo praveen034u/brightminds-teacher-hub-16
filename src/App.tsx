@@ -31,6 +31,7 @@ import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminStudents from "./pages/admin/AdminStudents";
 import AdminSettings from "./pages/admin/AdminSettings";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAvailability from "./pages/admin/AdminAvailability";
 import { Footer } from "@/components/layout/Footer";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
@@ -110,6 +111,13 @@ const App = () => (
                   </AdminRoute>
                 }>
                   <Route index element={<AdminNewsletters />} />
+                </Route>
+                <Route path="/admin/availability" element={
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                }>
+                  <Route index element={<AdminAvailability />} />
                 </Route>
                 <Route path="/admin/students" element={
                   <AdminRoute>

@@ -12,6 +12,7 @@ const AdminLayout = () => {
   const navigation: { name: string; href: string; icon: typeof Users; disabled?: boolean }[] = [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Teachers', href: '/admin/teachers', icon: Users },
+    { name: 'Teacher Availability', href: '/admin/availability', icon: Users },
     { name: 'Students', href: '/admin/students', icon: User },
     { name: 'Onboard Teacher', href: '/admin/onboard', icon: UserPlus },
     { name: 'Announcements', href: '/admin/newsletters', icon: Megaphone },
@@ -29,19 +30,17 @@ const AdminLayout = () => {
             <h1 className="text-2xl font-bold text-gray-900">Admin Portal</h1>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="text-right">
+          <div className="flex items-center gap-3">
+            <div className="text-right whitespace-nowrap">
               <p className="text-sm font-medium text-gray-900">{user?.full_name}</p>
-              <p className="text-xs text-gray-500">{user?.email}</p>
             </div>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={logout}
-              className="gap-2"
+              className="rounded-full h-8 w-8 p-0"
             >
               <LogOut className="h-4 w-4" />
-              Logout
             </Button>
           </div>
         </div>
