@@ -70,9 +70,9 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
 
   useEffect(() => {
     if (open) {
-      // Small delay to ensure the container div is mounted
-      const timer = setTimeout(initLock, 100);
-      return () => clearTimeout(timer);
+      // Use requestAnimationFrame to init as soon as container is painted
+      const raf = requestAnimationFrame(() => initLock());
+      return () => cancelAnimationFrame(raf);
     } else {
       if (lockRef.current) {
         try { lockRef.current.hide(); } catch {}
