@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 
 const AUTH0_DOMAIN = 'dev-jbrriuc5vyjmiwtx.us.auth0.com';
 const AUTH0_CLIENT_ID = 'hRgZXlSYVCedu8jYuTWadyoTA3T8EISD';
@@ -122,12 +122,28 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
   }, []);
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }}>
-      <DialogContent forceMount className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden">
+    <Dialog open={open} onOpenChange={() => { /* prevent outside click close */ }}>
+      <DialogContent
+        forceMount
+        className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogTitle className="sr-only">Sign In</DialogTitle>
         <DialogDescription className="sr-only">
           Sign in to your BrightMinds account
         </DialogDescription>
+        {/* Close button */}
+        {open && (
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 z-50 rounded-full bg-background/80 backdrop-blur-sm p-1.5 text-foreground/70 hover:text-foreground hover:bg-background transition-colors shadow-sm border border-border"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
         {!isWidgetReady && open && (
           <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
