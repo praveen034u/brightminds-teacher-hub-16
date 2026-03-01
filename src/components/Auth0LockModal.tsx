@@ -138,11 +138,11 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         {open && (
           <button
             onClick={onClose}
-            className="absolute -right-2 -top-2 rounded-full bg-background p-1.5 text-foreground/70 hover:text-foreground hover:bg-muted transition-colors shadow-md border border-border"
+            className="absolute right-1 top-1 flex items-center justify-center w-7 h-7 rounded bg-muted/80 hover:bg-muted text-foreground/60 hover:text-foreground transition-colors border border-border shadow-sm"
             style={{ zIndex: 99999 }}
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         )}
         {!isWidgetReady && open && (
