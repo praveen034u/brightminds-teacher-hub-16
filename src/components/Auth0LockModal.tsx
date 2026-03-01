@@ -121,6 +121,12 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
     };
   }, []);
 
+  const handleClose = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onClose();
+  }, [onClose]);
+
   return (
     <Dialog open={open} onOpenChange={() => { /* prevent outside click close */ }}>
       <DialogContent
@@ -134,30 +140,35 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         <DialogDescription className="sr-only">
           Sign in to your BrightMinds account
         </DialogDescription>
-        {/* Close button - positioned outside the widget area */}
-        {open && (
-          <div className="absolute right-1 top-1" style={{ zIndex: 99999 }}>
-            <button
-              onClick={onClose}
-              type="button"
-              className="flex h-7 w-7 items-center justify-center rounded bg-muted/80 hover:bg-muted text-foreground/60 hover:text-foreground transition-colors border border-border shadow-sm"
-              aria-label="Close login widget"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
         {!isWidgetReady && open && (
           <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Loading sign-in…</p>
           </div>
         )}
-        <div
-          id="auth0-lock-container"
-          ref={containerRef}
-          className={`w-full min-h-[400px] ${!open ? 'opacity-0 h-0 overflow-hidden pointer-events-none' : !isWidgetReady ? 'opacity-0 absolute' : ''}`}
-        />
+        <div className="relative">
+          {/* Close button overlaid on top-right of Auth0 widget */}
+          {open && (
+            <div
+              className="absolute right-2 top-2 cursor-pointer"
+              style={{ zIndex: 99999 }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={handleClose}
+              role="button"
+              tabIndex={0}
+              aria-label="Close login widget"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-foreground/10 hover:bg-foreground/20 text-foreground/70 hover:text-foreground transition-colors">
+                <X className="h-3.5 w-3.5" />
+              </div>
+            </div>
+          )}
+          <div
+            id="auth0-lock-container"
+            ref={containerRef}
+            className={`w-full min-h-[400px] ${!open ? 'opacity-0 h-0 overflow-hidden pointer-events-none' : !isWidgetReady ? 'opacity-0 absolute' : ''}`}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
