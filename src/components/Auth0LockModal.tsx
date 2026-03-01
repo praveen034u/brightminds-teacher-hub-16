@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import Auth0Lock from 'auth0-lock';
 import {
   Dialog,
@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Loader2 } from 'lucide-react';
 
 const AUTH0_DOMAIN = 'dev-jbrriuc5vyjmiwtx.us.auth0.com';
 const AUTH0_CLIENT_ID = 'hRgZXlSYVCedu8jYuTWadyoTA3T8EISD';
@@ -21,6 +22,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
   const lockRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lockConfigKeyRef = useRef('');
+  const [isWidgetReady, setIsWidgetReady] = useState(false);
 
   const initLock = useCallback(() => {
     if (!containerRef.current) return;
@@ -61,11 +63,14 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
       },
     });
 
+    lock.on('show', () => {
+      setIsWidgetReady(true);
+    });
+
     lock.on('authenticated', (authResult: any) => {
       console.log('✅ Auth0 Lock authenticated');
       lock.hide();
       onClose();
-      // Reload to let Auth0React SDK pick up the session
       window.location.reload();
     });
 
@@ -79,7 +84,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
 
   useEffect(() => {
     if (open) {
-      // Init + show as soon as possible after paint
+      setIsWidgetReady(false);
       const raf = requestAnimationFrame(() => {
         initLock();
         try {
@@ -89,7 +94,6 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
       return () => cancelAnimationFrame(raf);
     }
 
-    // Defer hide to avoid React/Auth0Lock unmount race warnings
     const raf = requestAnimationFrame(() => {
       try {
         lockRef.current?.hide();
@@ -128,10 +132,16 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         <DialogDescription className="sr-only">
           Sign in to your BrightMinds account
         </DialogDescription>
+        {!isWidgetReady && open && (
+          <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading sign-in…</p>
+          </div>
+        )}
         <div
           id="auth0-lock-container"
           ref={containerRef}
-          className="w-full min-h-[400px]"
+          className={`w-full min-h-[400px] ${!isWidgetReady && open ? 'opacity-0 absolute' : ''}`}
         />
       </DialogContent>
     </Dialog>
