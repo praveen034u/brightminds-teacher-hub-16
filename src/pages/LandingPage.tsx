@@ -47,12 +47,13 @@ const LandingPage = () => {
 
       {/* ── Hero Section – Centered like ClassDojo ── */}
       <section className="max-w-4xl mx-auto px-6 pt-16 pb-8 text-center">
-        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-[1.1] text-foreground mb-6">
-          Where classrooms<br />
-          become{' '}
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] text-foreground mb-6">
+          Where Teaching Meets{' '}
           <span className="bg-gradient-to-r from-primary via-[hsl(300,50%,60%)] to-secondary bg-clip-text text-transparent">
-            communities
+            Intelligence
           </span>
+          <br />
+          <span className="text-3xl sm:text-4xl lg:text-5xl">For Smarter Classrooms & Stronger Learning</span>
         </h1>
         <p className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
           Loved by teachers, students, and parents.<br />
