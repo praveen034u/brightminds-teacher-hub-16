@@ -40,6 +40,8 @@ import TeacherAssignmentsListPage from "./pages/teacher/TeacherAssignmentsListPa
 import StudentAssignmentsListPage from "./pages/student/StudentAssignmentsListPage";
 import StudentSubmitAssignmentPage from "./pages/student/StudentSubmitAssignmentPage";
 import StudentFeedbackPage from "./pages/student/StudentFeedbackPage";
+import StudentLoginPage from "./pages/student/StudentLoginPage";
+import StudentHomePage from "./pages/student/StudentHomePage";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +71,10 @@ const App = () => (
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
                 <Route path="/student-portal" element={<StudentPortalPage />} />
+
+                {/* Student PIN-based login */}
+                <Route path="/student" element={<StudentLoginPage />} />
+                <Route path="/student/home" element={<StudentHomePage />} />
 
                 {/* Practice Mode route for students */}
                 <Route path="/student/practice" element={<StudentPracticeModePage />} />

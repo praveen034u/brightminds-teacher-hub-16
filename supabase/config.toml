@@ -35,3 +35,18 @@ verify_jwt = false
 
 [functions.ai-question-bank]
 verify_jwt = false
+
+[functions.student-lookup]
+verify_jwt = false
+
+[functions.student-set-pin]
+verify_jwt = false
+
+[functions.student-login-pin]
+verify_jwt = false
+
+[functions.student-reset-pin]
+verify_jwt = false
+
+[functions.student-session]
+verify_jwt = false
