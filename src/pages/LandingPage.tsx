@@ -88,7 +88,7 @@ const LandingPage = () => {
       <div className="w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       {/* ── Role Cards ── */}
-      <section className="max-w-5xl mx-auto px-6 pt-24 pb-16">
+      <section className="max-w-5xl mx-auto px-6 pt-8 pb-16">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <Link to="/login" className="group">
             <Card className="p-8 text-center hover:shadow-lg transition-all duration-300 border-2 border-transparent hover:border-primary/30 bg-card">
