@@ -83,14 +83,16 @@ const LandingPage = () => {
             <Badge variant="secondary" className="text-[10px] px-2 py-0">Soon</Badge>
           </div>
 
-          {/* Student – coming soon */}
-          <div className="flex flex-col items-center gap-2 px-6 py-5 rounded-2xl border-2 border-border bg-white opacity-70 min-w-[120px]">
-            <div className="w-14 h-14 rounded-full bg-[hsl(140,60%,88%)] flex items-center justify-center text-2xl">
-              🎒
+          {/* Student – active */}
+          <Link to="/student" className="group">
+            <div className="flex flex-col items-center gap-2 px-6 py-5 rounded-2xl border-2 border-border bg-white hover:border-primary/40 hover:shadow-lg transition-all duration-300 min-w-[120px]">
+              <div className="w-14 h-14 rounded-full bg-[hsl(140,60%,88%)] flex items-center justify-center text-2xl">
+                🎒
+              </div>
+              <span className="text-sm font-semibold text-foreground">Student</span>
+              <ArrowRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <span className="text-sm font-semibold text-foreground">Student</span>
-            <Badge variant="secondary" className="text-[10px] px-2 py-0">Soon</Badge>
-          </div>
+          </Link>
         </div>
       </section>
 
