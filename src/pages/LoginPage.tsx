@@ -9,20 +9,16 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { KeyRound, Loader2, CheckCircle, ArrowRight } from 'lucide-react';
-import Auth0LockModal from '@/components/Auth0LockModal';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, error, user: auth0User } = useAuth0();
+  const { isAuthenticated, isLoading, error, user: auth0User, loginWithRedirect } = useAuth0();
   const { isNewUser, isLoading: authLoading, user } = useAuth();
   const [step, setStep] = useState<'choice' | 'code' | 'verify' | 'auth'>('choice');
   const [loading, setLoading] = useState(false);
   const [enrollmentCode, setEnrollmentCode] = useState('');
   const [teacherData, setTeacherData] = useState<any>(null);
   const [showError, setShowError] = useState(false);
-  const [showLockModal, setShowLockModal] = useState(false);
-  const [lockScreenHint, setLockScreenHint] = useState<'signup' | 'login'>('login');
-  const [lockLoginHint, setLockLoginHint] = useState<string | undefined>(undefined);
 
   // Check for error in URL params
   useEffect(() => {
@@ -179,11 +175,15 @@ export const LoginPage = () => {
     // Store enrollment code in localStorage so we can link it after Auth0 signup
     localStorage.setItem('pending_enrollment_code', enrollmentCode.toUpperCase());
     localStorage.setItem('pending_teacher_email', teacherData?.email || '');
-    
-    // Open Auth0 Lock modal for signup
-    setLockScreenHint('signup');
-    setLockLoginHint(teacherData?.email || undefined);
-    setShowLockModal(true);
+
+    // Redirect to Auth0 Universal Login for signup
+    loginWithRedirect({
+      authorizationParams: {
+        screen_hint: 'signup',
+        login_hint: teacherData?.email || undefined,
+        redirect_uri: `${window.location.origin}/login`,
+      },
+    });
   };
 
   const handleExistingLogin = () => {
@@ -191,9 +191,12 @@ export const LoginPage = () => {
     try {
       localStorage.setItem('existing_teacher_login', 'true');
     } catch {}
-    setLockScreenHint('login');
-    setLockLoginHint(undefined);
-    setShowLockModal(true);
+    loginWithRedirect({
+      authorizationParams: {
+        screen_hint: 'login',
+        redirect_uri: `${window.location.origin}/dashboard`,
+      },
+    });
   };
 
   if (isLoading || authLoading || isAuthenticated) {
@@ -435,13 +438,6 @@ export const LoginPage = () => {
           )}
         </CardContent>
       </Card>
-
-      <Auth0LockModal
-        open={showLockModal}
-        onClose={() => setShowLockModal(false)}
-        screenHint={lockScreenHint}
-        loginHint={lockLoginHint}
-      />
     </div>
   );
 };

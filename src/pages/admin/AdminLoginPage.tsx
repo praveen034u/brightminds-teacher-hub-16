@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Auth0LockModal from '@/components/Auth0LockModal';
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [showLockModal, setShowLockModal] = useState(false);
+  const { loginWithRedirect } = useAuth0();
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) {
@@ -24,7 +24,12 @@ const AdminLoginPage = () => {
   }, [isAuthenticated, isLoading, user, navigate]);
 
   const handleAdminLogin = () => {
-    setShowLockModal(true);
+    loginWithRedirect({
+      authorizationParams: {
+        screen_hint: 'login',
+        redirect_uri: `${window.location.origin}/admin/dashboard`,
+      },
+    });
   };
 
   if (isLoading || isAuthenticated) {
@@ -62,11 +67,6 @@ const AdminLoginPage = () => {
           </Button>
         </CardContent>
       </Card>
-
-      <Auth0LockModal
-        open={showLockModal}
-        onClose={() => setShowLockModal(false)}
-      />
     </div>
   );
 };
