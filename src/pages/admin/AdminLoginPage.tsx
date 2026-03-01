@@ -1,14 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth0 } from '@auth0/auth0-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Auth0LockModal from '@/components/Auth0LockModal';
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const { loginWithPopup } = useAuth0();
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [showLockModal, setShowLockModal] = useState(false);
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) {
@@ -23,12 +23,8 @@ const AdminLoginPage = () => {
     navigate('/not-authorized', { replace: true });
   }, [isAuthenticated, isLoading, user, navigate]);
 
-  const handleAdminLogin = async () => {
-    try {
-      await loginWithPopup();
-    } catch (err) {
-      console.error('Popup login error:', err);
-    }
+  const handleAdminLogin = () => {
+    setShowLockModal(true);
   };
 
   if (isLoading || isAuthenticated) {
@@ -66,6 +62,11 @@ const AdminLoginPage = () => {
           </Button>
         </CardContent>
       </Card>
+
+      <Auth0LockModal
+        open={showLockModal}
+        onClose={() => setShowLockModal(false)}
+      />
     </div>
   );
 };
