@@ -34,8 +34,12 @@ const StudentFeedbackPage = () => {
     queryFn: () => fetchSubmission(submissionId as string),
     enabled: Boolean(submissionId) && !initialData,
     initialData,
-    onSuccess: (submission) => setSubmission(submission),
   });
+
+  // Sync fetched data to local state
+  React.useEffect(() => {
+    if (data) setSubmission(data);
+  }, [data]);
 
   const feedback = data?.feedback;
 

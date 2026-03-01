@@ -9,7 +9,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const navigation = [
+  const navigation: { name: string; href: string; icon: typeof Users; disabled?: boolean }[] = [
     { name: 'Teachers', href: '/admin/teachers', icon: Users },
     { name: 'Students', href: '/admin/students', icon: User },
     { name: 'Onboard Teacher', href: '/admin/onboard', icon: UserPlus },
