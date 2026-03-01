@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const { loginWithRedirect } = useAuth0();
+  const { loginWithPopup } = useAuth0();
   const { isAuthenticated, isLoading, user } = useAuth();
 
   useEffect(() => {
@@ -23,8 +23,12 @@ const AdminLoginPage = () => {
     navigate('/not-authorized', { replace: true });
   }, [isAuthenticated, isLoading, user, navigate]);
 
-  const handleAdminLogin = () => {
-    loginWithRedirect();
+  const handleAdminLogin = async () => {
+    try {
+      await loginWithPopup();
+    } catch (err) {
+      console.error('Popup login error:', err);
+    }
   };
 
   if (isLoading || isAuthenticated) {
