@@ -368,3 +368,8 @@ All colors MUST be HSL.
   }
 }
 
+/* Auth0 Lock logo size override */
+.auth0-lock-header-logo {
+  width: 80px !important;
+  height: auto !important;
+}
