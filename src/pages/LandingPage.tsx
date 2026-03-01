@@ -56,8 +56,8 @@ const LandingPage = () => {
           <span className="text-3xl sm:text-4xl lg:text-5xl">For Smarter Classrooms & Stronger Learning</span>
         </h1>
         <p className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
-          Loved by teachers, students, and parents.<br />
-          Free for teachers, forever.
+          Smarter Classrooms. Stronger Learning.<br />
+          Powered by Intelligent Teaching.
         </p>
       </section>
 
