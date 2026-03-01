@@ -23,6 +23,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
   const containerRef = useRef<HTMLDivElement>(null);
   const lockConfigKeyRef = useRef('');
   const [isWidgetReady, setIsWidgetReady] = useState(false);
+  const preWarmedRef = useRef(false);
 
   const initLock = useCallback(() => {
     if (!containerRef.current) return;
@@ -32,11 +33,8 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
       return;
     }
 
-    // Recreate only when mode/prefill changes
     if (lockRef.current) {
-      try {
-        lockRef.current.hide();
-      } catch {}
+      try { lockRef.current.hide(); } catch {}
       lockRef.current = null;
     }
 
@@ -48,9 +46,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         redirect: false,
         responseType: 'token id_token',
         audience: `https://${AUTH0_DOMAIN}/userinfo`,
-        params: {
-          scope: 'openid profile email',
-        },
+        params: { scope: 'openid profile email' },
       },
       initialScreen: screenHint === 'signup' ? 'signUp' : 'login',
       prefill: loginHint ? { email: loginHint } : undefined,
@@ -58,9 +54,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         primaryColor: '#7c3aed',
         logo: '/brightminds-logo1.png',
       },
-      languageDictionary: {
-        title: '',
-      },
+      languageDictionary: { title: '' },
     });
 
     lock.on('show', () => {
@@ -82,44 +76,46 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
     lockConfigKeyRef.current = configKey;
   }, [screenHint, loginHint, onClose]);
 
+  // Pre-warm: init + show the widget hidden on mount so it's fully cached
   useEffect(() => {
-    if (open) {
-      setIsWidgetReady(false);
-      const raf = requestAnimationFrame(() => {
-        initLock();
-        try {
-          lockRef.current?.show();
-        } catch {}
-      });
-      return () => cancelAnimationFrame(raf);
-    }
+    if (preWarmedRef.current) return;
+    preWarmedRef.current = true;
 
-    const raf = requestAnimationFrame(() => {
-      try {
-        lockRef.current?.hide();
-      } catch {}
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [open, initLock]);
-
-  // Warm up Lock instance on mount so first open is faster
-  useEffect(() => {
+    // Small delay to not block initial page render
     const timer = window.setTimeout(() => {
-      if (!open) {
-        initLock();
-      }
-    }, 0);
+      initLock();
+      try {
+        lockRef.current?.show();
+      } catch {}
+    }, 100);
 
     return () => window.clearTimeout(timer);
-  }, [initLock, open]);
+  }, [initLock]);
+
+  // When modal opens, widget is already rendered — just mark ready or re-show
+  useEffect(() => {
+    if (open) {
+      if (lockRef.current && lockConfigKeyRef.current === `${screenHint ?? 'login'}::${loginHint ?? ''}`) {
+        // Already pre-warmed with same config — mark ready immediately
+        setIsWidgetReady(true);
+        try { lockRef.current?.show(); } catch {}
+      } else {
+        setIsWidgetReady(false);
+        requestAnimationFrame(() => {
+          initLock();
+          try { lockRef.current?.show(); } catch {}
+        });
+      }
+    } else {
+      // Don't hide/destroy — keep cached. Just reset ready state for next open.
+    }
+  }, [open, initLock, screenHint, loginHint]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (lockRef.current) {
-        try {
-          lockRef.current.hide();
-        } catch {}
+        try { lockRef.current.hide(); } catch {}
         lockRef.current = null;
       }
     };
@@ -141,7 +137,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         <div
           id="auth0-lock-container"
           ref={containerRef}
-          className={`w-full min-h-[400px] ${!isWidgetReady && open ? 'opacity-0 absolute' : ''}`}
+          className={`w-full min-h-[400px] ${!open ? 'opacity-0 h-0 overflow-hidden pointer-events-none' : !isWidgetReady ? 'opacity-0 absolute' : ''}`}
         />
       </DialogContent>
     </Dialog>
