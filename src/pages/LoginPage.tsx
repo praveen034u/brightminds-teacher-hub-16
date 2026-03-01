@@ -9,16 +9,20 @@ import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { KeyRound, Loader2, CheckCircle, ArrowRight } from 'lucide-react';
+import Auth0LockModal from '@/components/Auth0LockModal';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { loginWithRedirect, loginWithPopup, isAuthenticated, isLoading, error, user: auth0User } = useAuth0();
+  const { isAuthenticated, isLoading, error, user: auth0User } = useAuth0();
   const { isNewUser, isLoading: authLoading, user } = useAuth();
   const [step, setStep] = useState<'choice' | 'code' | 'verify' | 'auth'>('choice');
   const [loading, setLoading] = useState(false);
   const [enrollmentCode, setEnrollmentCode] = useState('');
   const [teacherData, setTeacherData] = useState<any>(null);
   const [showError, setShowError] = useState(false);
+  const [showLockModal, setShowLockModal] = useState(false);
+  const [lockScreenHint, setLockScreenHint] = useState<'signup' | 'login'>('login');
+  const [lockLoginHint, setLockLoginHint] = useState<string | undefined>(undefined);
 
   // Check for error in URL params
   useEffect(() => {
@@ -171,36 +175,25 @@ export const LoginPage = () => {
     toast.info('Please create your Auth0 account to continue');
   };
 
-  const handleCreateAccount = async () => {
+  const handleCreateAccount = () => {
     // Store enrollment code in localStorage so we can link it after Auth0 signup
     localStorage.setItem('pending_enrollment_code', enrollmentCode.toUpperCase());
     localStorage.setItem('pending_teacher_email', teacherData?.email || '');
     
-    // Open Auth0 signup as a popup widget
-    try {
-      await loginWithPopup({
-        authorizationParams: {
-          screen_hint: 'signup',
-          login_hint: teacherData?.email,
-        },
-      });
-    } catch (err) {
-      console.error('Popup login error:', err);
-      toast.error('Login popup was closed or failed. Please try again.');
-    }
+    // Open Auth0 Lock modal for signup
+    setLockScreenHint('signup');
+    setLockLoginHint(teacherData?.email || undefined);
+    setShowLockModal(true);
   };
 
-  const handleExistingLogin = async () => {
+  const handleExistingLogin = () => {
     // Direct login for existing teachers
     try {
       localStorage.setItem('existing_teacher_login', 'true');
     } catch {}
-    try {
-      await loginWithPopup();
-    } catch (err) {
-      console.error('Popup login error:', err);
-      toast.error('Login popup was closed or failed. Please try again.');
-    }
+    setLockScreenHint('login');
+    setLockLoginHint(undefined);
+    setShowLockModal(true);
   };
 
   if (isLoading || authLoading || isAuthenticated) {
@@ -442,6 +435,13 @@ export const LoginPage = () => {
           )}
         </CardContent>
       </Card>
+
+      <Auth0LockModal
+        open={showLockModal}
+        onClose={() => setShowLockModal(false)}
+        screenHint={lockScreenHint}
+        loginHint={lockLoginHint}
+      />
     </div>
   );
 };
