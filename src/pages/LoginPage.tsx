@@ -71,7 +71,7 @@ export const LoginPage = () => {
       // Redirect admin users to admin portal
       if (user?.role === 'admin') {
         console.log('👑 Admin user detected, redirecting to admin portal');
-        navigate('/admin/teachers', { replace: true });
+        navigate('/admin/dashboard', { replace: true });
         return;
       }
       
