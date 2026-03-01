@@ -1,6 +1,8 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Star, ArrowRight } from 'lucide-react';
 import sportsDay from '@/assets/sports-day.jpg';
 import library from '@/assets/library.jpg';
@@ -17,6 +19,9 @@ const galleryImages = [
 ];
 
 const LandingPage = () => {
+  const [loginOpen, setLoginOpen] = useState(false);
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
       {/* ── Navigation ── */}
@@ -34,14 +39,10 @@ const LandingPage = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link to="/login">
-            <Button variant="ghost" size="sm">Log In</Button>
-          </Link>
-          <Link to="/login">
-            <Button size="sm" className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
-              Sign up
-            </Button>
-          </Link>
+          <Button variant="ghost" size="sm" onClick={() => setLoginOpen(true)}>Log In</Button>
+          <Button size="sm" className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setLoginOpen(true)}>
+            Sign up
+          </Button>
         </div>
       </nav>
 
@@ -140,6 +141,49 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Login Role Picker Dialog */}
+      <Dialog open={loginOpen} onOpenChange={setLoginOpen}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">Log in as...</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center gap-4 py-4">
+            {/* Teacher */}
+            <button
+              onClick={() => { setLoginOpen(false); navigate('/login'); }}
+              className="group flex flex-col items-center gap-2 px-6 py-5 rounded-2xl border-2 border-border bg-white hover:border-primary/40 hover:shadow-lg transition-all duration-300 min-w-[110px]"
+            >
+              <div className="w-14 h-14 rounded-full bg-[hsl(350,80%,90%)] flex items-center justify-center text-2xl">
+                👩‍🏫
+              </div>
+              <span className="text-sm font-semibold text-foreground">Teacher</span>
+              <ArrowRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+
+            {/* Parent – coming soon */}
+            <div className="flex flex-col items-center gap-2 px-6 py-5 rounded-2xl border-2 border-border bg-white opacity-70 min-w-[110px]">
+              <div className="w-14 h-14 rounded-full bg-[hsl(200,70%,90%)] flex items-center justify-center text-2xl">
+                👩‍👧
+              </div>
+              <span className="text-sm font-semibold text-foreground">Parent</span>
+              <Badge variant="secondary" className="text-[10px] px-2 py-0">Soon</Badge>
+            </div>
+
+            {/* Student */}
+            <button
+              onClick={() => { setLoginOpen(false); navigate('/student'); }}
+              className="group flex flex-col items-center gap-2 px-6 py-5 rounded-2xl border-2 border-border bg-white hover:border-primary/40 hover:shadow-lg transition-all duration-300 min-w-[110px]"
+            >
+              <div className="w-14 h-14 rounded-full bg-[hsl(210,70%,90%)] flex items-center justify-center text-2xl">
+                🎒
+              </div>
+              <span className="text-sm font-semibold text-foreground">Student</span>
+              <ArrowRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
