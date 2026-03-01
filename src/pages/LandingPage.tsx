@@ -52,8 +52,6 @@ const LandingPage = () => {
           <span className="bg-gradient-to-r from-primary via-[hsl(300,50%,60%)] to-secondary bg-clip-text text-transparent">
             Intelligence
           </span>
-          <br />
-          <span className="text-3xl sm:text-4xl lg:text-5xl">For Smarter Classrooms & Stronger Learning</span>
         </h1>
         <p className="text-lg sm:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
           Smarter Classrooms. Stronger Learning.<br />
