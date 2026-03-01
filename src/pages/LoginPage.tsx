@@ -12,7 +12,7 @@ import { KeyRound, Loader2, CheckCircle, ArrowRight } from 'lucide-react';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { loginWithRedirect, isAuthenticated, isLoading, error, user: auth0User } = useAuth0();
+  const { loginWithRedirect, loginWithPopup, isAuthenticated, isLoading, error, user: auth0User } = useAuth0();
   const { isNewUser, isLoading: authLoading, user } = useAuth();
   const [step, setStep] = useState<'choice' | 'code' | 'verify' | 'auth'>('choice');
   const [loading, setLoading] = useState(false);
@@ -176,21 +176,31 @@ export const LoginPage = () => {
     localStorage.setItem('pending_enrollment_code', enrollmentCode.toUpperCase());
     localStorage.setItem('pending_teacher_email', teacherData?.email || '');
     
-    // Redirect to Auth0 signup with the teacher's email pre-filled
-    loginWithRedirect({
-      authorizationParams: {
-        screen_hint: 'signup',
-        login_hint: teacherData?.email,
-      },
-    });
+    // Open Auth0 signup as a popup widget
+    try {
+      await loginWithPopup({
+        authorizationParams: {
+          screen_hint: 'signup',
+          login_hint: teacherData?.email,
+        },
+      });
+    } catch (err) {
+      console.error('Popup login error:', err);
+      toast.error('Login popup was closed or failed. Please try again.');
+    }
   };
 
-  const handleExistingLogin = () => {
+  const handleExistingLogin = async () => {
     // Direct login for existing teachers
     try {
       localStorage.setItem('existing_teacher_login', 'true');
     } catch {}
-    loginWithRedirect();
+    try {
+      await loginWithPopup();
+    } catch (err) {
+      console.error('Popup login error:', err);
+      toast.error('Login popup was closed or failed. Please try again.');
+    }
   };
 
   if (isLoading || authLoading || isAuthenticated) {
