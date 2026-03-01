@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/routing/AdminRoute";
 import LoginPage from "./pages/LoginPage";
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 import NotAuthorized from "./pages/NotAuthorized";
 import TeacherHome from "./pages/TeacherHome";
@@ -63,7 +64,8 @@ const App = () => (
             <div className="min-h-screen flex flex-col">
               <Routes>
                 {/* Routes without sidebar */}
-                <Route path="/" element={<LoginPage />} />
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<LoginPage />} />
                 <Route path="/teacher-onboarding" element={<TeacherOnboardingPage />} />
                 <Route path="/student-portal" element={<StudentPortalPage />} />
 
