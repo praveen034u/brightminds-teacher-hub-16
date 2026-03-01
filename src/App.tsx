@@ -51,6 +51,7 @@ const App = () => (
       <Auth0Provider
         domain="dev-jbrriuc5vyjmiwtx.us.auth0.com"
         clientId="hRgZXlSYVCedu8jYuTWadyoTA3T8EISD"
+        cacheLocation="localstorage"
         authorizationParams={{
           redirect_uri: window.location.origin,
           audience: "https://dev-jbrriuc5vyjmiwtx.us.auth0.com/userinfo"
