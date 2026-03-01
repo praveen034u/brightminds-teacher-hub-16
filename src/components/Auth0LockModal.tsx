@@ -41,7 +41,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
     const lock = new (Auth0Lock as any)(AUTH0_CLIENT_ID, AUTH0_DOMAIN, {
       container: 'auth0-lock-container',
       closable: false,
-      sso: false,
+      sso: true,
       auth: {
         redirect: false,
         responseType: 'token id_token',
