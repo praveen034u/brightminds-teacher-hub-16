@@ -125,7 +125,7 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
     <Dialog open={open} onOpenChange={() => { /* prevent outside click close */ }}>
       <DialogContent
         forceMount
-        className="sm:max-w-[450px] p-0 overflow-hidden border-none bg-transparent shadow-none [&>button]:hidden"
+        className="sm:max-w-[450px] p-0 overflow-visible border-none bg-transparent shadow-none [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
@@ -134,14 +134,15 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         <DialogDescription className="sr-only">
           Sign in to your BrightMinds account
         </DialogDescription>
-        {/* Close button */}
+        {/* Close button - positioned outside the widget area */}
         {open && (
           <button
             onClick={onClose}
-            className="absolute right-3 top-3 z-50 rounded-full bg-background/80 backdrop-blur-sm p-1.5 text-foreground/70 hover:text-foreground hover:bg-background transition-colors shadow-sm border border-border"
+            className="absolute -right-2 -top-2 rounded-full bg-background p-1.5 text-foreground/70 hover:text-foreground hover:bg-muted transition-colors shadow-md border border-border"
+            style={{ zIndex: 99999 }}
             aria-label="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         )}
         {!isWidgetReady && open && (
