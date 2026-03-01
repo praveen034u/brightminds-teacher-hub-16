@@ -136,14 +136,16 @@ const Auth0LockModal = ({ open, onClose, screenHint, loginHint }: Auth0LockModal
         </DialogDescription>
         {/* Close button - positioned outside the widget area */}
         {open && (
-          <button
-            onClick={onClose}
-            className="absolute right-1 top-1 flex items-center justify-center w-7 h-7 rounded bg-muted/80 hover:bg-muted text-foreground/60 hover:text-foreground transition-colors border border-border shadow-sm"
-            style={{ zIndex: 99999 }}
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="absolute right-1 top-1" style={{ zIndex: 99999 }}>
+            <button
+              onClick={onClose}
+              type="button"
+              className="flex h-7 w-7 items-center justify-center rounded bg-muted/80 hover:bg-muted text-foreground/60 hover:text-foreground transition-colors border border-border shadow-sm"
+              aria-label="Close login widget"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         )}
         {!isWidgetReady && open && (
           <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
