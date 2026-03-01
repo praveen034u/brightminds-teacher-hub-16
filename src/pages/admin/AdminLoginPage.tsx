@@ -16,7 +16,7 @@ const AdminLoginPage = () => {
     }
 
     if (user?.role === 'admin') {
-      navigate('/admin/teachers', { replace: true });
+      navigate('/admin/dashboard', { replace: true });
       return;
     }
 
