@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Users, Megaphone, Settings, LogOut, Home, ChevronLeft, UserPlus, User } from 'lucide-react';
+import { Users, Megaphone, Settings, LogOut, Home, ChevronLeft, UserPlus, User, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AdminLayout = () => {
@@ -10,6 +10,7 @@ const AdminLayout = () => {
   const { user, logout } = useAuth();
 
   const navigation: { name: string; href: string; icon: typeof Users; disabled?: boolean }[] = [
+    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Teachers', href: '/admin/teachers', icon: Users },
     { name: 'Students', href: '/admin/students', icon: User },
     { name: 'Onboard Teacher', href: '/admin/onboard', icon: UserPlus },

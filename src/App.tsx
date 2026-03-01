@@ -30,6 +30,7 @@ import AdminOnboardTeacher from "./pages/admin/AdminOnboardTeacher";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminStudents from "./pages/admin/AdminStudents";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import { Footer } from "@/components/layout/Footer";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
@@ -75,6 +76,13 @@ const App = () => (
                 <Route path="/admin" element={<AdminLoginPage />} />
                 
                 {/* Admin routes */}
+                <Route path="/admin/dashboard" element={
+                  <AdminRoute>
+                    <AdminLayout />
+                  </AdminRoute>
+                }>
+                  <Route index element={<AdminDashboard />} />
+                </Route>
                 <Route path="/admin/teachers" element={
                   <AdminRoute>
                     <AdminLayout />
