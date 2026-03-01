@@ -87,6 +87,41 @@ const LandingPage = () => {
       {/* ── Decorative divider ── */}
       <div className="w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
+      {/* ── Role Cards ── */}
+      <section className="max-w-5xl mx-auto px-6 py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <Link to="/login" className="group">
+            <Card className="p-8 text-center hover:shadow-lg transition-all duration-300 border-2 border-transparent hover:border-primary/30 bg-card">
+              <div className="w-16 h-16 rounded-full bg-[hsl(40,90%,85%)] mx-auto mb-4 flex items-center justify-center text-2xl">
+                👩‍🏫
+              </div>
+              <h3 className="text-lg font-bold text-foreground mb-2">Teacher</h3>
+              <p className="text-sm text-muted-foreground mb-4">Create and manage your classroom</p>
+              <span className="text-primary font-medium text-sm group-hover:underline inline-flex items-center gap-1">
+                Get Started <ArrowRight className="h-3 w-3" />
+              </span>
+            </Card>
+          </Link>
+
+          <Card className="p-8 text-center opacity-80 bg-card">
+            <div className="w-16 h-16 rounded-full bg-[hsl(180,60%,85%)] mx-auto mb-4 flex items-center justify-center text-2xl">
+              👩‍👧
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">Parent</h3>
+            <p className="text-sm text-muted-foreground mb-4">Stay engaged in your child's progress</p>
+            <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+          </Card>
+
+          <Card className="p-8 text-center opacity-80 bg-card">
+            <div className="w-16 h-16 rounded-full bg-[hsl(140,60%,85%)] mx-auto mb-4 flex items-center justify-center text-2xl">
+              🎒
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">Student</h3>
+            <p className="text-sm text-muted-foreground mb-4">Join and participate in rooms</p>
+            <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+          </Card>
+        </div>
+      </section>
 
       {/* ── Trust Indicators ── */}
       <section className="max-w-4xl mx-auto px-6 py-12">
