@@ -12,8 +12,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { studentsAPI } from '@/api/edgeClient';
-import { UserPlus, Copy, ArrowLeft } from 'lucide-react';
+import { callEdgeFunction } from '@/api/edgeClient';
+import { UserPlus, Copy, ArrowLeft, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -26,6 +36,8 @@ export const StudentsPage = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const [resetPinStudent, setResetPinStudent] = useState<any | null>(null);
+  const [resettingPin, setResettingPin] = useState(false);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || !auth0UserId) {
@@ -86,6 +98,22 @@ export const StudentsPage = () => {
       });
   };
 
+  const handleResetPin = async () => {
+    if (!resetPinStudent || !auth0UserId) return;
+    setResettingPin(true);
+    try {
+      await callEdgeFunction('student-reset-pin', auth0UserId, {
+        method: 'POST',
+        body: { studentId: resetPinStudent.id },
+      });
+      toast.success('PIN reset. Student can set a new PIN.');
+      setResetPinStudent(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reset PIN');
+    } finally {
+      setResettingPin(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
@@ -96,7 +124,7 @@ export const StudentsPage = () => {
           variant="ghost"
           size="sm"
           onClick={() => navigate('/dashboard')}
-          className="mb-4 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+          className="mb-4 hover:bg-primary/10 hover:text-primary transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
@@ -162,10 +190,18 @@ export const StudentsPage = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => setResetPinStudent(student)}
+                            title="Reset student PIN"
+                          >
+                            <KeyRound className="h-4 w-4 text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleCopyAccessLink(student.access_url)}
                             title="Copy student portal link"
                           >
-                            <Copy className="h-4 w-4 text-blue-600" />
+                            <Copy className="h-4 w-4 text-primary" />
                           </Button>
                         </div>
                       </TableCell>
@@ -209,6 +245,31 @@ export const StudentsPage = () => {
             </div>
           )}
         </Card>
+
+        {/* Reset PIN Confirmation Dialog */}
+        <Dialog open={!!resetPinStudent} onOpenChange={(open) => !open && setResetPinStudent(null)}>
+          <DialogContent className="rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Reset Student PIN</DialogTitle>
+              <DialogDescription>
+                This will require <strong>{resetPinStudent?.name}</strong> to create a new PIN next time they log in. Their current session will be invalidated.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <DialogClose asChild>
+                <Button variant="outline" className="rounded-xl">Cancel</Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                className="rounded-xl"
+                onClick={handleResetPin}
+                disabled={resettingPin}
+              >
+                {resettingPin ? 'Resetting...' : 'Reset PIN'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
