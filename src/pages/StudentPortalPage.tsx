@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText, MessageCircle } from 'lucide-react';
+import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText, MessageCircle, LogOut } from 'lucide-react';
 import StudentChat from '@/components/StudentChat';
+import GenieChatWidget from '@/components/GenieChatWidget';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
@@ -631,7 +632,9 @@ interface AssignmentAttempt {
 export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const token = searchParams?.get('token') ?? null;
+  const tokenFromUrl = searchParams?.get('token') ?? null;
+  const tokenFromStorage = typeof window !== 'undefined' ? localStorage.getItem('student_presigned_token') : null;
+  const token = tokenFromUrl || tokenFromStorage || null;
   const schoolIdParam = searchParams?.get('school_id') ?? null;
   const resubmitAssignmentId = searchParams?.get('resubmit_assignment_id') ?? null;
   const resubmitHandledRef = useRef(false);
@@ -641,10 +644,10 @@ export const StudentPortalPage = () => {
 
   // Store token in localStorage for PWA redirect (only if explicitly accessing student portal)
   useEffect(() => {
-    if (token && window.location.pathname === '/student-portal') {
-      localStorage.setItem('student_presigned_token', token);
+    if (tokenFromUrl && window.location.pathname === '/student-portal') {
+      localStorage.setItem('student_presigned_token', tokenFromUrl);
     }
-  }, [token]);
+  }, [tokenFromUrl]);
 
   useEffect(() => {
     if (schoolIdParam) {
@@ -2422,19 +2425,23 @@ export const StudentPortalPage = () => {
     }
   };
 
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('student_presigned_token');
+      localStorage.removeItem('student_school_id');
+      localStorage.removeItem('student_assignment_attempts');
+      localStorage.removeItem('student_ai_submission_map');
+      localStorage.removeItem('student_id');
+    } catch (error) {
+      console.warn('Failed to clear student session data:', error);
+    }
+
+    toast.success('Logged out successfully');
+    navigate('/student');
+  };
+
   if (!token) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle className="text-red-600">Access Denied</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>No access token provided. Please use the link provided by your teacher.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <Navigate to="/student" replace />;
   }
 
   if (loading) {
@@ -2480,16 +2487,17 @@ export const StudentPortalPage = () => {
     const due = new Date(a.due_date);
     return (now.getTime() - due.getTime()) >= oneDayMs;
   });
+  const studentInitial = (studentData.name || 'S').trim().charAt(0).toUpperCase();
 
   // --- Side Panel Layout ---
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col lg:flex-row lg:overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex flex-col lg:flex-row lg:overflow-hidden">
       {/* Side Panel */}
-      <aside className="w-full lg:w-80 lg:min-w-80 shrink-0 bg-white/95 backdrop-blur border-b lg:border-b-0 lg:border-r shadow-sm flex flex-col">
-        <div className="p-4 sm:p-6 border-b bg-gradient-to-r from-white to-blue-50/60 flex flex-col gap-3">
+      <aside className="w-full lg:w-80 lg:min-w-80 shrink-0 bg-white/90 backdrop-blur border-b lg:border-b-0 lg:border-r shadow-md flex flex-col">
+        <div className="p-4 sm:p-6 border-b bg-gradient-to-r from-white to-blue-50/70 flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-full bg-blue-600 flex items-center justify-center shadow-sm">
-              <User className="h-6 w-6 text-white" />
+            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+              <span className="text-sm font-bold text-white">{studentInitial}</span>
             </div>
             <div className="min-w-0">
               <h1 className="text-lg font-bold text-gray-900 truncate">{studentData.name}</h1>
@@ -2497,13 +2505,13 @@ export const StudentPortalPage = () => {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md border bg-white px-3 py-2">
+            <div className="rounded-lg border bg-white px-3 py-2 shadow-sm">
               <p className="text-gray-500">Active</p>
-              <p className="font-semibold text-gray-900">{activeAssignments.length}</p>
+              <p className="font-semibold text-gray-900 text-sm">{activeAssignments.length}</p>
             </div>
-            <div className="rounded-md border bg-white px-3 py-2">
+            <div className="rounded-lg border bg-white px-3 py-2 shadow-sm">
               <p className="text-gray-500">History</p>
-              <p className="font-semibold text-gray-900">{roomHistoryAssignments.length}</p>
+              <p className="font-semibold text-gray-900 text-sm">{roomHistoryAssignments.length}</p>
             </div>
           </div>
           {isRefreshing && (
@@ -2512,23 +2520,32 @@ export const StudentPortalPage = () => {
               <span>Refreshing...</span>
             </div>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
         <div className="flex-1 flex flex-col">
           <Tabs value={sideTab} onValueChange={setSideTab} className="flex-1 flex flex-col">
             <TabsList className="flex h-auto flex-row lg:flex-col overflow-x-auto lg:overflow-visible gap-2 p-3 sm:p-4 bg-transparent">
-              <TabsTrigger value="dashboard" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-md px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger value="dashboard" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-lg px-3 py-2.5 text-xs sm:text-sm border border-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-blue-50">
                 <Home className="h-4 w-4" />
                 <span>Student Dashboard</span>
               </TabsTrigger>
-              <TabsTrigger value="roomhistory" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-md px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger value="roomhistory" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-lg px-3 py-2.5 text-xs sm:text-sm border border-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-blue-50">
                 <Clock className="h-4 w-4" />
                 <span>Room History</span>
               </TabsTrigger>
-              <TabsTrigger value="chat" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-md px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger value="chat" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-lg px-3 py-2.5 text-xs sm:text-sm border border-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-blue-50">
                 <MessageCircle className="h-4 w-4" />
                 <span>Class Chat</span>
               </TabsTrigger>
-              <TabsTrigger value="practice" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-md px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              <TabsTrigger value="practice" className="shrink-0 lg:w-full justify-center lg:justify-start gap-2 rounded-lg px-3 py-2.5 text-xs sm:text-sm border border-transparent data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md hover:bg-blue-50">
                 <Gamepad2 className="h-4 w-4" />
                 <span>Practice Mode</span>
               </TabsTrigger>
@@ -2538,7 +2555,7 @@ export const StudentPortalPage = () => {
       </aside>
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
-        <div className="mx-auto w-full max-w-7xl">
+        <div className="mx-auto w-full max-w-7xl space-y-8">
         {/* Dashboard Tab */}
         {sideTab === 'dashboard' && (
           <>
@@ -2557,7 +2574,7 @@ export const StudentPortalPage = () => {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {studentData.rooms.map((room) => (
-                    <Card key={room.id} className="hover:shadow-lg transition-shadow">
+                    <Card key={room.id} className="border border-blue-100/60 bg-white/95 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
                       <CardHeader>
                         <CardTitle className="text-lg">{room.name}</CardTitle>
                         {room.grade_level && (
@@ -2595,7 +2612,7 @@ export const StudentPortalPage = () => {
               ) : (
                 <div className="grid gap-4">
                   {activeAssignments.map((assignment) => (
-                    <Card key={assignment.id} className="hover:shadow-lg transition-shadow">
+                    <Card key={assignment.id} className="border border-blue-100/60 bg-white/95 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
                       <CardHeader>
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div className="flex-1">
@@ -2608,7 +2625,7 @@ export const StudentPortalPage = () => {
                               assignment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                               'bg-gray-100 text-gray-800'
                             }>
-                              {assignment.status}
+                              {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
                             </Badge>
                           )}
                         </div>
@@ -2626,7 +2643,7 @@ export const StudentPortalPage = () => {
                               size="sm"
                               onClick={() => startAssignmentWithQuestionPaper(assignment)}
                               disabled={loadingAttempts[assignment.id]}
-                              className="bg-blue-600 hover:bg-blue-700"
+                              className="rounded-lg bg-blue-600 hover:bg-blue-700"
                             >
                               {loadingAttempts[assignment.id] ? (
                                 <>
@@ -2652,7 +2669,7 @@ export const StudentPortalPage = () => {
                                 });
                               }}
                               disabled={loadingAttempts[assignment.id]}
-                              className="bg-yellow-500 hover:bg-yellow-600"
+                              className="rounded-lg bg-yellow-500 hover:bg-yellow-600"
                             >
                               {loadingAttempts[assignment.id] ? (
                                 <>
@@ -2674,6 +2691,7 @@ export const StudentPortalPage = () => {
                               onClick={() => {
                                 navigate(`/student/feedback/${assignment.id}`);
                               }}
+                              className="rounded-lg"
                             >
                               <FileText className="h-4 w-4 mr-2" />
                               View Feedback
@@ -2714,7 +2732,7 @@ export const StudentPortalPage = () => {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {studentData.classmates.map((classmate) => (
-                    <Card key={classmate.id} className="hover:shadow-md transition-shadow">
+                    <Card key={classmate.id} className="border border-blue-100/60 bg-white/95 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
                       <CardHeader>
                         <div className="flex items-start gap-3">
                           <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
@@ -2757,7 +2775,7 @@ export const StudentPortalPage = () => {
             </section>
             {/* Help Section */}
             <section className="mt-8">
-              <Card className="bg-blue-50 border-blue-200">
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200/80 shadow-sm">
                 <CardHeader>
                   <div className="flex items-center gap-2">
                     <HelpCircle className="h-5 w-5 text-blue-600" />
@@ -2790,7 +2808,7 @@ export const StudentPortalPage = () => {
               ) : (
                 <div className="grid gap-4">
                   {roomHistoryAssignments.map((assignment) => (
-                    <Card key={assignment.id} className="hover:shadow-lg transition-shadow opacity-75">
+                    <Card key={assignment.id} className="border border-gray-200 bg-white/90 hover:shadow-lg transition-all duration-200">
                       <CardHeader>
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                           <div className="flex-1">
@@ -2833,7 +2851,7 @@ export const StudentPortalPage = () => {
             </div>
             {token && studentData ? (
               <Card className="border-0 shadow-lg bg-white/95">
-                <CardContent className="p-4 md:p-6">
+                <CardContent className="p-4 md:p-6 rounded-xl">
                   <StudentChat
                     token={token}
                     studentId={studentData.id}
@@ -2861,7 +2879,7 @@ export const StudentPortalPage = () => {
                 <p className="text-sm text-gray-600 mb-4">Practice independently with interactive activities to strengthen your concepts.</p>
                 <Button
                   onClick={() => navigate('/student/practice')}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                  className="rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white"
                 >
                   <Gamepad2 className="h-4 w-4 mr-2" />
                   Go to Practice Mode
@@ -3312,6 +3330,14 @@ export const StudentPortalPage = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {studentData?.id && (
+        <GenieChatWidget
+          userId={studentData.id}
+          role="student"
+          title="Chat with Genie"
+        />
+      )}
     </div>
   );
 };

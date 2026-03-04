@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.student-session]
 verify_jwt = false
+
+[functions.genie-chat]
+verify_jwt = false

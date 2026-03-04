@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowLeft, BookOpen, Sparkles, Brain, MessageCircle } from 'lucide-react';
 import TeacherRoomChat from '@/components/TeacherRoomChat';
+import GenieChatWidget from '@/components/GenieChatWidget';
 import { chatAPI } from '@/api/chat';
 import { roomsAPI, studentsAPI } from '@/api/edgeClient';
 import { toast } from 'sonner';
@@ -169,6 +170,14 @@ export const RoomDetailPage = () => {
           </>
         )}
       </main>
+
+      {auth0UserId && (
+        <GenieChatWidget
+          userId={auth0UserId}
+          role="teacher"
+          title="Chat with Genie"
+        />
+      )}
     </div>
   );
 };
