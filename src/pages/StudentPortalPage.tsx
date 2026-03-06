@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText, MessageCircle } from 'lucide-react';
+import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText, MessageCircle, LogOut } from 'lucide-react';
 import StudentChat from '@/components/StudentChat';
 import GenieChatWidget from '@/components/GenieChatWidget';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 import { useSubmissionStore } from '@/context/SubmissionStore';
 import { aiAssessmentSettings } from '@/config/appSettings';
+import { clearStudentSession } from '@/api/studentAuthApi';
 
 const stripHtml = (value: string) => value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
@@ -2498,6 +2499,28 @@ export const StudentPortalPage = () => {
   });
   const studentInitial = (studentData.name || 'S').trim().charAt(0).toUpperCase();
 
+  const handleLogout = () => {
+    try {
+      clearStudentSession();
+    } catch {
+      // ignore
+    }
+    try {
+      sessionStorage.removeItem('student_presigned_token');
+    } catch {
+      // ignore
+    }
+    try {
+      localStorage.removeItem('student_presigned_token');
+      localStorage.removeItem('student_school_id');
+      localStorage.removeItem('student_assignment_attempts');
+    } catch {
+      // ignore
+    }
+    toast.success('Logged out successfully');
+    navigate('/');
+  };
+
   // --- Side Panel Layout ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex flex-col lg:flex-row lg:overflow-hidden">
@@ -2511,6 +2534,16 @@ export const StudentPortalPage = () => {
             <div className="min-w-0">
               <h1 className="text-lg font-bold text-gray-900 truncate">{studentData.name}</h1>
               <p className="text-xs text-gray-600 truncate">{studentData.email || 'Student Portal'}</p>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="rounded-full"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
