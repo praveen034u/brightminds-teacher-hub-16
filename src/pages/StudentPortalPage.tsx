@@ -14,6 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 import { useSubmissionStore } from '@/context/SubmissionStore';
 import { aiAssessmentSettings } from '@/config/appSettings';
+import { clearStudentSession } from '@/api/studentAuthApi';
 
 const stripHtml = (value: string) => value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
 
@@ -633,10 +634,24 @@ export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const tokenFromQuery = searchParams?.get('token') ?? null;
+<<<<<<< HEAD
   const tokenFromStorage = typeof window !== 'undefined'
     ? localStorage.getItem('student_presigned_token')
     : null;
   const token = tokenFromQuery ?? tokenFromStorage;
+=======
+  // Prefer sessionStorage token when query param is not present, with localStorage fallback
+  let tokenFromStorage: string | null = null;
+  try {
+    tokenFromStorage = sessionStorage.getItem('student_presigned_token');
+    if (!tokenFromStorage) {
+      tokenFromStorage = localStorage.getItem('student_presigned_token');
+    }
+  } catch {
+    tokenFromStorage = null;
+  }
+  const token = tokenFromQuery || tokenFromStorage;
+>>>>>>> 482827439d0ea4d9c8f16027419b54f814b0dfa9
   const schoolIdParam = searchParams?.get('school_id') ?? null;
   const resubmitAssignmentId = searchParams?.get('resubmit_assignment_id') ?? null;
   const resubmitHandledRef = useRef(false);
@@ -644,10 +659,14 @@ export const StudentPortalPage = () => {
   const resubmitAttemptOverrideRef = useRef<Record<string, AssignmentAttempt>>({});
   const hasLoadedRef = useRef(false);
 
-  // Store token in localStorage for PWA redirect (only if explicitly accessing student portal)
+  // Store token in storage for PWA redirect (only if explicitly accessing student portal)
   useEffect(() => {
     if (token && window.location.pathname === '/student-portal') {
-      localStorage.setItem('student_presigned_token', token);
+      try {
+        sessionStorage.setItem('student_presigned_token', token);
+      } catch {
+        localStorage.setItem('student_presigned_token', token);
+      }
     }
   }, [token]);
 
@@ -2502,6 +2521,28 @@ export const StudentPortalPage = () => {
   });
   const studentInitial = (studentData.name || 'S').trim().charAt(0).toUpperCase();
 
+  const handleLogout = () => {
+    try {
+      clearStudentSession();
+    } catch {
+      // ignore
+    }
+    try {
+      sessionStorage.removeItem('student_presigned_token');
+    } catch {
+      // ignore
+    }
+    try {
+      localStorage.removeItem('student_presigned_token');
+      localStorage.removeItem('student_school_id');
+      localStorage.removeItem('student_assignment_attempts');
+    } catch {
+      // ignore
+    }
+    toast.success('Logged out successfully');
+    navigate('/');
+  };
+
   // --- Side Panel Layout ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex flex-col lg:flex-row lg:overflow-hidden">
@@ -2516,6 +2557,7 @@ export const StudentPortalPage = () => {
               <h1 className="text-lg font-bold text-gray-900 truncate">{studentData.name}</h1>
               <p className="text-xs text-gray-600 truncate">{studentData.email || 'Student Portal'}</p>
             </div>
+<<<<<<< HEAD
             <Button
               variant="outline"
               size="sm"
@@ -2525,6 +2567,18 @@ export const StudentPortalPage = () => {
               <LogOut className="h-4 w-4 mr-1" />
               Logout
             </Button>
+=======
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="rounded-full"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+>>>>>>> 482827439d0ea4d9c8f16027419b54f814b0dfa9
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-lg border bg-white px-3 py-2 shadow-sm">

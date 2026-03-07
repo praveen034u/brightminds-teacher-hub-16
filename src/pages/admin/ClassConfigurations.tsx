@@ -238,7 +238,7 @@ const ClassConfigurations = () => {
           .insert([{
             school_id: formData.school_id,
             academic_year_id: formData.academic_year_id,
-            year_name: `${formData.grade}-${formData.section}`,
+            class_name: `Grade ${formData.grade}-${formData.section}`,
             grade: formData.grade,
             section: formData.section,
             room_number: formData.room_number,
