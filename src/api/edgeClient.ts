@@ -158,6 +158,42 @@ export const teacherProgressAPI = {
     callEdgeFunction('teacher-progress', auth0UserId, { params: { assignment_id: assignmentId } }),
 };
 
+export const teacherReviewAPI = {
+  getOverview: (auth0UserId: string | null) =>
+    callEdgeFunction('assignment-attempts', auth0UserId, {
+      params: { action: 'review-overview' },
+    }),
+  getSubmissions: (auth0UserId: string | null, assignmentId: string) =>
+    callEdgeFunction('assignment-attempts', auth0UserId, {
+      params: { action: 'review-list', assignment_id: assignmentId },
+    }),
+  updateSubmission: (
+    auth0UserId: string | null,
+    attemptId: string,
+    data: {
+      status?: 'completed';
+      score?: number;
+      feedback?: string;
+      publishResult?: boolean;
+      questionResults?: Array<{ questionIndex: number; isCorrect: boolean }>;
+      overrideMarks?: number;
+      manualMarks?: number;
+      totalMarks?: number;
+    }
+  ) =>
+    callEdgeFunction('assignment-attempts', auth0UserId, {
+      method: 'POST',
+      params: { action: 'review-update', attempt_id: attemptId },
+      body: data,
+    }),
+  publishResult: (auth0UserId: string | null, attemptId: string) =>
+    callEdgeFunction('assignment-attempts', auth0UserId, {
+      method: 'POST',
+      params: { action: 'publish-result', attempt_id: attemptId },
+      body: {},
+    }),
+};
+
 export const adminSettingsAPI = {
   getOpenAiKey: (auth0UserId: string | null) => callEdgeFunction('admin-settings', auth0UserId),
   setOpenAiKey: (auth0UserId: string | null, apiKey: string) =>

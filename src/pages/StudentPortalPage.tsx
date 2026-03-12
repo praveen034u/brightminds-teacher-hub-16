@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookOpen, Calendar, Clock, User, Home, HelpCircle, Bell, Users, Play, Gamepad2, CheckCircle, FileText, MessageCircle, LogOut } from 'lucide-react';
 import StudentChat from '@/components/StudentChat';
 import GenieChatWidget from '@/components/GenieChatWidget';
+import StudentResultCard from '@/components/student/StudentResultCard';
 import { toast } from 'sonner';
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
@@ -125,7 +126,20 @@ const fuzzyEqual = (a: string, b: string) => {
   return dist <= threshold;
 };
 
-const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+interface GameAnswerDetail {
+  question: string;
+  student_answer: string;
+  correct_answer: string;
+  is_correct: boolean;
+}
+
+interface GameCompletionResult {
+  score: number;
+  totalQuestions: number;
+  answers: GameAnswerDetail[];
+}
+
+const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (result: GameCompletionResult) => void }) => {
   // Support both config.questions and direct array config
   const questions = Array.isArray(config?.questions)
     ? config.questions
@@ -138,6 +152,7 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
   const [isCorrect, setIsCorrect] = useState(false);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(false);
+  const [answerRows, setAnswerRows] = useState<GameAnswerDetail[]>([]);
 
   const currentWord = questions[currentIndex];
   if (!currentWord) {
@@ -153,6 +168,7 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
     const userAnswer = answer.trim();
     const correctAnswer = currentWord.answer;
     let earned = 0;
+    const answerMatched = fuzzyEqual(userAnswer, correctAnswer);
     if (fuzzyEqual(userAnswer, correctAnswer)) {
       setFeedback('🎉 Correct! Well done!');
       setIsCorrect(true);
@@ -162,6 +178,18 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
       setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
     }
+
+    setAnswerRows((prev) => {
+      const next = [...prev];
+      next[currentIndex] = {
+        question: `Unscramble: ${String(currentWord.scrambled || '').toUpperCase()}`,
+        student_answer: userAnswer,
+        correct_answer: String(correctAnswer || ''),
+        is_correct: answerMatched,
+      };
+      return next;
+    });
+
     setScore((prev) => prev + earned);
     setAnswered(true);
   };
@@ -175,8 +203,13 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
   };
 
   const handleSubmit = () => {
-    // Average score over 5 questions
-    onComplete?.(Math.round(score / questions.length));
+    const totalQuestions = questions.length;
+    const safeAnswers = answerRows.filter(Boolean);
+    onComplete?.({
+      score: totalQuestions > 0 ? Math.round(score / totalQuestions) : 0,
+      totalQuestions,
+      answers: safeAnswers,
+    });
   };
 
   return (
@@ -228,7 +261,7 @@ const WordScrambleGame = ({ config, onComplete }: { config: any; onComplete?: (s
   );
 };
 
-const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (result: GameCompletionResult) => void }) => {
   // Use puzzles from config, fallback to empty array
   // Support both config.puzzles and direct array config
   const puzzles = Array.isArray(config?.puzzles)
@@ -242,6 +275,7 @@ const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (sco
   const [isCorrect, setIsCorrect] = useState(false);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(false);
+  const [answerRows, setAnswerRows] = useState<GameAnswerDetail[]>([]);
 
   const currentPuzzle = puzzles[currentIndex];
   if (!currentPuzzle) {
@@ -268,6 +302,19 @@ const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (sco
       setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
     }
+
+    const acceptedAnswers = Array.isArray(currentPuzzle.answers) ? currentPuzzle.answers : [];
+    setAnswerRows((prev) => {
+      const next = [...prev];
+      next[currentIndex] = {
+        question: `Emoji clue: ${String(currentPuzzle.emojis || '')}`,
+        student_answer: guess.trim(),
+        correct_answer: acceptedAnswers.join(' / '),
+        is_correct: isMatch,
+      };
+      return next;
+    });
+
     setScore((prev) => prev + earned);
     setAnswered(true);
   };
@@ -281,7 +328,13 @@ const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (sco
   };
 
   const handleSubmit = () => {
-    onComplete?.(Math.round(score / puzzles.length));
+    const totalQuestions = puzzles.length;
+    const safeAnswers = answerRows.filter(Boolean);
+    onComplete?.({
+      score: totalQuestions > 0 ? Math.round(score / totalQuestions) : 0,
+      totalQuestions,
+      answers: safeAnswers,
+    });
   };
 
   return (
@@ -333,7 +386,7 @@ const EmojiGuessGame = ({ config, onComplete }: { config: any; onComplete?: (sco
   );
 };
 
-const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (result: GameCompletionResult) => void }) => {
   // Support both flat array and nested (category/difficulty) structure
   let riddles: any[] = [];
   if (Array.isArray(config?.riddles)) {
@@ -355,6 +408,7 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
   const [isCorrect, setIsCorrect] = useState(false);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(false);
+  const [answerRows, setAnswerRows] = useState<GameAnswerDetail[]>([]);
 
   const currentRiddle = riddles[currentIndex];
   if (!currentRiddle) {
@@ -389,6 +443,24 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
       setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
     }
+
+    const acceptedAnswers = Array.isArray(currentRiddle.answers)
+      ? currentRiddle.answers
+      : (typeof currentRiddle.correctAnswer === 'number' && Array.isArray(currentRiddle.options)
+        ? [currentRiddle.options[currentRiddle.correctAnswer]]
+        : []);
+
+    setAnswerRows((prev) => {
+      const next = [...prev];
+      next[currentIndex] = {
+        question: String(currentRiddle.question || `Riddle ${currentIndex + 1}`),
+        student_answer: userAnswer,
+        correct_answer: acceptedAnswers.filter(Boolean).join(' / '),
+        is_correct: isMatch,
+      };
+      return next;
+    });
+
     setScore((prev) => prev + earned);
     setAnswered(true);
   };
@@ -402,7 +474,13 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
   };
 
   const handleSubmit = () => {
-    onComplete?.(Math.round(score / riddles.length));
+    const totalQuestions = riddles.length;
+    const safeAnswers = answerRows.filter(Boolean);
+    onComplete?.({
+      score: totalQuestions > 0 ? Math.round(score / totalQuestions) : 0,
+      totalQuestions,
+      answers: safeAnswers,
+    });
   };
 
   return (
@@ -458,7 +536,7 @@ const RiddleGame = ({ config, onComplete }: { config: any; onComplete?: (score: 
   );
 };
 
-const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (score: number) => void }) => {
+const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (result: GameCompletionResult) => void }) => {
   // Use clues from config, fallback to empty array
   const clues = config?.clues || [];
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -467,6 +545,7 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
   const [isCorrect, setIsCorrect] = useState(false);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(false);
+  const [answerRows, setAnswerRows] = useState<GameAnswerDetail[]>([]);
 
   const currentClue = clues[currentIndex];
   const answerLength = currentClue.answer.length;
@@ -479,6 +558,7 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
 
   const checkAnswer = () => {
     const userAnswer = letters.slice(0, answerLength).join('');
+    const answerMatched = fuzzyEqual(userAnswer, currentClue.answer);
     let earned = 0;
     if (fuzzyEqual(userAnswer, currentClue.answer)) {
       setFeedback('🎉 Perfect! You completed the crossword!');
@@ -489,6 +569,18 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
       setFeedback('❌ Incorrect answer. Try the next one!');
       setIsCorrect(false);
     }
+
+    setAnswerRows((prev) => {
+      const next = [...prev];
+      next[currentIndex] = {
+        question: `Clue: ${String(currentClue.clue || '')}`,
+        student_answer: userAnswer,
+        correct_answer: String(currentClue.answer || ''),
+        is_correct: answerMatched,
+      };
+      return next;
+    });
+
     setScore((prev) => prev + earned);
     setAnswered(true);
   };
@@ -502,7 +594,13 @@ const CrosswordGame = ({ config, onComplete }: { config: any; onComplete?: (scor
   };
 
   const handleSubmit = () => {
-    onComplete?.(Math.round(score / clues.length));
+    const totalQuestions = clues.length;
+    const safeAnswers = answerRows.filter(Boolean);
+    onComplete?.({
+      score: totalQuestions > 0 ? Math.round(score / totalQuestions) : 0,
+      totalQuestions,
+      answers: safeAnswers,
+    });
   };
 
   return (
@@ -583,6 +681,8 @@ interface StudentData {
     assignment_type?: string;
     question_paper_id?: string;
     grade?: string;
+    game_id?: string;
+    game_type?: string;
     game_config?: any;
     games?: {
       id: string;
@@ -618,7 +718,7 @@ interface AssignmentAttempt {
   id: string;
   assignment_id: string;
   student_id: string;
-  status: 'not_started' | 'in_progress' | 'completed' | 'submitted';
+  status: 'not_started' | 'in_progress' | 'submitted' | 'completed';
   attempts_count: number;
   score?: number;
   max_score?: number;
@@ -634,12 +734,6 @@ export const StudentPortalPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const tokenFromQuery = searchParams?.get('token') ?? null;
-<<<<<<< HEAD
-  const tokenFromStorage = typeof window !== 'undefined'
-    ? localStorage.getItem('student_presigned_token')
-    : null;
-  const token = tokenFromQuery ?? tokenFromStorage;
-=======
   // Prefer sessionStorage token when query param is not present, with localStorage fallback
   let tokenFromStorage: string | null = null;
   try {
@@ -651,7 +745,6 @@ export const StudentPortalPage = () => {
     tokenFromStorage = null;
   }
   const token = tokenFromQuery || tokenFromStorage;
->>>>>>> 482827439d0ea4d9c8f16027419b54f814b0dfa9
   const schoolIdParam = searchParams?.get('school_id') ?? null;
   const resubmitAssignmentId = searchParams?.get('resubmit_assignment_id') ?? null;
   const resubmitHandledRef = useRef(false);
@@ -695,6 +788,7 @@ export const StudentPortalPage = () => {
   const { setSubmission } = useSubmissionStore();
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameScore, setGameScore] = useState(0);
+  const [gameSubmissionResult, setGameSubmissionResult] = useState<GameCompletionResult | null>(null);
   // Custom assignment modal state
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [currentCustomAssignment, setCurrentCustomAssignment] = useState<any>(null);
@@ -712,21 +806,6 @@ export const StudentPortalPage = () => {
   const [isSubmittingQuestionPaper, setIsSubmittingQuestionPaper] = useState(false);
   const [submissionProgress, setSubmissionProgress] = useState(0);
   const [sideTab, setSideTab] = useState('dashboard');
-
-  const handleLogout = () => {
-    try {
-      localStorage.removeItem('bm_student_session');
-      localStorage.removeItem('bm_student_session_expires');
-      localStorage.removeItem('bm_student_public_id');
-      localStorage.removeItem('student_presigned_token');
-      localStorage.removeItem('student_school_id');
-      localStorage.removeItem('student_id');
-    } catch {
-      // Ignore storage errors
-    }
-    toast.success('Logged out successfully');
-    navigate('/student');
-  };
 
   // FIX 1 & 4: Explicitly reset all modal states on component mount and clear persisted state
   useEffect(() => {
@@ -748,6 +827,7 @@ export const StudentPortalPage = () => {
     setCurrentGame(null);
     setCurrentCustomAssignment(null);
     setCurrentQuestionPaper(null);
+    setGameSubmissionResult(null);
     setQuestionPaperAnswers({});
     setQuestionPaperAttachments({});
     setLoadingQuestionPaper(false);
@@ -982,6 +1062,12 @@ export const StudentPortalPage = () => {
     if (!currentQuestionPaper) return;
     if (isSubmittingQuestionPaper) return;
 
+    const assignmentDueDate = currentQuestionPaper.assignment?.due_date;
+    if (assignmentDueDate && new Date() > new Date(assignmentDueDate)) {
+      toast.error('Assignment deadline passed');
+      return;
+    }
+
     setIsSubmittingQuestionPaper(true);
     setSubmissionProgress(15);
 
@@ -1014,6 +1100,34 @@ export const StudentPortalPage = () => {
     });
 
     const percentageScore = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0;
+    const submittedAtIso = new Date().toISOString();
+    const questionLevelData = questions.map((q: any, idx: number) => {
+      const studentAnswer = questionPaperAnswers[idx] ?? null;
+      const questionType = q.type || (Array.isArray(q.options) ? 'multiple-choice' : 'subjective');
+      const normalizedStudent = typeof studentAnswer === 'string'
+        ? stripHtml(studentAnswer).trim().toLowerCase()
+        : String(studentAnswer ?? '').trim().toLowerCase();
+      const normalizedCorrect = typeof q.answer === 'string'
+        ? stripHtml(q.answer).trim().toLowerCase()
+        : String(q.answer ?? '').trim().toLowerCase();
+      const isCorrect = questionType === 'multiple-choice'
+        ? Number(studentAnswer) === Number(q.answer)
+        : (normalizedCorrect.length > 0 && normalizedStudent === normalizedCorrect);
+
+      return {
+        assignment_id: assignment.id,
+        student_id: studentData?.id || null,
+        question_id: q.id ?? idx,
+        question_index: idx,
+        question_text: q.text || `Question ${idx + 1}`,
+        question_type: questionType,
+        options: Array.isArray(q.options) ? q.options : [],
+        student_selected_answer: studentAnswer,
+        correct_answer: q.answer ?? null,
+        is_correct: isCorrect,
+        submitted_at: submittedAtIso,
+      };
+    });
     setSubmissionProgress(35);
 
     const subjectiveText = questions
@@ -1022,7 +1136,7 @@ export const StudentPortalPage = () => {
       .join('\n\n');
 
     // Submit the assignment with answers
-    await completeAssignment(assignment.id, percentageScore, {
+    await completeAssignment(assignment.id, undefined, {
       question_paper_id: currentQuestionPaper.id,
       answers: questionPaperAnswers,
       attachments_meta: Object.entries(questionPaperAttachments).reduce((acc, [key, file]) => {
@@ -1033,9 +1147,11 @@ export const StudentPortalPage = () => {
       }, {} as Record<string, { name: string; type: string; size: number }>),
       questions_attempted: Object.keys(questionPaperAnswers).length,
       total_questions: questions.length,
+      question_level_data: questionLevelData,
       raw_score: score,
+      auto_percentage_score: percentageScore,
       total_marks: totalMarks,
-      submitted_at: new Date().toISOString()
+      submitted_at: submittedAtIso
     });
     setSubmissionProgress(60);
 
@@ -1125,7 +1241,7 @@ export const StudentPortalPage = () => {
             student_id: studentData.id,
             status: 'submitted' as const,
             attempts_count: 1,
-            score: percentageScore,
+            score: undefined,
             submission_data: {},
           };
           const updatedAttempt = {
@@ -1154,7 +1270,7 @@ export const StudentPortalPage = () => {
     }
 
     setSubmissionProgress(100);
-    toast.success(`Assignment submitted! Score: ${percentageScore}% (${score}/${totalMarks} marks)`);
+    toast.success('Assignment submitted - waiting for teacher review.');
     setShowQuestionPaperModal(false);
     setCurrentQuestionPaper(null);
     setQuestionPaperAnswers({});
@@ -1202,16 +1318,42 @@ export const StudentPortalPage = () => {
       }
     });
     const percent = maxScore > 0 ? Math.round((score / maxScore) * 100) : 100;
+    const submittedAtIso = new Date().toISOString();
+    const questionLevelData = questions.map((q: any, idx: number) => {
+      const studentAnswer = customAnswers[idx] ?? null;
+      const questionType = q.type || (Array.isArray(q.options) ? 'multiple-choice' : 'subjective');
+      const normalizedStudent = String(studentAnswer ?? '').trim().toLowerCase();
+      const normalizedCorrect = String(q.answer ?? '').trim().toLowerCase();
+      const isCorrect = questionType === 'multiple-choice'
+        ? String(q.answer) === String(studentAnswer)
+        : (normalizedCorrect.length > 0 && normalizedStudent === normalizedCorrect);
+
+      return {
+        assignment_id: currentCustomAssignment.id,
+        student_id: studentData?.id || null,
+        question_id: q.id ?? idx,
+        question_index: idx,
+        question_text: q.text || `Question ${idx + 1}`,
+        question_type: questionType,
+        options: Array.isArray(q.options) ? q.options : [],
+        student_selected_answer: studentAnswer,
+        correct_answer: q.answer ?? null,
+        is_correct: isCorrect,
+        submitted_at: submittedAtIso,
+      };
+    });
     setCustomScore(percent);
     setCustomCompleted(true);
     // Mark assignment as complete
     if (currentCustomAssignment.id) {
-      completeAssignment(currentCustomAssignment.id, percent, {
+      completeAssignment(currentCustomAssignment.id, undefined, {
         answers: customAnswers,
-        completedAt: new Date().toISOString(),
+        question_level_data: questionLevelData,
+        auto_percentage_score: percent,
+        completedAt: submittedAtIso,
       });
     }
-    toast.success(`Assignment submitted! Score: ${percent}%`);
+    toast.success('Assignment submitted - waiting for teacher review.');
     setShowCustomModal(false);
   };
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
@@ -1307,6 +1449,12 @@ export const StudentPortalPage = () => {
 
     resubmitHandledRef.current = true;
     const currentAttempt = assignmentAttempts[assignment.id];
+    if (isAttemptLockedForReattempt(currentAttempt)) {
+      resubmitHandledRef.current = true;
+      toast.info('This assignment is already submitted. Please wait for teacher review.');
+      return;
+    }
+
     if (currentAttempt) {
       resubmitAttemptSnapshotRef.current[assignment.id] = currentAttempt;
     }
@@ -1473,25 +1621,24 @@ export const StudentPortalPage = () => {
       }
 
       const assignmentsCacheKey = `student_assignments_cache_${data.id}`;
-      if (Array.isArray(data.assignments) && data.assignments.length > 0) {
-        try {
-          localStorage.setItem(assignmentsCacheKey, JSON.stringify(data.assignments));
-        } catch {
-          // Ignore localStorage failures
-        }
-      } else {
-        try {
-          const cached = localStorage.getItem(assignmentsCacheKey);
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              data.assignments = parsed;
-              console.warn('Using cached assignments because server returned empty list.');
-            }
-          }
-        } catch {
-          // Ignore cache issues
-        }
+      if (!Array.isArray(data.assignments)) {
+        data.assignments = [];
+      }
+
+      if (Array.isArray(data.rooms)) {
+        const activeRoomIds = new Set(data.rooms.map((room: any) => room.id));
+        data.assignments = data.assignments.filter((assignment: any) => {
+          if (!assignment?.room_id) return true;
+          return activeRoomIds.has(assignment.room_id);
+        });
+      }
+
+      // Always refresh cache with server-truth, including empty arrays.
+      // This prevents deleted assignments from being revived from stale localStorage.
+      try {
+        localStorage.setItem(assignmentsCacheKey, JSON.stringify(data.assignments));
+      } catch {
+        // Ignore localStorage failures
       }
       
       // DETAILED LOGGING - BEFORE ENRICHMENT
@@ -1908,6 +2055,31 @@ export const StudentPortalPage = () => {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'rooms'
+        },
+        (payload) => {
+          const deletedRoomId = (payload.old as { id?: string } | null)?.id;
+          if (!deletedRoomId) {
+            return;
+          }
+
+          const currentRoomIds = studentDataRef.current?.rooms.map((r) => r.id) || [];
+          if (!currentRoomIds.includes(deletedRoomId)) {
+            return;
+          }
+
+          console.log('Room deletion detected for current student, reloading portal data...');
+          if (token) {
+            loadStudentData(token);
+            toast.info('A classroom was removed by your teacher', { duration: 3000 });
+          }
+        }
+      )
       .subscribe((status, err) => {
         console.log('=== SUBSCRIPTION STATUS UPDATE ===');
         console.log('Status:', status);
@@ -1921,6 +2093,7 @@ export const StudentPortalPage = () => {
           console.log('  - assignments UPDATE');
           console.log('  - assignments DELETE');
           console.log('  - room_students ALL events');
+          console.log('  - rooms DELETE');
           console.log('=================================');
           
           setRealtimeConnected(true);
@@ -2151,6 +2324,19 @@ export const StudentPortalPage = () => {
       } else {
         const errorText = await response.text();
         console.error('❌ Backend API error:', response.status, errorText);
+        if (response.status === 403 || response.status === 409) {
+          let message = 'Reattempt is disabled after submission. Please wait for teacher review.';
+          try {
+            const parsed = JSON.parse(errorText);
+            if (parsed?.error) {
+              message = parsed.error;
+            }
+          } catch {
+            // ignore parsing issue
+          }
+          toast.info(message);
+          return;
+        }
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
     } catch (error) {
@@ -2178,7 +2364,7 @@ export const StudentPortalPage = () => {
         let upsertStatus: any = 'in_progress';
 
         if (!existingError && existingAttempt) {
-          // If previously completed/submitted, increment attempts_count for a retry
+          // If previously submitted/published, increment attempts_count for a retry
           if (existingAttempt.status === 'completed' || existingAttempt.status === 'submitted') {
             attemptsCount = (existingAttempt.attempts_count || 0) + 1;
             upsertStatus = 'in_progress';
@@ -2252,6 +2438,12 @@ export const StudentPortalPage = () => {
   // Complete an assignment attempt
   const completeAssignment = async (assignmentId: string, score?: number, submissionData?: any) => {
     if (!token) return;
+
+    const assignmentMeta = studentData?.assignments?.find((assignment) => assignment.id === assignmentId);
+    if (assignmentMeta?.due_date && new Date() > new Date(assignmentMeta.due_date)) {
+      toast.error('Assignment deadline passed');
+      return;
+    }
     
     setLoadingAttempts(prev => ({ ...prev, [assignmentId]: true }));
     
@@ -2264,8 +2456,8 @@ export const StudentPortalPage = () => {
         assignment_id: assignmentId,
         student_id: studentData?.id || '',
         status: 'submitted' as const,
-        score: typeof score === 'number' ? score : 0,
-        max_score: Math.max(currentAttempt?.max_score || 100, typeof score === 'number' ? score : 0),
+        score: undefined,
+        max_score: undefined,
         completed_at: new Date().toISOString(),
         submitted_at: new Date().toISOString(),
         submission_data: submissionData,
@@ -2299,9 +2491,9 @@ export const StudentPortalPage = () => {
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            score: typeof score === 'number' ? score : 0,
+            score: typeof score === 'number' ? score : null,
             submissionData,
-            feedback: 'Assignment submitted'
+            feedback: 'Submitted - awaiting teacher review'
           }),
           signal: controller.signal
         }
@@ -2320,11 +2512,24 @@ export const StudentPortalPage = () => {
           localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
           return updated;
         });
-        toast.success('Assignment submitted successfully! 🎉');
+        toast.success('Assignment submitted - waiting for teacher review.');
         backendSuccess = true;
       } else {
         const errorText = await response.text();
         console.error('❌ Backend API error:', response.status, errorText);
+        if (response.status === 403 || response.status === 409) {
+          let message = 'Submission is locked and cannot be modified.';
+          try {
+            const parsed = JSON.parse(errorText);
+            if (parsed?.error) {
+              message = parsed.error;
+            }
+          } catch {
+            // ignore parsing issue
+          }
+          toast.info(message);
+          return;
+        }
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
     } catch (error) {
@@ -2348,14 +2553,14 @@ export const StudentPortalPage = () => {
           .upsert({
             assignment_id: assignmentId,
             student_id: studentData?.id,
-            status: 'completed',
-            score: typeof score === 'number' ? score : 0,
-            max_score: typeof score === 'number' ? score : 0,
+            status: 'submitted',
+            score: null,
+            max_score: null,
             attempts_count: completedAttempt.attempts_count,
             completed_at: new Date().toISOString(),
             submitted_at: new Date().toISOString(),
             submission_data: submissionData,
-            feedback: 'Assignment submitted'
+            feedback: 'Submitted - awaiting teacher review'
           }, {
             onConflict: 'assignment_id,student_id'
           })
@@ -2377,7 +2582,7 @@ export const StudentPortalPage = () => {
           return updated;
         });
         
-        toast.success('Assignment submitted successfully! 🎉 (Direct save)');
+        toast.success('Assignment submitted - waiting for teacher review.');
         backendSuccess = true;
         
       } catch (supabaseError) {
@@ -2388,12 +2593,12 @@ export const StudentPortalPage = () => {
         setAssignmentAttempts(prev => {
           const updated = {
             ...prev,
-            [assignmentId]: { ...completedAttempt, status: 'completed' as const }
+            [assignmentId]: { ...completedAttempt, status: 'submitted' as const }
           };
           localStorage.setItem('student_assignment_attempts', JSON.stringify(updated));
           return updated;
         });
-        toast.success('Assignment submitted successfully! 🎉 (Local save - please check with teacher)');
+        toast.success('Assignment submitted - waiting for teacher review. (Local save)');
       }
     } finally {
       setLoadingAttempts(prev => ({ ...prev, [assignmentId]: false }));
@@ -2401,7 +2606,7 @@ export const StudentPortalPage = () => {
       // Always send a real-time broadcast to notify teachers to refresh progress
       if (backendSuccess) {
         console.log('🎉 Assignment submission saved to database successfully!');
-        toast.info('✅ Progress has been saved and teacher will see the update', { duration: 3000 });
+        toast.info('✅ Submitted. Your teacher will review and publish the result.', { duration: 3000 });
 
         try {
           const supabaseUrl = getSupabaseUrl();
@@ -2417,7 +2622,7 @@ export const StudentPortalPage = () => {
               studentId: studentData?.id,
               studentName: studentData?.name,
               completedAt: new Date().toISOString(),
-              score: typeof score === 'number' ? score : 100
+              status: 'submitted'
             }
           });
           console.log('📡 Broadcast sent to notify teachers');
@@ -2454,6 +2659,7 @@ export const StudentPortalPage = () => {
       // Reset game completion state for new game
       setGameCompleted(false);
       setGameScore(0);
+      setGameSubmissionResult(null);
       setShowGameModal(true);
       toast.success(`Starting ${gameName}!`);
     } else {
@@ -2521,6 +2727,76 @@ export const StudentPortalPage = () => {
   });
   const studentInitial = (studentData.name || 'S').trim().charAt(0).toUpperCase();
 
+  const getAttemptStatusLabel = (status?: string) => {
+    switch (status) {
+      case 'not_started':
+        return 'Not Attempted';
+      case 'in_progress':
+        return 'In Progress';
+      case 'submitted':
+        return 'Submitted - Waiting for Review';
+      case 'completed':
+        return 'Result Published';
+      default:
+        return status || 'Not Attempted';
+    }
+  };
+
+  const canViewPublishedResult = (attempt?: AssignmentAttempt) => {
+    return attempt?.status === 'completed';
+  };
+
+  const isTeacherReattemptAllowed = (attempt?: AssignmentAttempt) => {
+    return attempt?.submission_data?.teacher_review?.allow_reattempt === true;
+  };
+
+  const isAttemptLockedForReattempt = (attempt?: AssignmentAttempt) => {
+    if (!attempt) return false;
+    const submittedOrBeyond = ['submitted', 'completed'].includes(attempt.status);
+    return submittedOrBeyond && !isTeacherReattemptAllowed(attempt);
+  };
+
+  const canStartAssignmentAttempt = (assignmentId: string) => {
+    const attempt = assignmentAttempts[assignmentId];
+    if (!attempt) return true;
+    if (attempt.status === 'not_started' || attempt.status === 'in_progress') return true;
+    return !isAttemptLockedForReattempt(attempt);
+  };
+
+  const getPublishedMarksText = (attempt?: AssignmentAttempt) => {
+    if (!attempt) return null;
+    const achieved = attempt?.submission_data?.teacher_review?.achieved_marks;
+    const total = attempt?.submission_data?.teacher_review?.total_marks;
+
+    if (typeof achieved === 'number' && typeof total === 'number' && total >= 0) {
+      return `${achieved}/${total}`;
+    }
+
+    if (typeof attempt.score === 'number' && typeof attempt.max_score === 'number') {
+      return `${attempt.score}/${attempt.max_score}`;
+    }
+
+    const teacherQuestionResults = Array.isArray(attempt?.submission_data?.teacher_review?.question_results)
+      ? attempt.submission_data.teacher_review.question_results
+      : [];
+    if (teacherQuestionResults.length > 0) {
+      const derivedAchieved = teacherQuestionResults.filter((row: any) => row?.is_correct === true).length;
+      const derivedTotal = teacherQuestionResults.length;
+      return `${derivedAchieved}/${derivedTotal}`;
+    }
+
+    const questionLevelData = Array.isArray(attempt?.submission_data?.question_level_data)
+      ? attempt.submission_data.question_level_data
+      : [];
+    if (questionLevelData.length > 0) {
+      const derivedAchieved = questionLevelData.filter((row: any) => row?.is_correct === true).length;
+      const derivedTotal = questionLevelData.length;
+      return `${derivedAchieved}/${derivedTotal}`;
+    }
+
+    return null;
+  };
+
   const handleLogout = () => {
     try {
       clearStudentSession();
@@ -2557,7 +2833,6 @@ export const StudentPortalPage = () => {
               <h1 className="text-lg font-bold text-gray-900 truncate">{studentData.name}</h1>
               <p className="text-xs text-gray-600 truncate">{studentData.email || 'Student Portal'}</p>
             </div>
-<<<<<<< HEAD
             <Button
               variant="outline"
               size="sm"
@@ -2567,18 +2842,6 @@ export const StudentPortalPage = () => {
               <LogOut className="h-4 w-4 mr-1" />
               Logout
             </Button>
-=======
-            <div className="ml-auto flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="rounded-full"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
->>>>>>> 482827439d0ea4d9c8f16027419b54f814b0dfa9
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-lg border bg-white px-3 py-2 shadow-sm">
@@ -2705,7 +2968,7 @@ export const StudentPortalPage = () => {
                           </div>
                         )}
                         <div className="flex flex-wrap gap-2">
-                          {assignment.question_paper_id && (
+                          {assignment.question_paper_id && canStartAssignmentAttempt(assignment.id) && (
                             <Button
                               size="sm"
                               onClick={() => startAssignmentWithQuestionPaper(assignment)}
@@ -2725,7 +2988,7 @@ export const StudentPortalPage = () => {
                               )}
                             </Button>
                           )}
-                          {assignment.assignment_type === 'game' && assignment.games && (
+                          {(assignment.assignment_type === 'game' || Boolean(assignment.game_id) || Boolean(assignment.game_type) || Boolean(assignment.game_config)) && canStartAssignmentAttempt(assignment.id) && (
                             <Button
                               size="sm"
                               onClick={() => {
@@ -2746,38 +3009,26 @@ export const StudentPortalPage = () => {
                               ) : (
                                 <>
                                   <Gamepad2 className="h-4 w-4 mr-2" />
-                                  Play Game
+                                  Play Assignment
                                 </>
                               )}
                             </Button>
                           )}
-                          {assignmentAttempts[assignment.id]?.ai_submission_id && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                navigate(`/student/feedback/${assignment.id}`);
-                              }}
-                              className="rounded-lg"
-                            >
-                              <FileText className="h-4 w-4 mr-2" />
-                              View Feedback
-                            </Button>
-                          )}
                         </div>
-                        {assignmentAttempts[assignment.id] && (
+                        {assignmentAttempts[assignment.id] && canViewPublishedResult(assignmentAttempts[assignment.id]) ? (
+                          <StudentResultCard
+                            assignment={assignment}
+                            attempt={assignmentAttempts[assignment.id]}
+                          />
+                        ) : assignmentAttempts[assignment.id] ? (
                           <div className="mt-3 p-3 bg-blue-50 rounded-lg text-sm">
                             <div className="flex items-center gap-2 text-blue-700">
                               <CheckCircle className="h-4 w-4" />
-                              Status: {assignmentAttempts[assignment.id].status}
+                              Status: {getAttemptStatusLabel(assignmentAttempts[assignment.id].status)}
                             </div>
-                            {assignmentAttempts[assignment.id].score !== undefined && (
-                              <div className="text-blue-600 mt-1">
-                                Score: {assignmentAttempts[assignment.id].score}%
-                              </div>
-                            )}
+                            <div className="text-blue-700 mt-1">Waiting for teacher review.</div>
                           </div>
-                        )}
+                        ) : null}
                       </CardContent>
                     </Card>
                   ))}
@@ -2894,11 +3145,14 @@ export const StudentPortalPage = () => {
                             Was due: {new Date(assignment.due_date).toLocaleDateString()}
                           </div>
                         )}
-                        {assignmentAttempts[assignment.id]?.score !== undefined && (
+                        {canViewPublishedResult(assignmentAttempts[assignment.id]) && getPublishedMarksText(assignmentAttempts[assignment.id]) && (
                           <div className="p-3 bg-gray-50 rounded-lg text-sm">
                             <div className="text-gray-700">
-                              Final Score: {assignmentAttempts[assignment.id].score}%
+                              Final Score: {getPublishedMarksText(assignmentAttempts[assignment.id])}
                             </div>
+                            {assignmentAttempts[assignment.id]?.feedback && (
+                              <div className="text-gray-600 mt-1">Feedback: {assignmentAttempts[assignment.id].feedback}</div>
+                            )}
                           </div>
                         )}
                       </CardContent>
@@ -3035,7 +3289,7 @@ export const StudentPortalPage = () => {
                         { scrambled: 'YRRBESRTWA', answer: 'STRAWBERRY' },
                       ];
                     }
-                    return <WordScrambleGame config={{ questions: questions.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                    return <WordScrambleGame config={{ questions: questions.slice(0, 5) }} onComplete={(result) => { setGameCompleted(true); setGameScore(result.score); setGameSubmissionResult(result); }} />;
                   }
                   if (currentGame.game_type === 'emoji-guess') {
                     let puzzles = [];
@@ -3051,7 +3305,7 @@ export const StudentPortalPage = () => {
                         { emojis: '🐝🍯', answers: ['Honeybee', 'Bee'] },
                       ];
                     }
-                    return <EmojiGuessGame config={{ puzzles: puzzles.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                    return <EmojiGuessGame config={{ puzzles: puzzles.slice(0, 5) }} onComplete={(result) => { setGameCompleted(true); setGameScore(result.score); setGameSubmissionResult(result); }} />;
                   }
                   if (currentGame.game_type === 'riddle') {
                     let riddles = [];
@@ -3067,7 +3321,7 @@ export const StudentPortalPage = () => {
                         { question: 'What has to be broken before you can use it?', answers: ['Egg'] },
                       ];
                     }
-                    return <RiddleGame config={{ riddles: riddles.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                    return <RiddleGame config={{ riddles: riddles.slice(0, 5) }} onComplete={(result) => { setGameCompleted(true); setGameScore(result.score); setGameSubmissionResult(result); }} />;
                   }
                   if (currentGame.game_type === 'crossword') {
                     let clues = [];
@@ -3083,7 +3337,7 @@ export const StudentPortalPage = () => {
                         { clue: 'King of the jungle', answer: 'LION' },
                       ];
                     }
-                    return <CrosswordGame config={{ clues: clues.slice(0, 5) }} onComplete={(score) => { setGameCompleted(true); setGameScore(score); }} />;
+                    return <CrosswordGame config={{ clues: clues.slice(0, 5) }} onComplete={(result) => { setGameCompleted(true); setGameScore(result.score); setGameSubmissionResult(result); }} />;
                   }
                   // Default fallback
                   return (
@@ -3132,13 +3386,70 @@ export const StudentPortalPage = () => {
                     e.stopPropagation();
                     
                     if (currentGame?.assignmentId) {
-                      // If not completed, treat as wrong answer (score 0)
-                      const scoreToSubmit = gameCompleted ? gameScore : 0;
-                      completeAssignment(currentGame.assignmentId, scoreToSubmit, { 
-                        gameType: currentGame.game_type,
+                      const submittedAtIso = new Date().toISOString();
+                      const completedAnswers = Array.isArray(gameSubmissionResult?.answers)
+                        ? gameSubmissionResult.answers
+                        : [];
+                      const fallbackAnswers = (() => {
+                        if (completedAnswers.length > 0) return completedAnswers;
+                        if (currentGame?.game_type === 'word-scramble' && Array.isArray(currentGame?.config?.questions)) {
+                          return currentGame.config.questions.slice(0, 5).map((item: any) => ({
+                            question: `Unscramble: ${String(item?.scrambled || '')}`,
+                            student_answer: '',
+                            correct_answer: String(item?.answer || ''),
+                            is_correct: false,
+                          }));
+                        }
+                        if (currentGame?.game_type === 'emoji-guess' && Array.isArray(currentGame?.config?.puzzles)) {
+                          return currentGame.config.puzzles.slice(0, 5).map((item: any) => ({
+                            question: `Emoji clue: ${String(item?.emojis || '')}`,
+                            student_answer: '',
+                            correct_answer: Array.isArray(item?.answers) ? item.answers.join(' / ') : '',
+                            is_correct: false,
+                          }));
+                        }
+                        if (currentGame?.game_type === 'riddle' && Array.isArray(currentGame?.config?.riddles)) {
+                          return currentGame.config.riddles.slice(0, 5).map((item: any) => ({
+                            question: String(item?.question || 'Riddle'),
+                            student_answer: '',
+                            correct_answer: Array.isArray(item?.answers) ? item.answers.join(' / ') : '',
+                            is_correct: false,
+                          }));
+                        }
+                        if (currentGame?.game_type === 'crossword' && Array.isArray(currentGame?.config?.clues)) {
+                          return currentGame.config.clues.slice(0, 5).map((item: any) => ({
+                            question: `Clue: ${String(item?.clue || '')}`,
+                            student_answer: '',
+                            correct_answer: String(item?.answer || ''),
+                            is_correct: false,
+                          }));
+                        }
+                        return [];
+                      })();
+                      const answers = fallbackAnswers;
+                      const gameQuestionLevelData = answers.map((answerRow, idx) => ({
+                        assignment_id: currentGame.assignmentId,
+                        student_id: studentData?.id || null,
+                        question_id: `game-${idx + 1}`,
+                        question_index: idx,
+                        question_text: answerRow.question,
+                        question_type: 'game',
+                        options: [],
+                        student_selected_answer: answerRow.student_answer,
+                        correct_answer: answerRow.correct_answer,
+                        is_correct: answerRow.is_correct,
+                        submitted_at: submittedAtIso,
+                      }));
+                      completeAssignment(currentGame.assignmentId, undefined, {
+                        game_type: currentGame.game_type,
                         difficulty: currentGame.config?.difficulty,
                         category: currentGame.config?.category,
-                        completedAt: new Date().toISOString(),
+                        auto_game_score: gameCompleted ? gameScore : 0,
+                        total_questions: answers.length,
+                        answers,
+                        question_level_data: gameQuestionLevelData,
+                        completedAt: submittedAtIso,
+                        submitted_at: submittedAtIso,
                         forcedSubmit: !gameCompleted
                       });
                       setShowGameModal(false);
@@ -3150,7 +3461,7 @@ export const StudentPortalPage = () => {
                     ? 'bg-green-600 hover:bg-green-700' 
                     : 'bg-yellow-500 hover:bg-yellow-600'}
                 >
-                  {gameCompleted ? `Submit Assignment (${gameScore}%)` : 'Submit Anyway (Score: 0%)'}
+                  {gameCompleted ? 'Submit Assignment' : 'Submit Anyway'}
                 </Button>
               </div>
             </div>
@@ -3279,7 +3590,6 @@ export const StudentPortalPage = () => {
                 </Card>
               ))}
 
-              {/* Progress indicator */}
               <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 p-4 -mx-6 -mb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                   <div className="text-sm text-gray-600">

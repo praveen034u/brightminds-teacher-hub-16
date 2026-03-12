@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { assignmentsAPI, roomsAPI, meAPI, teacherProgressAPI } from '@/api/edgeClient';
+import { assignmentsAPI, roomsAPI, meAPI, teacherProgressAPI, teacherReviewAPI } from '@/api/edgeClient';
 import { supabase } from '@/config/supabase';
 import { getSupabaseUrl, getSupabasePublishableKey } from '@/config/supabase';
 import { Calendar, Clock, Users, Plus, Trash2, Edit, FileText, Upload, Eye, CheckCircle, XCircle, Loader, Gamepad2, User, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -49,6 +49,12 @@ function AssignmentsPage() {
   const [showAssignmentDetails, setShowAssignmentDetails] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const [assignmentProgress, setAssignmentProgress] = useState<any[]>([]);
+  const [reviewOverview, setReviewOverview] = useState<any[]>([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [showTeacherReviewDialog, setShowTeacherReviewDialog] = useState(false);
+  const [selectedReviewAssignment, setSelectedReviewAssignment] = useState<any | null>(null);
+  const [reviewSubmissions, setReviewSubmissions] = useState<any[]>([]);
+  const [reviewDrafts, setReviewDrafts] = useState<Record<string, { feedback: string; questionResults: Record<number, boolean>; manualMarks: string }>>({});
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   
@@ -155,16 +161,15 @@ function AssignmentsPage() {
               
               if (payload.eventType === 'INSERT' && 'status' in attemptData && attemptData.status === 'in_progress') {
                 toast.info(`📝 ${(attemptData as any).student_name || 'A student'} started an assignment`, { duration: 3000 });
-              } else if (payload.eventType === 'UPDATE' && 'status' in attemptData && attemptData.status === 'completed') {
+              } else if (payload.eventType === 'UPDATE' && 'status' in attemptData && attemptData.status === 'submitted') {
                 const studentName = (attemptData as any).student_name || 'A student';
-                const score = (attemptData as any).score;
-                toast.success(`🎉 ${studentName} completed an assignment${score ? ` with ${score}% score` : ''}!`, { duration: 5000 });
-                
-                // Force immediate data refresh for completed assignments
-                console.log('🎯 Assignment completed - forcing immediate refresh...');
+                toast.success(`📩 ${studentName} submitted an assignment for teacher review`, { duration: 5000 });
+
+                // Force immediate data refresh for newly submitted assignments
+                console.log('🎯 Assignment submitted - forcing immediate refresh...');
                 setTimeout(() => {
                   loadData();
-                  console.log('🔄 Forced refresh completed for assignment completion');
+                  console.log('🔄 Forced refresh completed for assignment submission');
                 }, 500);
               }
               
@@ -239,8 +244,8 @@ function AssignmentsPage() {
             // Show real-time notification
             if (payload.eventType === 'INSERT' && 'status' in attemptData && attemptData.status === 'in_progress') {
               toast.info('📝 A student started an assignment', { duration: 3000 });
-            } else if (payload.eventType === 'UPDATE' && 'status' in attemptData && attemptData.status === 'completed') {
-              toast.success('🎉 A student completed an assignment!', { duration: 5000 });
+            } else if (payload.eventType === 'UPDATE' && 'status' in attemptData && attemptData.status === 'submitted') {
+              toast.success('📩 A student submitted work for review', { duration: 5000 });
             }
             
             // Auto-refresh assignment data to show updated progress
@@ -297,22 +302,38 @@ function AssignmentsPage() {
         .channel('assignment-completion-alerts')
         .on(
           'broadcast',
-          { event: 'assignment-completed' },
+          { event: 'assignment-submitted' },
           (payload) => {
-            console.log('🎯 Received assignment completion broadcast:', payload);
-            const { studentName, assignmentId, score } = payload.payload || {};
-            
-            if (studentName && assignmentId) {
-              toast.success(`🎉 ${studentName} just completed an assignment${score ? ` (${score}%)` : ''}!`, { 
-                duration: 6000
+            console.log('🎯 Received assignment submitted broadcast:', payload);
+            const { studentName, assignmentName, roomName, submissionTime } = payload.payload || {};
+
+            if (studentName) {
+              const submittedAt = submissionTime ? new Date(submissionTime).toLocaleString() : 'just now';
+              toast.success(`📩 ${studentName} submitted ${assignmentName || 'an assignment'} (${roomName || 'Class'}) at ${submittedAt}`, {
+                duration: 7000,
               });
-              
-              // Immediate refresh to show the completion
+
               setTimeout(() => {
                 console.log('🔄 Refreshing from broadcast notification...');
                 loadData();
               }, 1000);
             }
+          }
+        )
+        // Backward compatibility: still listen to legacy event name.
+        .on(
+          'broadcast',
+          { event: 'assignment-completed' },
+          (payload) => {
+            const { studentName, assignmentName, roomName, submissionTime } = payload.payload || {};
+            if (!studentName) return;
+            const submittedAt = submissionTime ? new Date(submissionTime).toLocaleString() : 'just now';
+            toast.success(`📩 ${studentName} submitted ${assignmentName || 'an assignment'} (${roomName || 'Class'}) at ${submittedAt}`, {
+              duration: 7000,
+            });
+            setTimeout(() => {
+              loadData();
+            }, 1000);
           }
         )
         .subscribe();
@@ -476,6 +497,241 @@ function AssignmentsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadTeacherReviewOverview = useCallback(async () => {
+    if (!auth0UserId) return;
+    try {
+      setReviewLoading(true);
+      const data = await teacherReviewAPI.getOverview(auth0UserId);
+      setReviewOverview(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Failed to load teacher review overview:', error);
+      setReviewOverview([]);
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [auth0UserId]);
+
+  const openTeacherReviewDetails = async (reviewAssignment: any) => {
+    if (!auth0UserId || !reviewAssignment?.assignment_id) return;
+    try {
+      const result = await teacherReviewAPI.getSubmissions(auth0UserId, reviewAssignment.assignment_id);
+      const submissions = Array.isArray(result?.submissions) ? result.submissions : [];
+      const drafts: Record<string, { feedback: string; questionResults: Record<number, boolean>; manualMarks: string }> = {};
+      submissions.forEach((row: any) => {
+        const existingQuestionResults = Array.isArray(row?.submission_data?.teacher_review?.question_results)
+          ? row.submission_data.teacher_review.question_results
+          : [];
+        const mappedQuestionResults = existingQuestionResults.reduce((acc: Record<number, boolean>, item: any) => {
+          const idx = Number(item?.question_index);
+          if (Number.isFinite(idx) && typeof item?.is_correct === 'boolean') {
+            acc[idx] = item.is_correct;
+          }
+          return acc;
+        }, {});
+        const autoCorrectCount = Array.isArray(row?.submission_data?.question_level_data)
+          ? row.submission_data.question_level_data.filter((q: any) => q?.is_correct === true).length
+          : 0;
+        const existingAchievedMarks =
+          typeof row?.submission_data?.teacher_review?.achieved_marks === 'number'
+            ? row.submission_data.teacher_review.achieved_marks
+            : autoCorrectCount;
+        drafts[row.id] = {
+          feedback: row.feedback || '',
+          questionResults: mappedQuestionResults,
+          manualMarks:
+            typeof row?.submission_data?.teacher_review?.manual_override_marks === 'number'
+              ? String(row.submission_data.teacher_review.manual_override_marks)
+              : String(existingAchievedMarks),
+        };
+      });
+
+      setSelectedReviewAssignment({
+        ...reviewAssignment,
+        assignment_name: result?.assignment?.title || reviewAssignment.assignment_name,
+        room_name: result?.assignment?.room_name || reviewAssignment.room_name,
+        due_date: result?.assignment?.due_date || reviewAssignment.due_date,
+        questions: Array.isArray(result?.assignment?.questions) ? result.assignment.questions : [],
+        total_questions: result?.assignment?.total_questions || 0,
+      });
+      setReviewSubmissions(submissions);
+      setReviewDrafts(drafts);
+      setShowTeacherReviewDialog(true);
+    } catch (error) {
+      console.error('Failed to load review submissions:', error);
+      toast.error('Failed to load submissions for review');
+    }
+  };
+
+  const handleUpdateReviewSubmission = async (
+    attemptId: string,
+    action: 'completed'
+  ) => {
+    if (!auth0UserId) return;
+    try {
+      const draft = reviewDrafts[attemptId] || { feedback: '', questionResults: {}, manualMarks: '' };
+      const questionResultsPayload = Object.entries(draft.questionResults).map(([questionIndex, isCorrect]) => ({
+        questionIndex: Number(questionIndex),
+        isCorrect,
+      }));
+      const parsedOverrideMarks = draft.manualMarks.trim() === '' ? undefined : Number(draft.manualMarks);
+      const payload: any = {
+        status: action,
+        feedback: draft.feedback,
+        questionResults: questionResultsPayload,
+      };
+
+      if (action === 'completed' && draft.manualMarks.trim() === '') {
+        toast.error('Enter Final Marks Awarded before publishing result');
+        return;
+      }
+
+      if (typeof parsedOverrideMarks === 'number' && Number.isFinite(parsedOverrideMarks)) {
+        payload.overrideMarks = parsedOverrideMarks;
+      }
+
+      await teacherReviewAPI.updateSubmission(auth0UserId, attemptId, payload);
+
+      toast.success('Result published to student');
+
+      if (selectedReviewAssignment?.assignment_id) {
+        await openTeacherReviewDetails(selectedReviewAssignment);
+      }
+      await loadTeacherReviewOverview();
+      await loadData();
+    } catch (error) {
+      console.error('Failed to update review submission:', error);
+      toast.error('Failed to update submission review status');
+    }
+  };
+
+  const getReviewStatusLabel = (status?: string) => {
+    switch (status) {
+      case 'not_started':
+        return 'Not Attempted';
+      case 'in_progress':
+        return 'In Progress';
+      case 'submitted':
+        return 'Submitted - Waiting for Review';
+      case 'completed':
+        return 'Result Published';
+      default:
+        return status || 'Not Attempted';
+    }
+  };
+
+  const getAnswerText = (question: any, rawAnswer: any) => {
+    if (rawAnswer === null || rawAnswer === undefined || rawAnswer === '') return 'Not answered';
+    if (question?.type === 'multiple-choice') {
+      const options = Array.isArray(question?.options) ? question.options : [];
+      if (typeof rawAnswer === 'number' && options[rawAnswer] !== undefined) {
+        return `${String.fromCharCode(65 + rawAnswer)}. ${options[rawAnswer]}`;
+      }
+      if (/^-?\d+$/.test(String(rawAnswer)) && options[Number(rawAnswer)] !== undefined) {
+        const idx = Number(rawAnswer);
+        return `${String.fromCharCode(65 + idx)}. ${options[idx]}`;
+      }
+    }
+    return String(rawAnswer).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || 'Not answered';
+  };
+
+  const getOptionLabel = (idx: number) => `${String.fromCharCode(65 + idx)}.`;
+
+  const getCorrectAnswerText = (question: any) => {
+    const correct = question?.correct_answer;
+    if (question?.type === 'multiple-choice' && typeof correct === 'number' && Array.isArray(question?.options)) {
+      const optionText = question.options[correct];
+      return optionText !== undefined ? `${String.fromCharCode(65 + correct)}. ${optionText}` : `Option ${correct + 1}`;
+    }
+    if (correct === null || correct === undefined || correct === '') return 'Not configured';
+    return String(correct);
+  };
+
+  const getSubmissionQuestionRows = (submission: any) => {
+    const questionLevelData = Array.isArray(submission?.submission_data?.question_level_data)
+      ? submission.submission_data.question_level_data
+      : [];
+
+    if (questionLevelData.length > 0) {
+      return questionLevelData.map((row: any, idx: number) => {
+        const questionIndex = Number(row?.question_index ?? idx);
+        const question = {
+          index: questionIndex,
+          text: row?.question_text || `Question ${questionIndex + 1}`,
+          type: row?.question_type || (Array.isArray(row?.options) ? 'multiple-choice' : 'subjective'),
+          options: Array.isArray(row?.options) ? row.options : [],
+          correct_answer: row?.correct_answer,
+        };
+        const draftDecision = reviewDrafts[submission.id]?.questionResults?.[questionIndex];
+        const persisted = Array.isArray(submission?.submission_data?.teacher_review?.question_results)
+          ? submission.submission_data.teacher_review.question_results.find((item: any) => Number(item?.question_index) === questionIndex)
+          : null;
+        const isCorrect = typeof draftDecision === 'boolean'
+          ? draftDecision
+          : (typeof persisted?.is_correct === 'boolean' ? persisted.is_correct : Boolean(row?.is_correct));
+
+        return {
+          index: questionIndex,
+          question,
+          studentAnswerRaw: row?.student_selected_answer ?? row?.student_answer ?? null,
+          studentAnswerText: getAnswerText(question, row?.student_selected_answer ?? row?.student_answer ?? null),
+          correctAnswerText: getCorrectAnswerText(question),
+          isCorrect,
+        };
+      });
+    }
+
+    const questions = Array.isArray(selectedReviewAssignment?.questions) && selectedReviewAssignment.questions.length > 0
+      ? selectedReviewAssignment.questions
+      : (Array.isArray(submission?.resolved_questions) ? submission.resolved_questions : []);
+    const studentAnswers = submission?.submission_data?.answers || {};
+    return questions.map((question: any, idx: number) => {
+      const fromStudent =
+        studentAnswers[idx] ??
+        studentAnswers[String(idx)] ??
+        (question?.id !== undefined ? studentAnswers[question.id] : undefined) ??
+        (question?.id !== undefined ? studentAnswers[String(question.id)] : undefined) ??
+        null;
+      const draftDecision = reviewDrafts[submission.id]?.questionResults?.[idx];
+      const persisted = Array.isArray(submission?.submission_data?.teacher_review?.question_results)
+        ? submission.submission_data.teacher_review.question_results.find((row: any) => Number(row?.question_index) === idx)
+        : null;
+      const isCorrect = typeof draftDecision === 'boolean'
+        ? draftDecision
+        : (typeof persisted?.is_correct === 'boolean' ? persisted.is_correct : false);
+
+      return {
+        index: idx,
+        question,
+        studentAnswerRaw: fromStudent,
+        studentAnswerText: getAnswerText(question, fromStudent),
+        correctAnswerText: getCorrectAnswerText(question),
+        isCorrect,
+      };
+    });
+  };
+
+  const getAchievedMarks = (submission: any) => {
+    const rows = getSubmissionQuestionRows(submission);
+    const fallbackTotal = Number(submission?.submission_data?.total_questions || selectedReviewAssignment?.total_questions || 0);
+    const total = rows.length > 0 ? rows.length : (Number.isFinite(fallbackTotal) ? fallbackTotal : 0);
+    const rowAchieved = rows.reduce((sum, row) => sum + (row.isCorrect ? 1 : 0), 0);
+    const persistedAchieved = typeof submission?.submission_data?.teacher_review?.achieved_marks === 'number'
+      ? submission.submission_data.teacher_review.achieved_marks
+      : (typeof submission?.score === 'number' ? submission.score : null);
+    const achieved = rows.length > 0 ? rowAchieved : (persistedAchieved ?? 0);
+    return { achieved, total };
+  };
+
+  const getAutoFeedback = (achieved: number, total: number) => {
+    if (total <= 0) return 'Good effort. Please review the assignment and keep improving.';
+    const percentage = (achieved / total) * 100;
+    if (percentage >= 90) return 'Excellent work! Keep it up.';
+    if (percentage >= 75) return "Great job! You're doing very well.";
+    if (percentage >= 60) return 'Good effort. Keep practicing to improve.';
+    if (percentage >= 40) return 'You are improving. Review your mistakes and try again.';
+    return 'Needs improvement. Revise the topic and practice more.';
   };
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
@@ -1063,6 +1319,13 @@ function AssignmentsPage() {
                 <RefreshCw className="h-4 w-4" />
                 Refresh
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/assignments/review-results')}
+                className="w-full sm:w-auto"
+              >
+                Review Assignments
+              </Button>
             </div>
             <Dialog open={showCreateDialog} onOpenChange={(open) => {
               setShowCreateDialog(open);
@@ -1492,29 +1755,34 @@ function AssignmentsPage() {
           </div>
         </div>
 
-        {/* Filter */}
-        <div className="mb-6">
-          <Label>Filter by Room</Label>
-          <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
-            <SelectTrigger className="w-full sm:w-[250px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Rooms</SelectItem>
-              {rooms.map((room) => (
-                <SelectItem key={room.id} value={room.id}>
-                  {room.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900">Assignments</h2>
+          </div>
 
-        {loading ? (
-          <LoadingState type="assignments" count={6} />
-        ) : filteredAssignments.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-6">
-            {filteredAssignments.map((assignment) => (
+          {/* Filter */}
+          <div className="mb-6">
+            <Label>Filter by Room</Label>
+            <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
+              <SelectTrigger className="w-full sm:w-[250px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Rooms</SelectItem>
+                {rooms.map((room) => (
+                  <SelectItem key={room.id} value={room.id}>
+                    {room.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {loading ? (
+            <LoadingState type="assignments" count={6} />
+          ) : filteredAssignments.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-6">
+              {filteredAssignments.map((assignment) => (
               <Card key={assignment.id} className="group hover:shadow-xl hover:shadow-blue-100 transition-all duration-300 hover:-translate-y-1 border-0 shadow-md bg-gradient-to-br from-white to-gray-50/50">
                 <CardHeader className="pb-4">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
@@ -1685,19 +1953,20 @@ function AssignmentsPage() {
                   )}
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <p className="text-lg text-muted-foreground">No assignments yet</p>
-            <p className="text-sm text-muted-foreground mb-4">
-              {rooms.length === 0
-                ? 'Create a room first, then add assignments'
-                : 'Create your first assignment to engage students'}
-            </p>
-          </div>
-        )}
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg text-muted-foreground">No assignments yet</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                {rooms.length === 0
+                  ? 'Create a room first, then add assignments'
+                  : 'Create your first assignment to engage students'}
+              </p>
+            </div>
+          )}
+        </section>
       </main>
 
       {/* Assignment Details Modal */}
@@ -1857,7 +2126,6 @@ function AssignmentsPage() {
           )}
         </DialogContent>
       </Dialog>
-
 
     </div>
   );

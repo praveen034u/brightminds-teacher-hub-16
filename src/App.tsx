@@ -39,9 +39,11 @@ import { GradeFilterProvider } from "@/contexts/GradeFilterContext";
 import { SubmissionStoreProvider } from "@/context/SubmissionStore";
 import TeacherCreateAssignmentPage from "./pages/teacher/TeacherCreateAssignmentPage";
 import TeacherAssignmentsListPage from "./pages/teacher/TeacherAssignmentsListPage";
+import TeacherResultDeclarationPage from "./pages/teacher/TeacherResultDeclarationPage";
+import TeacherAssignmentReviewPage from "./pages/teacher/TeacherAssignmentReviewPage";
 import StudentAssignmentsListPage from "./pages/student/StudentAssignmentsListPage";
 import StudentSubmitAssignmentPage from "./pages/student/StudentSubmitAssignmentPage";
-import StudentFeedbackPage from "./pages/student/StudentFeedbackPage";
+import StudentFeedbackPage from "@/pages/student/StudentFeedbackPage";
 import StudentLoginPage from "./pages/student/StudentLoginPage";
 import StudentHomePage from "./pages/student/StudentHomePage";
 
@@ -181,6 +183,16 @@ const App = () => (
                 <Route path="/assignments" element={
                   <ProtectedRoute>
                     <AssignmentsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/assignments/review-results" element={
+                  <ProtectedRoute>
+                    <TeacherResultDeclarationPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/teacher/assignment-review/:assignmentId" element={
+                  <ProtectedRoute>
+                    <TeacherAssignmentReviewPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/question-papers" element={

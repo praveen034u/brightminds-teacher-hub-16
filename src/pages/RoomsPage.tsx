@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 export const RoomsPage = () => {
-  const { auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
+  const { user, auth0UserId, isLoading: authLoading, isAuthenticated } = useAuth();
   const { selectedGrades } = useGradeFilter();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<any[]>([]);
@@ -44,6 +44,28 @@ export const RoomsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'grade' | 'students' | 'unread' | 'created'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const assignedGradeOptions = useMemo(() => {
+    if (!Array.isArray(user?.grades_taught)) return [];
+
+    const uniqueGrades = Array.from(
+      new Set(
+        user.grades_taught
+          .map((grade) => String(grade || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    return uniqueGrades.sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, ''), 10);
+      const numB = parseInt(b.replace(/\D/g, ''), 10);
+
+      if (Number.isFinite(numA) && Number.isFinite(numB) && numA !== numB) {
+        return numA - numB;
+      }
+      return a.localeCompare(b);
+    });
+  }, [user?.grades_taught]);
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || !auth0UserId) {
@@ -90,6 +112,17 @@ export const RoomsPage = () => {
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (assignedGradeOptions.length > 0 && !formData.grade_level) {
+      toast.error('Please select a grade from your assigned grades');
+      return;
+    }
+
+    if (formData.grade_level && !assignedGradeOptions.includes(formData.grade_level)) {
+      toast.error('Selected grade is not in your assigned grade list');
+      return;
+    }
+
     try {
       await roomsAPI.create(auth0UserId, formData);
       toast.success('Room created successfully');
@@ -151,6 +184,11 @@ export const RoomsPage = () => {
         ? prev.filter((id) => id !== studentId)
         : [...prev, studentId]
     );
+  };
+
+  const handleSelectAllStudents = () => {
+    const allStudentIds = students.map((student) => student.id);
+    setSelectedStudents(allStudentIds);
   };
 
   // Filter and sort rooms by selected grades, search term, and sort criteria
@@ -288,14 +326,33 @@ export const RoomsPage = () => {
                 </div>
                 <div>
                   <Label htmlFor="grade">Grade Level</Label>
-                  <Input
+                  <select
                     id="grade"
                     value={formData.grade_level}
                     onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
-                    placeholder="e.g., 3-5"
-                  />
+                    className="w-full border rounded-md px-3 py-2 bg-background"
+                    disabled={assignedGradeOptions.length === 0}
+                  >
+                    <option value="">Select assigned grade</option>
+                    {assignedGradeOptions.map((grade) => (
+                      <option key={grade} value={grade}>
+                        {grade}
+                      </option>
+                    ))}
+                  </select>
+                  {assignedGradeOptions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No grades are assigned to your teacher profile yet. Ask admin to assign grades.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Only grades assigned by admin are shown.
+                    </p>
+                  )}
                 </div>
-                <Button type="submit" className="w-full">Create Room</Button>
+                <Button type="submit" className="w-full" disabled={assignedGradeOptions.length === 0}>
+                  Create Room
+                </Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -385,6 +442,20 @@ export const RoomsPage = () => {
               <DialogTitle>Assigned Students in {selectedRoom?.name}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAssignStudents} className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm text-muted-foreground">
+                  {selectedStudents.length} of {students.length} students selected
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSelectAllStudents}
+                  disabled={students.length === 0 || selectedStudents.length === students.length}
+                >
+                  Select All
+                </Button>
+              </div>
               <div className="max-h-[400px] overflow-y-auto space-y-2">
                 {students.length > 0 ? (
                   (() => {

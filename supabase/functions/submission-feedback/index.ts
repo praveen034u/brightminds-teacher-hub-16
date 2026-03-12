@@ -61,6 +61,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (attempt.status !== 'completed') {
+      return new Response(JSON.stringify({ error: 'Result not published yet' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!attempt.ai_feedback) {
       return new Response(JSON.stringify({ error: 'Feedback not ready' }), {
         status: 404,
